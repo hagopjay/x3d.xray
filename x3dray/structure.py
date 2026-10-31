@@ -101,8 +101,12 @@ def area(repo: str, path: str) -> str:
     return f"{repo}/{path.split('/', 1)[0] if '/' in path else '.'}"
 
 
+def _cls_key(c: str) -> tuple:
+    return (CLASSES.index(c) if c in CLASSES else 99, c)
+
+
 def _cls_sorted(xs) -> list[str]:
-    return sorted(xs, key=lambda c: (CLASSES.index(c) if c in CLASSES else 99, c))
+    return sorted(xs, key=_cls_key)
 
 
 # ---------------------------------------------------------------- concepts
@@ -132,7 +136,7 @@ def concepts(rows: list[dict]) -> dict:
         cs.append({"i": k, "intent": _cls_sorted(c["intent"]), "support": c["support"], "exact": exact.get(k, 0),
                    "level": c["level"], "x": c["x"], "by_repo": dict(collections.Counter(o.split(":", 1)[0] for o in ext).most_common()),
                    "top_files": [{"id": o, "commits": n_commits[o]} for o in top]})
-    files = {o: {"by": {cl: sorted(set(v)) for cl, v in sorted(w.items(), key=lambda kv: _cls_sorted([kv[0]]))}, "concept": a["object_concept"][o]}
+    files = {o: {"by": {cl: sorted(set(v)) for cl, v in sorted(w.items(), key=lambda kv: _cls_key(kv[0]))}, "concept": a["object_concept"][o]}
              for o, w in sorted(wit.items())}
     files_out = {
         "reads": USABLE,
@@ -169,7 +173,7 @@ def concepts(rows: list[dict]) -> dict:
         "excluded": {"merges": n_merges} if n_merges else {},
         "objects": "repos with at least one own commit that is not a merge", "attributes": "the identity classes of their authors",
         "concepts": rcs, "covers": ra["covers"],
-        "repos": {n: {"commits_by_class": dict(sorted(rcount[n].items(), key=lambda kv: _cls_sorted([kv[0]]))), "private": n in privs,
+        "repos": {n: {"commits_by_class": dict(sorted(rcount[n].items(), key=lambda kv: _cls_key(kv[0]))), "private": n in privs,
                       "first_commit_by_class": None if n in privs else dict(first[n])} for n in sorted(rctx)},
         "note": "Private repos enter with counts only. first_commit_by_class names one commit per class as its witness.",
     }
@@ -379,17 +383,27 @@ def bridges(rows: list[dict]) -> dict:
 
 # ---------------------------------------------------------------- witnesses
 def private_rx(priv) -> "re.Pattern | None":
-    """A private repo's file, path or area (repo:path, repo/area) anywhere in a string: at its start, or after a space, a
-    quote or a bracket. A folder of the same name inside a public path (other/x3d_ai/notes.md, a public repo's
-    repo:x3d_ai/...) is not one, nor is a filesystem path through such a folder."""
+    """For free text (the check's own messages, the gate results): a private repo's name, then ':' or '/' and the start of a
+    path, wherever a word starts: at the start or after a space, a quote or a bracket. "x3d_ai: counts only" is not a path;
+    a folder of that name inside a path (other/x3d_ai/notes.md, repo:x3d_ai/...) is not the repo. It still errs towards a
+    match: a public path with such a folder after a space matches too. Not for ids, see private_id_rx."""
     names = sorted(p for p in priv if p)
-    return re.compile("|".join(r"(?<![\w.:/-])" + re.escape(p) + r"[:/]" for p in names)) if names else None
+    return re.compile("|".join(r"(?<![\w.:/-])" + re.escape(p) + r"[:/](?=[^\s\"'`,;)\]}>])" for p in names)) if names else None
+
+
+def private_id_rx(priv) -> "re.Pattern | None":
+    """For ids (repo:path, repo/area): the stage and the bundle write each id as a whole string that starts with its repo, so
+    an id names a private repo's file or area when it starts with that repo's name and ':' or '/'. A public id never does,
+    whatever folders its path holds. (A private repo named repo or session would make the graphs' node ids look like its
+    files: the check then fails closed.)"""
+    names = sorted(p for p in priv if p)
+    return re.compile("(?:" + "|".join(re.escape(p) for p in names) + ")[:/]") if names else None
 
 
 def itemised(x, priv: set, trail: str) -> list[str]:
-    """Where x names a private repo's file, path or area (in a key or anywhere in a string), or lists a private record's
-    shas. The messages carry the trail only, with any private key in it withheld."""
-    rx, out = private_rx(priv), []
+    """Where x names a private repo's file, path or area (a key or a string that starts with one), or lists a private
+    record's shas. The messages carry the trail only, with any private key in it withheld."""
+    rx, out = private_id_rx(priv), []
 
     def go(v, tr):
         if isinstance(v, dict):
@@ -398,14 +412,14 @@ def itemised(x, priv: set, trail: str) -> list[str]:
                 out.append(f"{tr} lists the shas of a private repo")
             for k, w in v.items():
                 kk = str(k)
-                if rx and rx.search(kk):
+                if rx and rx.match(kk):
                     out.append(f"{tr} has a key naming a private repo's file or area")
                     kk = "(withheld)"
                 go(w, f"{tr}/{kk}")
         elif isinstance(v, list):
             for i, w in enumerate(v):
                 go(w, f"{tr}[{i}]")
-        elif isinstance(v, str) and rx and rx.search(v):
+        elif isinstance(v, str) and rx and rx.match(v):
             out.append(f"{tr} names a private repo's file or area")
     go(x, trail)
     return out
@@ -552,13 +566,14 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
     its list and the counts re-derived from the rows, including each part's own set-asides; the lattices hold every closed
     set of kinds once, with the lines between them; the area rules are every rule that meets the thresholds; the file graphs'
     sizes, clusters, degrees, cut vertices and which files lie on a shortest path between two others; the session and author
-    graphs' clusters, passage points, cut vertices and betweenness, recounted by brute force; every list as the stage writes
-    it (order, no repeats); and no private repo is itemised. The size of each file's betweenness is checked against a
-    brute-force oracle in the tests. Messages never print a private repo's file or area, or an unknown sha."""
+    graphs' clusters, passage points, cut vertices and betweenness, recounted by brute force; every list of shas, kinds,
+    files and pairs as the stage writes it (sorted or ranked, no repeats; a lattice's lines are a set, checked once each);
+    and no private repo is itemised. The size of each file's betweenness is checked against a brute-force oracle in the
+    tests. Messages never print a private repo's file or area, or an unknown sha."""
     rows = _ordered(rows)
     used, ex, mass = usable(rows)
     priv = {r["repo"] for r in rows if r["private"]}
-    rx = private_rx(priv)
+    rx, idrx = private_rx(priv), private_id_rx(priv)
     pub = collections.defaultdict(list)                      # sha -> its public rows (two repos can share a sha)
     for r in rows:
         if r["sha"]:
@@ -570,8 +585,8 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
             msg = msg.split(":", 1)[0].split("/", 1)[0] + ": a check failed on a private repo's file or area (details withheld)"
         problems.append(msg)
 
-    def nm(x):
-        return "(a private repo's file or area)" if rx and isinstance(x, str) and rx.search(x) else x
+    def nm(x):                                               # x is an id: it starts with its repo
+        return "(a private repo's file or area)" if idrx and isinstance(x, str) and idrx.match(x) else x
 
     def row(sha, repo):
         return next((r for r in pub.get(sha, []) if r["repo"] == repo), None)
@@ -643,14 +658,16 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
                 if not r or r["cls"] != cl or r["merge"] or path not in (r["paths"] or []) or len(r["paths"]) > MAX_FILES:
                     P(f"concepts: {nm(o)} cites a commit that is not a usable {cl} commit touching it")
                     break
-        if o in wit and {k: set(v) for k, v in rec["by"].items()} != dict(wit[o]):
-            P(f"concepts: {nm(o)} does not list every usable commit that touched it")
+        if o in wit and list(rec["by"].items()) != [(k, sorted(wit[o][k])) for k in _cls_sorted(wit[o])]:
+            P(f"concepts: {nm(o)} does not list every usable commit that touched it, once, sorted, its kinds in class order")
         c = F["concepts"][rec["concept"]] if 0 <= rec["concept"] < len(F["concepts"]) else None
         if not c or set(c["intent"]) != set(rec["by"]):
             P(f"concepts: {nm(o)} sits in a concept whose kinds are not its own")
     intents = [frozenset(c["intent"]) for c in F["concepts"]]
     if [c["i"] for c in F["concepts"]] != list(range(len(intents))) or F["n_concepts"] != len(intents):
         P("concepts: the file lattice's concepts are misnumbered or miscounted")
+    if any(c["intent"] != _cls_sorted(set(c["intent"])) for c in F["concepts"]):
+        P("concepts: a file concept lists a kind twice, or its kinds out of class order")
     if len(set(intents)) != len(intents) or set(intents) != _closed_intents(kinds.values()):
         P("concepts: the file lattice is not every closed set of kinds, once each")
     if {tuple(e) for e in F["covers"]} != _covers(intents) or len(F["covers"]) != len(_covers(intents)):
@@ -678,8 +695,8 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
     if set(R["repos"]) != set(rc):
         P("concepts: the repo lattice's repos do not match the non-merge commits")
     for name, rec in R["repos"].items():
-        if dict(rec["commits_by_class"]) != dict(rc.get(name, {})):
-            P(f"concepts: {name} commits_by_class does not match the rows")
+        if list(rec["commits_by_class"].items()) != [(k, rc[name][k]) for k in _cls_sorted(rc.get(name, {}))]:
+            P(f"concepts: {name} commits_by_class does not match the rows, in class order")
         if rec["private"] != (name in priv):
             P(f"concepts: {name} private flag is wrong")
         if rec["private"] and rec["first_commit_by_class"]:
@@ -688,6 +705,8 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
             P(f"concepts: {name} first_commit_by_class does not name the first commit of each kind there")
     rk = {n: set(c) for n, c in rc.items()}
     rint = [frozenset(c["intent"]) for c in R["concepts"]]
+    if any(c["intent"] != _cls_sorted(set(c["intent"])) for c in R["concepts"]):
+        P("concepts: a repo concept lists a kind twice, or its kinds out of class order")
     if len(set(rint)) != len(rint) or set(rint) != _closed_intents(rk.values()) or [c["i"] for c in R["concepts"]] != list(range(len(rint))):
         P("concepts: the repo lattice is not every closed set of kinds, once each")
     if {tuple(e) for e in R["covers"]} != _covers(rint) or len(R["covers"]) != len(_covers(rint)):
@@ -780,14 +799,14 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
             P(f"bridges: {vname} top is not the files with the highest betweenness")
         for t in V["top"]:
             rec = V["per_file"].get(t["id"]) or {}
-            if set(t["shas"]) != node.get(t["id"], set()) or not rec or any(t.get(k) != v for k, v in rec.items()):
+            if t["shas"] != sorted(node.get(t["id"], set())) or not rec or any(t.get(k) != v for k, v in rec.items()):
                 P(f"bridges: {vname} top {nm(t['id'])} cites commits that did not touch it, or differs from its record")
-        if [e["weight"] for e in V["top_edges"]] != sorted((len(s_) for s_ in E.values()), reverse=True)[:TOP] or \
-                len({(e["a"], e["b"]) for e in V["top_edges"]}) != len(V["top_edges"]):
-            P(f"bridges: {vname} top_edges are not the heaviest edges")
+        if [(e["a"], e["b"]) for e in V["top_edges"]] != sorted(E, key=lambda k: (-len(E[k]), k))[:TOP]:
+            P(f"bridges: {vname} top_edges are not the heaviest edges, in order")
         for e in V["top_edges"]:
-            if set(e["shas"]) != E.get((e["a"], e["b"]), set()):
-                P(f"bridges: {vname} edge {nm(e['a'])} - {nm(e['b'])} cites commits that did not touch both")
+            sh = E.get((e["a"], e["b"]), set())
+            if e["shas"] != sorted(sh) or e["weight"] != len(sh):
+                P(f"bridges: {vname} edge {nm(e['a'])} - {nm(e['b'])} cites commits that did not touch both, or is miscounted")
 
     # 6. sessions: per session and per pair, re-derived from the trailers; every pair of repos in exactly one list; the graph
     S = bri["sessions"]
@@ -800,7 +819,7 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
     if set(S["sessions"]) != set(sess):
         P("bridges: the sessions do not match the trailers")
     for sid, rec in S["sessions"].items():
-        if sid in sess and (dict(rec["repos"]) != dict(sess[sid]["repos"]) or rec["shas"] != sorted(sess[sid]["shas"])):
+        if sid in sess and (list(rec["repos"].items()) != sorted(sess[sid]["repos"].items()) or rec["shas"] != sorted(sess[sid]["shas"])):
             P(f"bridges: session {sid} does not match its commits")
     if S["n_sessions"] != len(sess) or S["n_multi_repo"] != sum(1 for v in sess.values() if len(v["repos"]) > 1):
         P("bridges: n_sessions or n_multi_repo does not match the trailers")
@@ -866,15 +885,17 @@ def verify(con: dict, bri: dict, rows: list[dict]) -> list[str]:
             ae[(r["who"], r["repo"])].append(r)
     if Au.get("excluded") != merges:
         P("bridges: the author graph's excluded does not match the merges")
-    if {(e["author"], e["repo"]) for e in Au["edges"]} != set(ae) or len(Au["edges"]) != len(ae):
-        P("bridges: the author edges do not match the non-merge commits")
+    if [(e["author"], e["repo"]) for e in Au["edges"]] != sorted(k for k in ae if k[1] not in priv) + sorted(k for k in ae if k[1] in priv):
+        P("bridges: the author edges are not each author and repo with non-merge commits once, public first, in order")
     for e in Au["edges"]:
         rs = ae.get((e["author"], e["repo"]), [])
         if e["repo"] in priv:
-            if e.get("shas") is not None or e["commits"] != len(rs) or any(r["cls"] != e["class"] for r in rs):
+            if set(e) != {"author", "class", "repo", "commits", "shas", "private"} or e["shas"] is not None or e["private"] is not True \
+                    or e["commits"] != len(rs) or any(r["cls"] != e["class"] for r in rs):
                 P(f"bridges: author edge to {e['repo']} is not counts only, or is miscounted")
-        elif set(e.get("shas") or []) != {r["sha"] for r in rs} or any(r["cls"] != e["class"] for r in rs):
-            P(f"bridges: author edge {e['author']} - {e['repo']} cites commits that are not that author's there")
+        elif set(e) != {"author", "class", "repo", "commits", "shas"} or e["shas"] != sorted(r["sha"] for r in rs) \
+                or e["commits"] != len(rs) or any(r["cls"] != e["class"] for r in rs):
+            P(f"bridges: author edge {e['author']} - {e['repo']} cites commits that are not that author's there, or is miscounted")
     aadj = {}
     for who, rep in ae:
         aadj.setdefault("author:" + who, set()).add("repo:" + rep)

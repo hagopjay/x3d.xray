@@ -224,9 +224,29 @@ class Witnesses(unittest.TestCase):
 
         def priv_class(b):
             next(e for e in b["authors"]["edges"] if e["repo"] == "priv")["class"] = "you"
+
+        def priv_flag(b):
+            del next(e for e in b["authors"]["edges"] if e["repo"] == "priv")["private"]
+
+        def pub_dup(b):
+            e = next(e for e in b["authors"]["edges"] if e["repo"] == "r")
+            e["shas"].append(e["shas"][0])
+            e["commits"] += 1
+
+        def edges_order(b):
+            b["authors"]["edges"].reverse()
+
+        def top_shas(b):
+            t = next(t for t in b["files"]["variants"]["count"]["top"] if len(t["shas"]) > 1)
+            t["shas"].reverse()
+
+        def top_edges_order(b):
+            b["files"]["variants"]["count"]["top_edges"].reverse()
         for f, words in ((rev_bc, "author graph's betweenness"), (dup_bc, "session graph's betweenness"), (dup_churn, "high_churn does not list"),
                          (dup_cut, "session graph's cut vertices"), (dup_top, "top is not the files"), (drop_file, "on a shortest path between two others"),
-                         (priv_class, "is not counts only, or is miscounted")):
+                         (priv_class, "is not counts only, or is miscounted"), (priv_flag, "is not counts only, or is miscounted"),
+                         (pub_dup, "not that author's there, or is miscounted"), (edges_order, "author edges are not each author"),
+                         (top_shas, "top r:hub.md cites commits"), (top_edges_order, "top_edges are not the heaviest edges, in order")):
             bad = copy.deepcopy(bri)
             f(bad)
             self.assertCaught(con, bad, words, rows)
@@ -234,6 +254,29 @@ class Witnesses(unittest.TestCase):
         c = next(c for c in bad["files_by_author_class"]["concepts"] if c["top_files"])
         c["top_files"] = c["top_files"][1:]
         self.assertCaught(bad, bri, "top files are not its most-changed files", rows)
+
+        def dup_sha(c):
+            by = c["files_by_author_class"]["files"]["r:a.py"]["by"]
+            by["you"].append(by["you"][0])
+
+        def class_order(c):
+            by = c["files_by_author_class"]["files"]["r:a.py"]["by"]
+            c["files_by_author_class"]["files"]["r:a.py"]["by"] = dict(reversed(list(by.items())))
+
+        def dup_kind(c):
+            k = next(k for k in c["files_by_author_class"]["concepts"] if k["intent"])
+            k["intent"] = k["intent"] + k["intent"][:1]
+
+        def repo_counts_order(c):
+            rec = c["repos_by_author_class"]["repos"]["r"]
+            rec["commits_by_class"] = dict(reversed(list(rec["commits_by_class"].items())))
+        for f, words in ((dup_sha, "r:a.py does not list every usable commit that touched it, once"),
+                         (class_order, "its kinds in class order"), (dup_kind, "lists a kind twice"),
+                         (repo_counts_order, "r commits_by_class does not match the rows, in class order")):
+            bad = copy.deepcopy(con)
+            f(bad)
+            self.assertCaught(bad, bri, words, rows)
+        self.assertEqual(list(con["files_by_author_class"]["files"]["r:a.py"]["by"]), ["you", "ai"])    # class order, not alphabetical
 
     def test_verify_never_prints_a_private_file_or_area(self):
         con, bri = run()
@@ -309,14 +352,23 @@ class Privacy(unittest.TestCase):
         leak["areas"]["rules"].append({"if": "priv/src", "then": "r1/src"})
         self.assertTrue(gates._itemised(leak, {"priv"}, "concepts"))
 
-    def test_private_ids_anywhere_in_a_string_are_found(self):
-        self.assertTrue(gates._itemised({"m": "bridges: count priv:secret.md is not a usable file"}, {"priv"}, "gates"))
-        self.assertTrue(gates._itemised({"m": "rule priv/src => r1/src"}, {"priv"}, "gates"))
-        self.assertFalse(gates._itemised({"m": "bridges: pair priv + r1 does not match", "n": "repo:priv", "o": "notpriv:x", "p": "a.priv/x"}, {"priv"}, "gates"))
-        # a folder named like the private repo inside a public path, or a filesystem path through one, is not the private repo
-        self.assertFalse(gates._itemised({"r1:docs/priv/plan.md": 1, "e": ["r1:priv/notes.md"], "s": "built /home/u/priv/site/xray.x3d"}, {"priv"}, "gates"))
-        self.assertFalse(gates._itemised({"x3d.onto:dynasty-loom/x3d/build.py": 1}, {"x3d"}, "concepts"))
+    def test_an_id_names_a_private_file_only_from_its_start(self):
         self.assertEqual(gates._itemised({"priv:secret.md": 1}, {"priv"}, "gates"), ["gates has a key naming a private repo's file or area"])
+        self.assertTrue(gates._itemised({"m": ["priv/src"]}, {"priv"}, "concepts"))
+        self.assertTrue(gates._itemised({"m": 'priv:"src/na\\303\\257ve.md"'}, {"priv"}, "concepts"))      # git's quoted form
+        self.assertFalse(gates._itemised({"n": "repo:priv", "o": "notpriv:x", "p": "a.priv/x", "q": "priv + r1"}, {"priv"}, "gates"))
+        # every id starts with its repo, so a public id is public whatever folders its path holds, and wherever they sit
+        public = ["r1:docs/priv/plan.md", "r1:priv/notes.md", 'r1:"priv/na\\303\\257ve.md"', "r1:notes/JEPA priv/plan.md",
+                  "r1:probes/B checks (priv/validate.py) round/a.x3d", "r1:a,priv/x", "r1:a=priv/x", "r1:`priv/x`", "r1:a@priv/x"]
+        self.assertFalse(gates._itemised({p_: 1 for p_ in public} | {"e": public}, {"priv"}, "concepts"))
+        self.assertFalse(gates._itemised({"x3d.onto:dynasty-loom/x3d/build.py": 1}, {"x3d"}, "concepts"))
+
+    def test_free_text_names_a_private_file_where_a_word_starts(self):
+        rx = structure.private_rx({"priv"})
+        for t in ("bridges: count priv:secret.md is not a usable file", "rule priv/src => r1/src", "(priv:x.py)", '"priv:a"', "priv/src"):
+            self.assertTrue(rx.search(t), t)
+        for t in ("built /home/u/priv/site/xray.x3d", "repo:priv", "priv: counts only", "a.priv/x", "r1:docs/priv/plan.md", "priv"):
+            self.assertFalse(rx.search(t), t)
 
     def test_gate_results_never_carry_a_private_file(self):
         g = {"witness": {"status": "fail", "summary": "1 tie", "structure": ["bridges: count priv:secret.md is not a usable file"]},
@@ -332,10 +384,31 @@ class Privacy(unittest.TestCase):
         self.assertEqual(clean["privacy"]["status"], "pass")
 
     def test_a_public_folder_named_like_the_private_repo_is_not_flagged(self):
-        rows = ROWS + [row("r1", "s10", "you", ["docs/priv/plan.md", "src/a.py"], t=9)]
+        odd = ["docs/priv/plan.md", "priv/notes.md", '"priv/na\\303\\257ve.md"', "notes/JEPA priv/plan.md", "probes/B checks (priv/v.py) round/a.x3d"]
+        rows = ROWS + [row("r1", "s1%d" % i, "you", [p_, "src/a.py"], t=9 + i) for i, p_ in enumerate(odd)]
         con, bri = run(rows)
         self.assertEqual(structure.verify(con, bri, rows), [])
         self.assertEqual(gates._itemised(con, {"priv"}, "concepts") + gates._itemised(bri, {"priv"}, "bridges"), [])
+
+    def test_the_gates_own_words_do_not_fail_the_privacy_gate(self):
+        # a private repo may be named like a word the gates write before ':' or '/': data, tools, files, fork, out
+        def results():
+            return {"xsd": {"status": "pass", "summary": "xray.x3d validates", "xsd": "x3d-4.0.xsd"},
+                    "loom": {"status": "pass", "summary": "1 files: 0 errors, 0 warnings, 1 info",
+                             "notes": ["xray.x3d:0: info fork-ok [] fork: XSD valid, 0 semantic errors, profile OK"]},
+                    "privacy": {"status": "pass", "summary": "0 findings in 5 files we wrote", "scanned": ["bundle.json", "tools.js"]},
+                    "tools": {"status": "pass", "summary": "3 of 3 checks pass", "failed": [],
+                              "checks": ["mcp tools/list has the data tools and no scene tools", "mcp tools/call resolves an alias", "vocabulary: aliases resolve"]},
+                    "live": {"status": "pass", "summary": "desktop-dark pass", "csp": "default-src 'none'; img-src 'self' data: blob:; connect-src https://x",
+                             "chromium": "141.0", "caveat": "Likely on claude.ai, not Confirmed."}}
+        for name in ("data", "tools", "files", "fork", "out", "vocabulary", "blob", "https", "priv"):
+            g = results()
+            self.assertEqual(gates._guard(g, {name}), [], name)
+            self.assertEqual(g, results(), name)
+        g = results()
+        g["tools"]["failed"] = ["concepts {file}: answered tools/secret.py"]
+        self.assertTrue(gates._guard(g, {"tools"}))                 # a data field still counts
+        self.assertEqual(g["privacy"]["status"], "fail")
 
     def test_a_summary_is_tested_whole_before_it_is_cut(self):
         g = {"xsd": {"status": "fail", "summary": "x" * 184 + " someone@example.org is not accepted"}, "privacy": {"status": "pass", "summary": "0"}}

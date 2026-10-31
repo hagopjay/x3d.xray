@@ -360,15 +360,15 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
             a_, b_ = k.split(" -> ")
             first_pp = {"a": a_, "b": b_, "via": next(x for x in v if not x.startswith("session:"))}
         pairs = sb["repo_pairs"]
-        sig(
+        sig(                                                  # under 320 characters, so the digest keeps every sentence
             "bridges_sessions", "bridges",
-            f"{sb['n_sessions']} Claude sessions left a trailer and {sb['n_multi_repo']} of them committed to more than one repo, linking "
-            f"{len(pairs)} pairs of repos directly"
-            + (f"; the most linked pair is {pairs[0]['a']} and {pairs[0]['b']}, with {len(pairs[0]['sessions'])} shared sessions" if pairs else "")
+            f"{sb['n_multi_repo']} of {sb['n_sessions']} Claude sessions committed to more than one repo, linking "
+            f"{len(pairs)} pairs directly"
+            + (f", most often {pairs[0]['a']} and {pairs[0]['b']} ({len(pairs[0]['sessions'])} sessions)" if pairs else "")
             + "."
-            + (f" In the session graph, {first_pp['via']} lies on every path between {first_pp['a']} and {first_pp['b']}." if first_pp else "")
-            + f" {sb['commits_without_trailer']} own commits carry no session trailer, so two repos no chain of sessions joins have no recorded "
-            "session link, which is not the same as no link.",
+            + (f" {first_pp['via']} lies on every session path between {first_pp['a']} and {first_pp['b']}." if first_pp else "")
+            + f" {sb['commits_without_trailer']} own commits carry no trailer, so repos no session chain joins have no recorded session "
+            "link, not no link.",
             sessions=sb["n_sessions"], multi=sb["n_multi_repo"], pairs=len(pairs), top_pair=(pairs[0] | {"sessions": len(pairs[0]["sessions"]), "shas": len(pairs[0]["shas"])}) if pairs else None,
             passage=first_pp, passage_points=sb["passage_points"], unlinked_pairs=len(sb["no_recorded_link"]), repo_pairs=sb.get("n_repo_pairs"),
             linked_through_others=len(sb.get("linked_through_others", [])),
@@ -378,15 +378,15 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
         fv = bridges["files"]["variants"]
         hubs, brid = top_bridges(fv["count"]), top_bridges(fv["jaccard"])
         if brid:
-            lead = list(brid.items())[:3]
-            hub_lead = list(hubs.items())[:2]
+            lead = list(brid.items())[:1]                     # one example: the bridges tool lists every repo's
+            hub_lead = list(hubs.items())[:1]
             sig(
                 "bridges_files", "bridges",
-                f"Per repo with a cluster of at least ten files ({len(brid)} repos), with {len(bridges['files']['high_churn'])} high-churn files set aside, "
-                "the file most other files route through: "
-                + "; ".join(f"in {r}, {_short(v['file'])} (on {v['share_pct']}% of the shortest paths between the other files of its cluster of {v['cluster']})"
+                f"With the {len(bridges['files']['high_churn'])} high-churn files set aside, each of {len(brid)} repos with a cluster of at least "
+                "ten files has a file most others route through; "
+                + "; ".join(f"in {r}, {_short(v['file'])}, on {v['share_pct']}% of the shortest paths between the other files of its cluster of {v['cluster']}"
                             for r, v in lead)
-                + ". With them kept, the hubs are " + " and ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + ".",
+                + "." + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first." if hub_lead else ""),
                 per_repo=brid, hubs=hubs, high_churn=len(bridges["files"]["high_churn"]),
                 lead_repo=lead[0][0], lead_file=lead[0][1]["file"], lead_share=lead[0][1]["share_pct"], lead_cluster=lead[0][1]["cluster"],
                 lead_cut=lead[0][1]["cut_vertex"], cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",

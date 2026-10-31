@@ -56,7 +56,7 @@ def gate_xsd(scene: str, xsd: str | None) -> dict:
     if not xsd or not shutil.which("xmllint"):
         return {"status": "skip", "summary": "xmllint or the X3D 4.0 XSD is missing"}
     rc, out, err = _run(["xmllint", "--noout", "--schema", xsd, scene])
-    tail = (err or out).strip().splitlines()[-3:]
+    tail = (err or out).replace(scene, os.path.basename(scene)).strip().splitlines()[-3:]    # the scene by name, not this build's path
     return {"status": "pass" if rc == 0 else "fail", "summary": tail[-1] if tail else "", "xsd": os.path.basename(xsd)}
 
 
@@ -66,7 +66,7 @@ def gate_loom(scene: str, onto: str | None, fork: str | None) -> dict:
         return {"status": "skip", "summary": "no x3d.onto clone with gobbler-demiurge/tools/loom_gate.py"}
     cmd = ["python3", "-I", tool, scene, "--scene"] + (["--fork"] if fork else [])
     rc, out, err = _run(cmd, env={"X3D_MCP": fork} if fork else None)
-    lines = [x for x in (out + err).strip().splitlines() if x.strip()]
+    lines = [x for x in (out + err).replace(scene, os.path.basename(scene)).strip().splitlines() if x.strip()]
     m = re.search(r"(\d+) errors?, (\d+) warnings?", " ".join(lines[-3:]))
     errors, warnings = (int(m.group(1)), int(m.group(2))) if m else (None, None)
     ok = rc == 0 and errors == 0
@@ -110,22 +110,33 @@ def gate_privacy(out_dir: str) -> dict:
 
 
 def _itemised(x, priv: set, trail: str) -> list[str]:
-    """Where a section names a private repo's file, path or area (repo:path, repo/area, anywhere in a key or a string), or
-    lists a private record's shas. The stage's own check uses the same function."""
+    """Where a section names a private repo's file, path or area (a key or a string that starts with repo:path or
+    repo/area, as every id does), or lists a private record's shas. The stage's own check uses the same function."""
     from . import structure
     return structure.itemised(x, priv, trail)
 
 
+FIXED_TEXT = ("checks", "csp", "chromium", "caveat", "scanned")   # the gates' own words: check names, the page's CSP, versions
+
+
 def _guard(g: dict, priv: set) -> list[str]:
     """gates.json is written after the privacy gate ran, so its own text is checked here before it is written. On a hit, each
-    gate keeps its status and a summary, the summary withheld too if it carries the hit, and the privacy gate fails."""
+    gate keeps its status and a summary, the summary withheld too if it carries the hit, and the privacy gate fails. The
+    fields that hold only the gates' own words are not scanned: a private repo named like a word in them (data, tools,
+    files) would fail every build, and no data reaches them."""
     from . import structure
     rx = structure.private_rx(priv)
+
+    def text_of(v):
+        if isinstance(v, dict):
+            return {k: text_of(w) for k, w in v.items() if k not in FIXED_TEXT}
+        return [text_of(w) for w in v] if isinstance(v, list) else v
 
     def hits(text: str) -> list[str]:
         out = [f"gates: {what}" for r_, what in ((EMAIL, "address"), (SESSION_URL, "session URL"), (SECRET, "secret-shaped string")) if r_.search(text)]
         return out + (["gates: a private repo's file or area"] if rx and rx.search(text) else [])
-    own = _itemised(g, priv, "gates") + hits(json.dumps(g, ensure_ascii=False))
+    view = text_of(g)
+    own = _itemised(view, priv, "gates") + hits(json.dumps(view, ensure_ascii=False))
     if own:
         for k in list(g):
             summ = str(g[k].get("summary", ""))                # tested whole, then cut: a cut could split what it carries

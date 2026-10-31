@@ -176,6 +176,48 @@ if (B.concepts && B.bridges) {
   const privEdges = BR.authors.edges.filter(e => e.private);
   check('bridges: private author edges carry counts only', privEdges.every(e => e.shas === null && e.commits > 0), privEdges.length);
   check('the digest carries concepts and bridges', /CONCEPTS/.test(tools.overview.execute({}).digest) && /BRIDGES/.test(tools.overview.execute({}).digest));
+  // names come back in every form the tools print them: a file through a repo alias, a session id, kinds of author
+  if (pubAlias) {
+    const fa = tools.concepts.execute({ file: pubAlias[0] + ':README.md' }), fd = tools.concepts.execute({ file: 'x3d_mcp:README.md' });
+    const ba = tools.bridges.execute({ file: pubAlias[0] + ':README.md' }), bd = tools.bridges.execute({ file: 'x3d_mcp:README.md' });
+    check('concepts and bridges: a file named through a repo alias is the same file', fa.matched === fd.matched && fd.matched > 0 && ba.matched === bd.matched && bd.matched > 0,
+      `${fa.matched}/${fd.matched} ${ba.matched}/${bd.matched}`);
+  }
+  if (privName) {
+    const pc = tools.concepts.execute({ file: privName + ':README.md' }), pbf = tools.bridges.execute({ file: privName + ':README.md' });
+    check('concepts and bridges: a private repo:path answers counts only, not "not in the lattice"', pc.summary === 'private: counts only' && pbf.summary === 'private: counts only'
+      && pc.matched === undefined && pbf.matched === undefined, `${pc.summary} / ${pbf.summary}`);
+  }
+  let unkFile = ''; try { tools.concepts.execute({ file: 'nosuchrepo:README.md' }); } catch (e) { unkFile = e.message; }
+  check('concepts: a file in an unknown repo is refused', /not in vocabulary/.test(unkFile), unkFile.slice(0, 120));
+  const ppS = Object.values(S.passage_points).flat().find(x => x.startsWith('session:'));
+  if (ppS) {
+    const bare = ppS.slice('session:'.length), n = v => tools.query_commits.execute({ session: v }).matched;
+    check('query_commits: a session as the bridges and the digest print it finds its commits', n(ppS) === n(bare) && n('session ' + bare) === n(bare) && n(bare) > 0, `${n(ppS)} ${n(bare)}`);
+  }
+  let unkS = ''; try { tools.query_commits.execute({ session: 's-0000000000' }); } catch (e) { unkS = e.message; }
+  check('query_commits: an unknown session is refused, not answered with zero', /no Claude session/.test(unkS), unkS.slice(0, 120));
+  let unkW = ''; try { tools.query_commits.execute({ who: 'robots' }); } catch (e) { unkW = e.message; }
+  check('query_commits: an unknown kind of author is refused, not answered with zero', /kinds of author/.test(unkW), unkW.slice(0, 120));
+  const named = tools.concepts.execute({ who: 'HagopJay + Claude' }), keyed = tools.concepts.execute({ who: 'you,ai' });
+  check('concepts: kinds as the tools print them ("HagopJay + Claude") are understood', named.files === keyed.files && named.kinds.join() === 'you,ai', `${named.files} ${keyed.files}`);
+  const hc = BR.files.high_churn[0];
+  if (hc) {
+    const hr = tools.bridges.execute({ file: hc.id }).files.find(f => f.file === hc.id);
+    check('bridges: a high-churn file says how many of its repo\'s usable commits changed it', hr && hr.high_churn_set_aside.set_aside.includes(`${hc.commits} of its repo's ${hc.of} usable commits`),
+      hr && hr.high_churn_set_aside.set_aside);
+  }
+  const tieOk = B.repos.filter(r => r.visibility !== 'private').every(r => {   // a file tied with the last one shown is kept
+    const bf = tools.bridges.execute({ repo: r.name }).bridge_files;
+    if (!bf || !bf.every_file_kept) return true;
+    return [['every_file_kept', 'count'], ['high_churn_set_aside', 'jaccard']].every(([k, v]) => {
+      const rows = bf[k]; if (!rows.length) return true;
+      const last = rows[rows.length - 1].betweenness, shown = new Set(rows.map(x => x.file));
+      const tied = Object.entries(BR.files.variants[v].per_file).filter(([id, x]) => id.startsWith(r.name + ':') && x.betweenness === last && !shown.has(id.slice(r.name.length + 1)));
+      return !tied.length || (rows.length >= 12 && /left out/.test(bf.shown));
+    });
+  });
+  check('bridges: a file tied with the last bridge file shown is kept, or counted as left out', tieOk);
 }
 
 // 8. sample's limits on tool definitions: description at most 1 KB, input schema at most 4 KB

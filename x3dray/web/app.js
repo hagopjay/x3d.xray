@@ -1,6 +1,6 @@
 // x3d-ray page: loads the bundle and the X3D scene (X_ITE), draws the readouts, runs the tour, and wires Claude in
 // through the Artifact's sample capability, with the same tools the MCP server serves plus four that move the scene.
-import { makeTools, digest, matchCommits, resolveRepo, CLASS_NAMES, kindsName } from './tools.js';
+import { makeTools, digest, matchCommits, resolveRepo, sessionId, kindsOf, CLASS_NAMES, kindsName } from './tools.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -420,12 +420,13 @@ function targetPoint(q) {
   if (q.day) { const d = L.days.find(x => x.day === q.day); if (d) return { p: [(d.x0 + d.x1) / 2, 0, 0], kind: 'helix', label: q.day }; }
   if (q.file) { const b = L.city.buildings.find(x => x.path === q.file || x.path.endsWith(q.file)); if (b) return { p: b.p, kind: 'city', label: b.repo + ':' + b.path }; }
   if (q.tie) { const t = L.ties.curated.find(x => x.id === String(q.tie).toUpperCase()); if (t) return { p: t.p, kind: 'ties', label: t.id }; }
-  if (q.session && L.bridges) { const s = L.bridges.sessions[String(q.session).trim()]; if (s) return { p: s.p, kind: 'bridges', label: 'session ' + String(q.session).trim() }; }
+  if (q.session && L.bridges) {   // s-..., session:s-... or "session s-...", as the tools print it; an unknown one is refused
+    const sid = sessionId(B, q.session), s = L.bridges.sessions[sid]; if (s) return { p: s.p, kind: 'bridges', label: 'session ' + sid };
+  }
   if (q.concept && L.concepts && B.concepts) {
-    const alias = { claude: 'ai', hagopjay: 'you', bots: 'bot', human: 'you', unmapped: 'upstream' };
-    const want = String(q.concept).split(',').map(x => alias[x.trim().toLowerCase()] || x.trim().toLowerCase()).filter(Boolean).sort().join(',');
-    // the concept for these kinds is their closure: of the concepts whose kinds include them all, the one holding the most files
-    const wk = want.split(',').filter(Boolean);
+    // kinds as any tool or the scene prints them ("you,ai", "HagopJay + Claude"); the concept for them is their closure: of the
+    // concepts whose kinds include them all, the one holding the most files
+    const wk = kindsOf(q.concept);
     const c = B.concepts.files_by_author_class.concepts.filter(x => wk.every(k => x.intent.includes(k))).sort((a, b) => b.support - a.support)[0];
     const at = c && L.concepts.files.find(x => x.i === c.i); if (at) return { p: at.p, kind: 'concepts', label: kindsName(c.intent) };
   }

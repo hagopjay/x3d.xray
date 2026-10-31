@@ -7,6 +7,20 @@ export const LIMIT_BYTES = 30000;
 export const CLASS_NAMES = { you: 'HagopJay (his accounts)', ai: 'Claude', bot: 'bots', other: 'other identities', upstream: 'unmapped or upstream' };
 const WHO_ALIASES = { claude: 'ai', ai: 'ai', assistant: 'ai', hagopjay: 'you', you: 'you', human: 'you', owner: 'you', hagsmac: 'you',
   bot: 'bot', bots: 'bot', other: 'other', upstream: 'upstream', unmapped: 'upstream' };
+const SHORT = { you: 'HagopJay', ai: 'Claude', bot: 'bots', other: 'other', upstream: 'unmapped' };
+const KIND_NAMES = { ...Object.fromEntries(Object.entries(CLASS_NAMES).map(([k, v]) => [v.toLowerCase(), k])),
+  ...Object.fromEntries(Object.entries(SHORT).map(([k, v]) => [v.toLowerCase(), k])), ...WHO_ALIASES };
+// Kinds of author in any form the tools and the scene print them ("HagopJay + Claude", "HagopJay (his accounts)", "you,ai"),
+// as classes; a name that is not one passes through, for the caller to refuse.
+export function parseKinds(v) {
+  const parts = Array.isArray(v) ? v : String(v === undefined || v === null ? '' : v).split(/\s*(?:,|\+|&|\band\b)\s*/i);
+  return parts.map(x => String(x).trim().toLowerCase()).filter(Boolean).map(x => KIND_NAMES[x] || x);
+}
+export function kindsOf(v) {
+  const ks = [...new Set(parseKinds(v))], bad = ks.filter(k => !CLASS_ORDER.includes(k));
+  if (bad.length) throw new Error('kinds of author are you (HagopJay), ai (Claude), bot, other and upstream, not ' + bad.join(', '));
+  return ks;
+}
 
 const day = t => new Date(t * 1000).toISOString().slice(0, 10);
 const hm = t => new Date(t * 1000).toISOString().slice(11, 16);
@@ -58,15 +72,20 @@ export function resolveRepo(B, name) {
 }
 const repoList = (B, v) => [...new Set(list(v).map(n => resolveRepo(B, n)))];   // two aliases of one repo name it once
 
-function whoOf(v) {
-  const w = str(v).toLowerCase();
-  return w ? (WHO_ALIASES[w] || w) : '';
+// A Claude session in any form the tools print it: s-..., the graphs' node id session:s-..., or "session s-..." (the digest).
+// An unknown one is refused, so it never reads as a session with no commits.
+export function sessionId(B, v) {
+  const s = str(v).replace(/^session[:\s]\s*/i, '');
+  if (!s) return '';
+  const known = (B.bridges && B.bridges.sessions && B.bridges.sessions.sessions) || {};
+  if (known[s] || B.commits.some(c => (c.s || []).includes(s))) return s;
+  throw new Error(`no Claude session "${str(v)}" in this family: session ids look like s-0a17c88568, and the bridges tool lists them`);
 }
 
 function commitFilter(B, q) {
   const repos = repoList(B, q.repo).map(r => r.toLowerCase());
-  const who = list(q.who).map(whoOf);
-  const from = str(q.from), to = str(q.to), text = str(q.text).toLowerCase(), sha = str(q.sha).toLowerCase(), sess = str(q.session);
+  const who = kindsOf(q.who);                                     // an unknown kind is refused, never read as none
+  const from = str(q.from), to = str(q.to), text = str(q.text).toLowerCase(), sha = str(q.sha).toLowerCase(), sess = sessionId(B, q.session);
   const dayEq = str(q.day);
   return c => {
     if (repos.length && !repos.includes(c.r.toLowerCase())) return false;
@@ -129,6 +148,20 @@ export function bestBridges(variant, min = 10) {
   return best;
 }
 
+// A file named as repo:path: the repo part goes through the vocabulary like any repo name, so an alias resolves and an unknown
+// repo is refused. A query whose head is no repo but which some path holds (a path with a ':') is read as a path.
+function fileQuery(B, ids, q) {
+  const f = str(q), i = f.indexOf(':');
+  if (i <= 0) return { query: f, repo: '' };
+  try {
+    const repo = resolveRepo(B, f.slice(0, i));
+    return { query: repo + ':' + f.slice(i + 1), repo };
+  } catch (e) {
+    if (ids.some(id => pathOf(id).toLowerCase().includes(f.toLowerCase()))) return { query: f, repo: '' };
+    throw e;
+  }
+}
+
 // files whose id matches a query: an exact repo:path, a path, a path ending, or words in the path
 function matchFileIds(ids, q, repos) {
   const fq = str(q).toLowerCase();
@@ -163,7 +196,6 @@ const clip = (t, n) => {
   const cut = t.slice(0, n), dot = cut.lastIndexOf('. ');
   return dot > n * 0.5 ? cut.slice(0, dot + 1) : cut.slice(0, cut.lastIndexOf(' ')) + ' …';
 };
-const SHORT = { you: 'HagopJay', ai: 'Claude', bot: 'bots', other: 'other', upstream: 'unmapped' };
 const shortKinds = xs => xs.map(c => SHORT[c] || c).join(' + ');
 
 export function digest(B) {
@@ -402,15 +434,15 @@ export function makeTools(B, scene) {
       const privPart = privs.length ? { private_repos: privs.map(privRecord) } : {};
       if (repos.length && !pubs.length && (str(q.file) || str(q.who))) return { ...base, ...privPart, summary: 'private: counts only' };
       if (str(q.file)) {
-        const ids = matchFileIds(Object.keys(F.files), q.file, pubs);
+        const fq = fileQuery(B, Object.keys(F.files), q.file);
+        if (fq.repo && isPriv(fq.repo)) return { ...base, ...privRecord(fq.repo), summary: 'private: counts only' };
+        const ids = matchFileIds(Object.keys(F.files), fq.query, fq.repo ? [fq.repo] : pubs);
         if (!ids.length) return { ...base, ...privPart, matched: 0, summary: 'not in the lattice',
           note: `No usable commit touched a file matching "${str(q.file)}". The lattice holds files touched by public commits that are not merges and change at most ${P.max_files_per_commit} files; this file may have been touched only by mass edits or merges (see excluded), sit in a private repo, or be named differently. Not in the lattice is not the same as never touched.` };
         return { ...base, ...privPart, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`, ...cutList('files', ids, lim, fileRow) };
       }
       if (str(q.who)) {
-        const want = sortCls([...new Set(list(q.who).map(whoOf))]);
-        const bad = want.filter(k => !CLASS_ORDER.includes(k));
-        if (bad.length) throw new Error('kinds of author are you, ai, bot, other and upstream, not ' + bad.join(', '));
+        const want = sortCls(kindsOf(q.who));
         const ext = Object.entries(F.files).filter(([id, rec]) => want.every(k => rec.by[k]) && (!pubs.length || pubs.includes(repoOf(id))));
         const exact = ext.filter(([, rec]) => Object.keys(rec.by).length === want.length);
         const closure = ext.length ? sortCls(Object.keys(ext[0][1].by).filter(k => ext.every(([, rec]) => rec.by[k]))) : want;
@@ -497,20 +529,25 @@ export function makeTools(B, scene) {
         const conceptsFiles = (B.concepts && B.concepts.files_by_author_class.files) || {};
         const all = [...new Set(Object.keys(V.count.per_file).concat(Object.keys(V.jaccard.per_file), Object.keys(conceptsFiles), BR.files.high_churn.map(h => h.id)))];
         const named = repoList(B, q.repo), privs = named.filter(isPriv), pubs = named.filter(r => !isPriv(r));
-        const privPart = privs.length ? { private_repos: privs.map(r => ({ repo: r, private: true,
+        const privRec = r => ({ repo: r, private: true,
           sessions_reaching_it: Object.values(S.sessions).filter(rec => rec.repos[r] !== undefined).length, sessions_reaching_it_scope: sessScope,
-          note: 'A private repo enters the bridges as commit counts only: its files are never read, so its bridge files are unknown, not none.' })) } : {};
-        if (named.length && !pubs.length) return { route: 'lookup', excluded: BR.excluded, ...privPart, summary: 'private: counts only' };
-        const ids = matchFileIds(all, q.file, pubs);
-        if (!ids.length) return { route: 'lookup', excluded: BR.excluded, ...privPart, matched: 0, summary: 'not in the graph',
+          note: 'A private repo enters the bridges as commit counts only: its files are never read, so its bridge files are unknown, not none.' });
+        const privPart = privs.length ? { private_repos: privs.map(privRec) } : {};
+        const scope = { route: 'lookup', excluded: BR.excluded, reads: BR.files.reads };
+        if (named.length && !pubs.length) return { ...scope, ...privPart, summary: 'private: counts only' };
+        const fq = fileQuery(B, all, q.file);
+        if (fq.repo && isPriv(fq.repo)) return { ...scope, private_repos: [privRec(fq.repo)], summary: 'private: counts only' };
+        const ids = matchFileIds(all, fq.query, fq.repo ? [fq.repo] : pubs);
+        if (!ids.length) return { ...scope, ...privPart, matched: 0, summary: 'not in the graph',
           note: `No usable commit touched a file matching "${str(q.file)}" (see excluded; private repos are never read), so it is not in the co-change graph. That is not the same as never changed.` };
-        const high = new Set(BR.files.high_churn.map(h => h.id));
-        return { route: 'lookup', excluded: BR.excluded, ...privPart, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`,
+        const high = Object.fromEntries(BR.files.high_churn.map(h => [h.id, h])), HP = BR.method.params;
+        const churn = h => ({ set_aside: `high churn: ${h.commits} of its repo's ${h.of} usable commits changed it; a file is set aside when at least ${HP.high_churn_min_commits} commits and ${Math.round(100 * HP.high_churn_share)}% of its repo's usable commits changed it` });
+        return { ...scope, ...privPart, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`,
           ...cutList('files', ids, lim, id => {
             const shas = conceptsFiles[id] ? [...new Set(Object.values(conceptsFiles[id].by).flat())].sort() : [];
             return { file: id,
               every_file_kept: fileView('count', id) || { betweenness: 0, note: 'no shortest path between two other files runs through it' },
-              high_churn_set_aside: high.has(id) ? { set_aside: 'high churn: changed in at least a tenth of its repo\'s commits' } : (fileView('jaccard', id) || { betweenness: 0 }),
+              high_churn_set_aside: high[id] ? churn(high[id]) : (fileView('jaccard', id) || { betweenness: 0 }),
               ...(shas.length ? cite(shas, 12) : {}) };
           }),
           note: BR.files.note };
@@ -520,10 +557,14 @@ export function makeTools(B, scene) {
         const one = repo => {
           const sess = Object.entries(S.sessions).filter(([, rec]) => rec.repos[repo] !== undefined)
             .map(([sid, rec]) => ({ session: sid, commits_here: rec.repos[repo], other_repos: Object.keys(rec.repos).filter(r => r !== repo) }));
-          const top = v => Object.entries(V[v].per_file).filter(([id]) => repoOf(id) === repo).sort((a, b) => b[1].betweenness - a[1].betweenness || (a[0] < b[0] ? -1 : 1))
-            .slice(0, 5).map(([id]) => ({ file: pathOf(id), ...fileView(v, id) }));
+          const top = v => {                                // the five highest, and any file tied with the fifth (up to twelve)
+            const all = Object.entries(V[v].per_file).filter(([id]) => repoOf(id) === repo).sort((a, b) => b[1].betweenness - a[1].betweenness || (a[0] < b[0] ? -1 : 1));
+            let n = Math.min(5, all.length);
+            while (n < all.length && n < 12 && all[n][1].betweenness === all[n - 1][1].betweenness) n++;
+            const last = n ? all[n - 1][1].betweenness : 0;
+            return { rows: all.slice(0, n).map(([id]) => ({ file: pathOf(id), ...fileView(v, id) })), total: all.length, tied_out: all.slice(n).filter(([, x]) => x.betweenness === last).length };
+          };
           const others = p => (p[0] === repo ? p[1] : p[0]);
-          const ranked = v => Object.keys(V[v].per_file).filter(id => repoOf(id) === repo).length;
           return { repo, summary: `${sess.length} session${sess.length === 1 ? '' : 's'}`, ...cutList('sessions', sess, lim),
             session_graph: inSessions(repo) ? {
               betweenness: (S.betweenness.find(x => x.id === 'repo:' + repo) || {}).betweenness || 0, cut_vertex: S.cut_vertices.includes('repo:' + repo),
@@ -533,10 +574,13 @@ export function makeTools(B, scene) {
               no_recorded_session_link_with: S.no_recorded_link.filter(p => p.includes(repo)).map(others) }
               : { note: 'No commit of this repo carries a Claude-Session trailer, so no session reaches it: no recorded session link with any repo.' },
             authors: Au.edges.filter(e => e.repo === repo).map(e => ({ author: e.author, class: e.class, commits: e.commits, private: e.private || undefined })),
-            bridge_files: isPriv(repo) ? { note: 'private: its files are never read, so its bridge files are unknown, not none' } : {
-              every_file_kept: top('count'), high_churn_set_aside: top('jaccard'),
-              shown: `the five highest of the files with any betweenness or a cut: ${ranked('count')} with every file kept, ${ranked('jaccard')} with high churn set aside`,
-              high_churn_files: BR.files.high_churn.filter(h => repoOf(h.id) === repo).map(h => pathOf(h.id)) } };
+            bridge_files: isPriv(repo) ? { note: 'private: its files are never read, so its bridge files are unknown, not none' } : (() => {
+              const tc = top('count'), tj = top('jaccard'), out = tc.tied_out + tj.tied_out;
+              return { every_file_kept: tc.rows, high_churn_set_aside: tj.rows,
+                shown: `the five highest of the files with any betweenness or a cut, and any tied with the fifth: ${tc.rows.length} of ${tc.total} with every file kept, ${tj.rows.length} of ${tj.total} with high churn set aside` +
+                  (out ? `; ${out} more tied with the last one shown are left out` : ''),
+                high_churn_files: BR.files.high_churn.filter(h => repoOf(h.id) === repo).map(h => pathOf(h.id)) };
+            })() };
         };
         const scopes = { excluded: { sessions: sessScope.excluded, authors: Au.excluded || {}, bridge_files: BR.excluded }, reads: { sessions: S.reads, authors: Au.reads, bridge_files: BR.files.reads } };
         if (repos.length === 1) return { route: 'lookup', ...scopes, ...one(repos[0]) };
