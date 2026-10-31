@@ -1,0 +1,323 @@
+"""Profile a harvested family with no model: counts, shares, rhythms, outliers, hotspots.
+
+Every signal carries its numbers and a sentence built from them by code, so any caption
+that quotes a signal is grounded by construction. The fact gate re-checks this later.
+"""
+
+from __future__ import annotations
+
+import collections
+import datetime as dt
+import math
+import statistics
+
+CLASSES = ["you", "ai", "bot", "upstream", "other"]
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def _d(t: int) -> dt.datetime:
+    return dt.datetime.fromtimestamp(t, dt.timezone.utc)
+
+
+def _day(t: int) -> str:
+    return _d(t).strftime("%Y-%m-%d")
+
+
+def _pct(a: float, b: float) -> int:
+    return round(100 * a / b) if b else 0
+
+
+def _human_date(iso_day: str) -> str:
+    d = dt.date.fromisoformat(iso_day[:10])
+    return f"{d.day} {d.strftime('%b')} {d.year}"
+
+
+def profile_family(ds: dict, ties: dict, curated: dict | None = None) -> dict:
+    repos = [r for r in ds["repos"] if r.get("present")]
+    own = []  # (repo, commit) for commits that are the family's own work
+    for r in repos:
+        for c in r.get("commits", []):
+            if not c.get("upstream"):
+                own.append((r["name"], c))
+    own.sort(key=lambda rc: rc[1]["t"])
+    signals: list[dict] = []
+
+    def sig(sid: str, kind: str, text: str, **values):
+        signals.append({"id": sid, "kind": kind, "text": text, "values": values})
+
+    total = len(own)
+    by_cls = collections.Counter(c["cls"] for _, c in own)
+    first_t, last_t = own[0][1]["t"], own[-1][1]["t"]
+    days_all = sorted({_day(c["t"]) for _, c in own})
+    sig(
+        "family_span", "totals",
+        f"{total} commits of the family's own work across {len({n for n, _ in own})} repos, "
+        f"from {_human_date(_day(first_t))} to {_human_date(_day(last_t))}, on {len(days_all)} different days.",
+        commits=total, repos=len({n for n, _ in own}), first=_day(first_t), last=_day(last_t), active_days=len(days_all),
+    )
+    shares = {k: _pct(by_cls.get(k, 0), total) for k in CLASSES}
+    sig(
+        "who_commits", "identity",
+        f"Claude wrote {by_cls.get('ai', 0)} of them ({shares['ai']}%), HagopJay's accounts {by_cls.get('you', 0)} "
+        f"({shares['you']}%), bots {by_cls.get('bot', 0)} ({shares['bot']}%).",
+        counts=dict(by_cls), shares=shares,
+    )
+
+    # Busiest month
+    per_month = collections.Counter(_day(c["t"])[:7] for _, c in own)
+    month, month_n = max(per_month.items(), key=lambda kv: (kv[1], kv[0]))
+    y, m = int(month[:4]), int(month[5:])
+    month_end = (dt.date(y + (m == 12), m % 12 + 1, 1) - dt.timedelta(days=1)).isoformat()
+    month_name = dt.date(y, m, 1).strftime("%B %Y")
+    sig(
+        "busiest_month", "time",
+        f"{month_n} of the {total} commits ({_pct(month_n, total)}%) landed in {month_name}, the busiest month.",
+        month=month, month_name=month_name, commits=month_n, total=total, share=_pct(month_n, total),
+        **{"from": month + "-01", "to": month_end}, by_month=dict(sorted(per_month.items())),
+    )
+
+    # Busiest day
+    per_day = collections.Counter(_day(c["t"]) for _, c in own)
+    peak_day, peak_n = max(per_day.items(), key=lambda kv: (kv[1], kv[0]))
+    peak_repos = collections.Counter(n for n, c in own if _day(c["t"]) == peak_day)
+    sig(
+        "busiest_day", "time",
+        f"The busiest day was {_human_date(peak_day)}: {peak_n} commits in {len(peak_repos)} repos, "
+        f"led by {peak_repos.most_common(1)[0][0]} ({peak_repos.most_common(1)[0][1]}).",
+        day=peak_day, commits=peak_n, repos=dict(peak_repos),
+        top_repo=peak_repos.most_common(1)[0][0], top_commits=peak_repos.most_common(1)[0][1],
+        second_repo=(peak_repos.most_common(2)[1][0] if len(peak_repos) > 1 else None),
+        second_commits=(peak_repos.most_common(2)[1][1] if len(peak_repos) > 1 else 0),
+    )
+
+    # Births in git order versus the lineage HagopJay stated
+    births = []
+    for r in repos:
+        oc = [c for c in r.get("commits", []) if not c.get("upstream")]
+        if oc:
+            births.append((min(c["t"] for c in oc), r["name"]))
+    births.sort()
+    stated = [x for x in ds.get("lineage", []) if x not in {".prov"}]
+    git_order = [n for _, n in births if n in stated]
+    sig(
+        "births", "lineage",
+        "In git order the family's repos were born: "
+        + ", ".join(f"{n} ({_human_date(_day(t))})" for t, n in births if n in stated)
+        + ". HagopJay's own account orders them " + ", ".join(stated) + ".",
+        git_order=git_order, stated=stated, births={n: _day(t) for t, n in births},
+    )
+
+    # AI share by repo
+    ai_by_repo = {}
+    for r in repos:
+        oc = [c for c in r.get("commits", []) if not c.get("upstream")]
+        if len(oc) >= 5:
+            ai_by_repo[r["name"]] = (_pct(sum(1 for c in oc if c["cls"] == "ai"), len(oc)), len(oc))
+    hi = max(ai_by_repo.items(), key=lambda kv: kv[1][0])
+    lo = min(ai_by_repo.items(), key=lambda kv: kv[1][0])
+    sig(
+        "ai_share_by_repo", "identity",
+        f"Claude's share of commits runs from {lo[1][0]}% in {lo[0]} to {hi[1][0]}% in {hi[0]}.",
+        shares={k: v[0] for k, v in ai_by_repo.items()}, commits={k: v[1] for k, v in ai_by_repo.items()},
+    )
+
+    # Weekly AI share across the family (ISO weeks with at least 5 commits)
+    weeks = collections.defaultdict(collections.Counter)
+    for _, c in own:
+        y, w, _ = _d(c["t"]).isocalendar()
+        weeks[f"{y}-W{w:02d}"][c["cls"]] += 1
+    wk = [(k, v) for k, v in sorted(weeks.items()) if sum(v.values()) >= 5]
+    sig(
+        "weekly_mix", "identity",
+        "Week by week, Claude's share of commits: " + ", ".join(f"{k} {_pct(v['ai'], sum(v.values()))}% of {sum(v.values())}" for k, v in wk) + ".",
+        weeks={k: dict(v) for k, v in wk},
+    )
+
+    # The bot identity
+    bot = collections.Counter((n, c["who"]) for n, c in own if c["cls"] == "bot")
+    if bot:
+        (bn, bw), bc = bot.most_common(1)[0]
+        sig("bot_identity", "identity", f"The busiest bot identity is {bw}, with {bc} commits in {bn}.", repo=bn, who=bw, commits=bc)
+
+    # Hours and weekdays (UTC)
+    hours = {k: [0] * 24 for k in CLASSES}
+    wdays = {k: [0] * 7 for k in CLASSES}
+    for _, c in own:
+        d = _d(c["t"])
+        hours[c["cls"]][d.hour] += 1
+        wdays[c["cls"]][d.weekday()] += 1
+    you_peak = max(range(24), key=lambda h: hours["you"][h])
+    ai_peak = max(range(24), key=lambda h: hours["ai"][h])
+    sig(
+        "rhythm", "time",
+        f"HagopJay's accounts commit most at {you_peak:02d}:00 UTC ({hours['you'][you_peak]} commits); "
+        f"Claude's busiest hour is {ai_peak:02d}:00 UTC ({hours['ai'][ai_peak]}).",
+        hours=hours, weekdays=wdays, you_peak=you_peak, ai_peak=ai_peak,
+    )
+
+    # Human commits carrying an AI co-author trailer
+    paired = sum(1 for _, c in own if c["cls"] == "you" and c.get("ai_trailer"))
+    sig(
+        "pairing", "identity",
+        f"{paired} commits under HagopJay's names also carry a Claude co-author trailer.",
+        commits=paired,
+    )
+
+    # Largest commits (public repos only have subjects)
+    big = sorted(((c["add"] + c["del"], n, c) for n, c in own), key=lambda x: -x[0])[:6]
+    sig(
+        "largest_commits", "outlier",
+        "The largest commits by lines changed: "
+        + "; ".join(f"{n} {c.get('sha', '')[:7] or '(private)'} {c['add'] + c['del']:,} lines" for _, n, c in big) + ".",
+        commits=[{"repo": n, "sha": c.get("sha"), "lines": c["add"] + c["del"], "subject": c.get("subject"), "day": _day(c["t"])} for _, n, c in big],
+    )
+
+    # Multi-repo Claude sessions
+    sess = collections.defaultdict(set)
+    sess_n = collections.Counter()
+    for n, c in own:
+        for s in c.get("sessions", []):
+            sess[s].add(n)
+            sess_n[s] += 1
+    multi = {s: sorted(v) for s, v in sess.items() if len(v) > 1}
+    widest = max(multi.items(), key=lambda kv: (len(kv[1]), sess_n[kv[0]])) if multi else None
+    sig(
+        "sessions", "identity",
+        f"{len(sess)} distinct Claude sessions left a session trailer; {len(multi)} of them committed to more than one repo"
+        + (f", the widest touching {len(widest[1])}: {', '.join(widest[1])}." if widest else "."),
+        sessions=len(sess), multi_repo=len(multi), widest=widest[1] if widest else [], multi={k: v for k, v in multi.items()},
+    )
+
+    # Tests, X3D assets, size
+    tree = {r["name"]: r.get("tree", {}) for r in repos}
+    tests = {n: t.get("tests", 0) for n, t in tree.items() if t.get("tests")}
+    sig(
+        "tests", "quality",
+        "Test functions at each repo's tip: " + ", ".join(f"{n} {v:,}" for n, v in sorted(tests.items(), key=lambda kv: -kv[1])) + ".",
+        tests=tests,
+    )
+    x3d = {n: t.get("x3d_files", 0) for n, t in tree.items() if t.get("x3d_files")}
+    sig(
+        "x3d_assets", "content",
+        f"{sum(x3d.values()):,} X3D files sit at the repo tips, {x3d.get('x3d.ML', 0):,} of them in x3d.ML.",
+        x3d_files=x3d, total=sum(x3d.values()),
+    )
+
+    # Churn hotspots (public repos)
+    hot = []
+    for r in repos:
+        for f in r.get("files", []) or []:
+            if f["churn"]:
+                hot.append((f["churn"], r["name"], f["path"], f["commits"]))
+    hot.sort(reverse=True)
+    sig(
+        "hotspots", "content",
+        "Most rewritten files: " + "; ".join(f"{n}:{p} ({ch:,} lines over {k} commits)" for ch, n, p, k in hot[:5]) + ".",
+        files=[{"repo": n, "path": p, "churn": ch, "commits": k} for ch, n, p, k in hot[:25]],
+    )
+
+    # Branches
+    br = {r["name"]: r.get("branch_count", 0) for r in repos if r.get("branch_count")}
+    unmerged = {}
+    for r in repos:
+        for b in r.get("branches", []) or []:
+            if b.get("ahead_of_default"):
+                unmerged.setdefault(r["name"], []).append(b)
+    sig(
+        "branches", "process",
+        f"{sum(br.values())} remote branches in all; {sum(len(v) for v in unmerged.values())} carry commits their default branch lacks.",
+        branches=br, unmerged={k: [b['name'] for b in v] for k, v in unmerged.items()},
+    )
+
+    # Pins: which x3d_mcp commits the family pins most
+    pin_count = collections.Counter()
+    pin_from = collections.defaultdict(collections.Counter)
+    for p in ties.get("pairs", []):
+        for sha, k in (p.get("pin_targets") or {}).items():
+            pin_count[(p["to"], sha)] += k
+            pin_from[(p["to"], sha)][p["from"]] += k
+    subj = {}
+    for r in repos:
+        for c in r.get("commits", []):
+            if c.get("sha"):
+                subj[(r["name"], c["sha"][:12])] = (c.get("subject"), _day(c["t"]))
+    top_pins = []
+    for (repo, sha), k in pin_count.most_common(8):
+        s, d = subj.get((repo, sha[:12]), (None, None))
+        top_pins.append({"repo": repo, "sha": sha, "count": k, "subject": s, "day": d, "from": dict(pin_from[(repo, sha)])})
+    by_target = dict(collections.Counter({}))
+    for (repo, _sha), k in pin_count.items():
+        by_target[repo] = by_target.get(repo, 0) + k
+    if top_pins:
+        tp = top_pins[0]
+        sig(
+            "pins", "ties",
+            f"{sum(pin_count.values()):,} written commit hashes point across repos; the most cited is {tp['repo']} {tp['sha'][:7]}"
+            + (f" ('{tp['subject'][:70]}', {_human_date(tp['day'])})" if tp["subject"] else "")
+            + f", cited {tp['count']:,} times.",
+            total=sum(pin_count.values()), top=top_pins,
+            top_target=max(by_target, key=by_target.get), top_target_share=_pct(max(by_target.values()), sum(pin_count.values())),
+            by_target=by_target,
+        )
+
+    # Ties
+    grades = collections.Counter(p["grade"] for p in ties.get("pairs", []))
+    sig(
+        "ties_machine", "ties",
+        f"The machine found {len(ties.get('pairs', []))} tie pairs: {grades.get('C', 0)} Confirmed, {grades.get('L', 0)} Likely, {grades.get('S', 0)} Suspected.",
+        grades=dict(grades), pairs=len(ties.get("pairs", [])),
+    )
+    if curated:
+        cg = collections.Counter(t["grade"] for t in curated.get("ties", []))
+        sig(
+            "ties_curated", "ties",
+            f"The fork masterclass graded {len(curated.get('ties', []))} ties by hand: {cg.get('C', 0)} Confirmed, {cg.get('L', 0)} Likely, {cg.get('S', 0)} Suspected.",
+            grades=dict(cg), ties=len(curated.get("ties", [])),
+        )
+
+    # Idle forks and second account
+    idle = [r["name"] for r in ds["repos"] if r.get("kind") == "fork-idle"]
+    sig("idle_forks", "process", f"{len(idle)} forks have no commits from the family: {', '.join(idle)}.", forks=idle)
+    hs = collections.Counter(n for n, c in own if c["who"] == "hagsmac")
+    if hs:
+        sig("second_account", "identity", "The second account hagsmac committed to " + ", ".join(f"{n} ({k})" for n, k in hs.items()) + ".", repos=dict(hs))
+
+    # Daily series for the views
+    daily = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
+    for n, c in own:
+        daily[_day(c["t"])][n][c["cls"]] += 1
+
+    per_repo = {}
+    for r in repos:
+        oc = [c for c in r.get("commits", []) if not c.get("upstream")]
+        per_repo[r["name"]] = {
+            "kind": r.get("kind"),
+            "visibility": r.get("visibility"),
+            "role": r.get("role"),
+            "own_commits": len(oc),
+            "by_class": dict(collections.Counter(c["cls"] for c in oc)),
+            "lines": {"add": sum(c["add"] for c in oc), "del": sum(c["del"] for c in oc)},
+            "first": _day(min(c["t"] for c in oc)) if oc else None,
+            "last": _day(max(c["t"] for c in oc)) if oc else None,
+            "active_days": r.get("active_days"),
+            "streak_days": r.get("streak_days"),
+            "peak_day": r.get("peak_day"),
+            "files": tree.get(r["name"], {}).get("files", 0),
+            "lines_at_tip": tree.get(r["name"], {}).get("lines", 0),
+            "tests": tree.get(r["name"], {}).get("tests", 0),
+            "x3d_files": tree.get(r["name"], {}).get("x3d_files", 0),
+            "branches": r.get("branch_count", 0),
+            "by_kind": tree.get(r["name"], {}).get("by_kind", {}),
+            "coverage": {
+                "history": ("family commits only" if r.get("kind") == "fork-idle" else "all refs") if r.get("present") else "none",
+                "tree": ("counts only (private)" if r.get("visibility") == "private" else
+                         ("measured" if tree.get(r["name"], {}).get("files") else "not harvested")),
+                "visibility": r.get("visibility"),
+            },
+        }
+    return {
+        "family": ds.get("family"),
+        "signals": signals,
+        "per_repo": per_repo,
+        "daily": {d: {n: dict(cc) for n, cc in v.items()} for d, v in sorted(daily.items())},
+    }

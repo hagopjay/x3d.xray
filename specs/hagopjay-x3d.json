@@ -1,0 +1,263 @@
+{
+  "family": "hagopjay-x3d",
+  "title": "x3d-ray",
+  "subtitle": "HagopJay's X3D repo family: {family_span.commits} commits on {family_span.active_days} days, {family_span.first|date} to {family_span.last|date}",
+  "author": {
+    "prose": "Claude, in a Claude Code session, 2026-10-31",
+    "numbers": "none: every number below is a slot that x3dray/spec.py fills from profile.json",
+    "checked_by": "the fact gate (x3dray/spec.py check, run by x3dray/gates.py)"
+  },
+  "views": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "caption": "Four instruments on one film. Left, the tie constellation; centre, the time helix; right, the code city; in front, the pipeline that drew all three. That pipeline, x3d.xray, is itself one of the repos it reads.",
+      "claim": {
+        "text": "x3d.xray x-rays {family_span.repos} repos of git history, and it is one of them.",
+        "backs": [
+          "family_span",
+          "how_built:self_in_data"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "helix",
+      "label": "Helix",
+      "caption": "Time runs left to right, one turn per active day: {family_span.active_days} days from {family_span.first|date} to {family_span.last|date}. Angle is the hour of day (UTC), radius is the repo, colour is who committed, size is lines changed. Coral threads join the commits of one Claude session.",
+      "claim": {
+        "text": "{family_span.commits} own commits over {family_span.active_days} active days, from {family_span.first|date} to {family_span.last|date}.",
+        "backs": [
+          "family_span"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "burst",
+      "label": "Busiest month",
+      "caption": "{busiest_month.commits} of {busiest_month.total} commits ({busiest_month.share|pct}) landed in {busiest_month.month_name}. A turn widens with the day's activity, so busy days take the most room and quiet weeks shrink to a gap marker.",
+      "claim": {
+        "text": "{busiest_month.month_name} holds {busiest_month.share|pct} of the family's own commits.",
+        "backs": [
+          "busiest_month"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "peak",
+      "label": "Peak day",
+      "caption": "The bright ring is {busiest_day.day|date}: {busiest_day.commits} commits, {busiest_day.top_commits} of them in {busiest_day.top_repo} and {busiest_day.second_commits} in {busiest_day.second_repo}.",
+      "claim": {
+        "text": "{busiest_day.day|date} is the busiest day: {busiest_day.commits} commits, {busiest_day.top_commits} of them in {busiest_day.top_repo}.",
+        "backs": [
+          "busiest_day"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "rhythm",
+      "label": "Rhythm",
+      "caption": "Looking down the time axis turns the helix into a clock face. HagopJay's accounts peak at {rhythm.you_peak|hour}; Claude's busiest hour is {rhythm.ai_peak|hour}. The bars around the rim count each hour's commits, HagopJay outside, Claude inside.",
+      "claim": {
+        "text": "HagopJay's commits peak at {rhythm.you_peak|hour}; Claude's peak at {rhythm.ai_peak|hour}.",
+        "backs": [
+          "rhythm"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "claude",
+      "label": "Claude",
+      "caption": "Coral is Claude: {who_commits.counts.ai} of {family_span.commits} commits ({who_commits.shares.ai|pct}), and {self:claude_in_the_data.sessions} Claude sessions left a session trailer. Its share runs from {ai_share_by_repo.shares.KeGG|pct} of KeGG to {ai_share_by_repo.shares.graphify|pct} of graphify. Another {pairing.commits} commits under HagopJay's names carry a Claude co-author trailer.",
+      "claim": {
+        "text": "Claude made {who_commits.shares.ai|pct} of all own commits; the other denominators are one question away.",
+        "backs": [
+          "who_commits",
+          "how_built:claude"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "ties",
+      "label": "Ties",
+      "caption": "Spheres are repos, sized by their own commits. Straight lines are the {ties_machine.pairs} tie pairs the machine found; arcs are the {ties_curated.ties} ties the fork masterclass graded by hand. Green is Confirmed, yellow Likely, orange Suspected.",
+      "claim": {
+        "text": "Every tie drawn has a witness: {ties_machine.pairs} pairs found by rule and {ties_curated.ties} graded by hand.",
+        "backs": [
+          "ties_machine",
+          "ties_curated"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "fork",
+      "label": "Fork hub",
+      "caption": "The x3d_mcp fork is the hub: {pins.top_target_share|pct} of the {pins.total|n} commit hashes written across repos point at {pins.top_target}. The most cited, {pins.top.0.repo} commit {pins.top.0.sha|raw}, is cited {pins.top.0.count|n} times.",
+      "claim": {
+        "text": "The x3d_mcp fork is the hub: {pins.top_target_share|pct} of the commit hashes written across repos point at it.",
+        "backs": [
+          "pins"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "city",
+      "label": "Code city",
+      "caption": "Each district is one repo at its tip and each building one file: height is lines, colour is kind, a hot roof marks heavy rewriting. x3d.ML alone holds {repo:x3d.ML/x3d_files|n} of the {x3d_assets.total|n} X3D files.",
+      "claim": {
+        "text": "x3d.ML holds {repo:x3d.ML/x3d_files|n} of the family's {x3d_assets.total|n} X3D files.",
+        "backs": [
+          "x3d_assets"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "hotspots",
+      "label": "Hotspots",
+      "caption": "The tallest heat in the fork comes from vendored X3D schemas, so lines changed flatter x3d_mcp. Its tests are its own: {repo:x3d_mcp/tests|n} test functions at the tip.",
+      "claim": {
+        "text": "The fork's heaviest rewrites are vendored X3D schemas, not new code.",
+        "backs": [
+          "hotspots"
+        ],
+        "basis": "reading"
+      }
+    },
+    {
+      "id": "self",
+      "label": "The tool",
+      "caption": "This row is x3d.xray: one block per stage of the pipeline that drew this page, with its module and code hash. Grey stages run no model; coral stages are where Claude writes. Commits of x3d.xray in the data it drew: {self:in_its_own_data.commits_in_data}.",
+      "claim": {
+        "text": "Code draws every shape and fills every number; Claude writes only the captions and the answers.",
+        "backs": [
+          "how_built:pipeline"
+        ],
+        "basis": "tool"
+      }
+    }
+  ],
+  "tour": [
+    {
+      "view": "overview",
+      "title": "Four instruments",
+      "action": {
+        "clear": {}
+      },
+      "caption": "One scene, four readings of the same {family_span.commits} commits: who and when (the helix), what ties to what (the constellation), what is there now (the city), and how this page was made (the row in front)."
+    },
+    {
+      "view": "helix",
+      "title": "Reading the helix",
+      "action": {
+        "color_by": {
+          "mode": "who"
+        }
+      },
+      "caption": "One turn per active day, the hour as the angle, the repo as the radius. Amber is HagopJay, coral Claude, sage the bots."
+    },
+    {
+      "view": "burst",
+      "title": "The busiest month",
+      "action": {
+        "highlight": {
+          "from": "{busiest_month.from|raw}",
+          "to": "{busiest_month.to|raw}"
+        }
+      },
+      "caption": "{busiest_month.share|pct} of all commits fall in {busiest_month.month_name}. Most of the family as it stands was built that month."
+    },
+    {
+      "view": "peak",
+      "title": "The busiest day",
+      "action": {
+        "highlight": {
+          "day": "{busiest_day.day|raw}"
+        }
+      },
+      "caption": "{busiest_day.day|date} carried {busiest_day.commits} commits. {busiest_day.top_repo} led with {busiest_day.top_commits}, then {busiest_day.second_repo} with {busiest_day.second_commits}."
+    },
+    {
+      "view": "rhythm",
+      "title": "Two clocks",
+      "action": {
+        "clear": {}
+      },
+      "caption": "HagopJay's accounts cluster at {rhythm.you_peak|hour}, Claude at {rhythm.ai_peak|hour}. The bars on the rim show the whole day."
+    },
+    {
+      "view": "claude",
+      "title": "What Claude wrote",
+      "action": {
+        "highlight": {
+          "who": "ai"
+        },
+        "xray": {
+          "on": true
+        }
+      },
+      "caption": "X-ray on: only Claude's {who_commits.counts.ai} commits stay lit. Its share runs from {ai_share_by_repo.shares.KeGG|pct} of KeGG to {ai_share_by_repo.shares.graphify|pct} of graphify."
+    },
+    {
+      "view": "ties",
+      "title": "Two ways to find ties",
+      "action": {
+        "clear": {}
+      },
+      "caption": "The machine found {ties_machine.pairs} pairs by rule; the masterclass graded {ties_curated.ties} ties by reading. Where a line has no arc, only the machine saw it; where an arc has no line, only a reader did."
+    },
+    {
+      "view": "fork",
+      "title": "The fork as hub",
+      "action": {
+        "highlight": {
+          "repo": "x3d_mcp"
+        }
+      },
+      "caption": "{pins.total|n} commit hashes written in one repo point at another, and {pins.top_target_share|pct} of them point at {pins.top_target}: CI pins, fixtures and verdicts that name a fork commit (ties E08, E09 and E28)."
+    },
+    {
+      "view": "city",
+      "title": "What is there now",
+      "action": {
+        "clear": {}
+      },
+      "caption": "The city is the tip of each repo. x3d.ML is the widest district, with {repo:x3d.ML/files|n} files."
+    },
+    {
+      "view": "hotspots",
+      "title": "Heat is not effort",
+      "action": {
+        "clear": {}
+      },
+      "caption": "The hottest roofs are vendored schemas: one commit can add tens of thousands of lines nobody typed. The fork's {repo:x3d_mcp/tests|n} test functions are the better measure of its work."
+    },
+    {
+      "view": "self",
+      "title": "The tool in its own data",
+      "action": {
+        "highlight": {
+          "repo": "x3d.xray"
+        }
+      },
+      "caption": "x3d.xray drew this page and is also in it: its ring in the helix, its node in the constellation, its district in the city. Ask Claude how a signal was computed and it shows the profile code behind it."
+    }
+  ],
+  "questions": [
+    "Which repo did Claude write the most of, and what were those commits about?",
+    "What ties x3d.onto to the x3d_mcp fork? Show me the strongest evidence.",
+    "Which files were rewritten the most, and are they hand-written or vendored?",
+    "When does HagopJay commit compared with Claude? Show it on the helix.",
+    "Which Claude sessions committed to more than one repo?",
+    "How was the busiest day computed? Show me the code.",
+    "What on this page did an AI write, and what checked it?",
+    "Where does the machine disagree with the masterclass's hand-graded ties?"
+  ]
+}

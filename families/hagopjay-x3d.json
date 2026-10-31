@@ -1,0 +1,40 @@
+{
+  "family": "hagopjay-x3d",
+  "title": "HagopJay's X3D repo family",
+  "owner": "hagopjay",
+  "notes": "Repos are cloned beside each other under --root. Personal names and addresses are matched by the first 16 hex digits of their sha256 (lowercased), so none is written here. x3d_ai is private: only counts, times and identity classes leave the harvester for it. Lineage order is HagopJay's own account (2026-10-30).",
+  "lineage": ["x3d-blender-io", ".prov", "x3d.ML", "x3d_ai", "x3d.onto", "x3d.xray"],
+  "lineage_source": "HagopJay in the Geneology-VIZ project, 2026-10-30: blender-io first (gsplat), then .prov for lineage, then ML, then the private .ai repo, then .ONTO, 'and more to come'.",
+  "identities": [
+    {"label": "HagopJay", "class": "you", "match_names": ["hagopjay", "HagopJay"], "match_name_sha256": ["282afdff7bda3cec"], "match_email_sha256": ["6f841c1e7dfc38fe", "9d74a82d7f7d8fa3", "b4fbcc08ee3f82e1", "f85c6bb7e7d50307"]},
+    {"label": "hagsmac", "class": "you", "note": "HagopJay's second GitHub account", "match_names": ["hagsmac"], "match_email_sha256": ["b22759d504160c06"]},
+    {"label": "Claude", "class": "ai", "match_names": ["Claude"], "match_email_domains": ["anthropic.com"]},
+    {"label": "x3d-xfer", "class": "bot", "note": "commit identity used by an automated transfer pipeline", "match_names": ["x3d-xfer"]},
+    {"label": "dependabot", "class": "bot", "match_names": ["dependabot[bot]"]},
+    {"label": "URL Fetcher", "class": "bot", "match_names": ["URL Fetcher"]},
+    {"label": "hjay3", "class": "other", "note": "a contributor identity not mapped to anyone", "match_names": ["hjay3"]}
+  ],
+  "default_identity": {"label": "upstream contributor", "class": "upstream"},
+  "vocabulary": {".prov": "x3d.ML", "x3d.prov": "x3d.ML", "prov": "x3d.ML", "x3d.ai": "x3d_ai", "x3d ai": "x3d_ai", "blender io": "x3d-blender-io",
+                 "blender_io": "x3d-blender-io", "the fork": "x3d_mcp", "fork": "x3d_mcp", "x3d mcp": "x3d_mcp", "validator": "x3d_mcp", "onto": "x3d.onto",
+                 "loom": "x3d.onto", "ml": "x3d.ML", "xray": "x3d.xray", "x-ray": "x3d.xray", "kegg": "KeGG", "poc": "x3d.poc", "jepa": "x3d.jepa-notebooks"},
+  "vocabulary_notes": {".prov": "No .prov repo exists: the provenance stage lives in x3d.ML (x3dprov)."},
+  "curated_notes": ["The masterclass graded its ties from a harvest of 2026-10-30; x3d.onto merged PRs #4 to #8 after that, so its x3d.onto ties may be stale."],
+  "repos": [
+    {"name": "x3d_mcp", "dir": "hagopjay/x3d_mcp", "kind": "fork-active", "visibility": "public", "upstream": {"name": "Web3DConsortium/x3d_mcp", "dir": "upstream/x3d_mcp"}, "role": "validator hub: the X3D MCP server fork the family validates with", "aliases": ["x3d_mcp", "x3d-mcp"]},
+    {"name": "x3d-blender-io", "dir": "hagopjay/x3d-blender-io", "kind": "own", "visibility": "public", "role": "Blender bridge: X3D import/export add-on, Gaussian splat exporter", "aliases": ["x3d-blender-io", "x3d_blender_io", "blender-io", "Blenderizer"]},
+    {"name": "x3d.ML", "dir": "hagopjay/x3d.ML", "kind": "own", "visibility": "public", "role": "traceability and observability; home of x3dprov (the .prov stage)", "aliases": ["x3d.ML", "x3d.ml", "x3dprov"]},
+    {"name": "x3d_ai", "dir": "x3d_ai", "kind": "own", "visibility": "private", "role": "private workbench", "aliases": ["x3d_ai", "x3d.ai"]},
+    {"name": "x3d.onto", "dir": "hagopjay/x3d.onto", "kind": "own", "visibility": "public", "role": "the Loom rulebook and lab: FACTS, gates, ontology", "aliases": ["x3d.onto"]},
+    {"name": "x3d.poc", "dir": "hagopjay/x3d.poc", "kind": "own", "visibility": "public", "role": "public showcase: PolyXandria demos on GitHub Pages", "aliases": ["x3d.poc"]},
+    {"name": "KeGG", "dir": "hagopjay/KeGG-KnowlEdgeGraphGrokker", "kind": "own", "visibility": "public", "role": "knowledge-graph plugin; early Blender/X3D concept notes", "aliases": ["KeGG", "KnowlEdgeGraphGrokker"]},
+    {"name": "shellmcp", "dir": "hagopjay/shellmcp", "kind": "own", "visibility": "public", "role": "four generic MCP servers", "aliases": ["shellmcp"]},
+    {"name": "graphify", "dir": "hagopjay/graphify", "kind": "fork-active", "visibility": "public", "role": "code-to-knowledge-graph tool; one research branch on splats, Blender and X3D", "aliases": ["hagopjay/graphify"]},
+    {"name": "x3d.jepa-notebooks", "dir": "hagopjay/x3d.jepa-notebooks", "kind": "fork-active", "visibility": "public", "role": "JEPA notebooks fork", "aliases": ["x3d.jepa-notebooks", "jepa-notebooks"]},
+    {"name": "x3dom", "dir": "hagopjay/x3dom", "kind": "fork-idle", "visibility": "public", "role": "X3DOM fork, no own commits", "aliases": ["hagopjay/x3dom"]},
+    {"name": "splat-transform", "dir": "hagopjay/splat-transform", "kind": "fork-idle", "visibility": "public", "role": "PlayCanvas splat-transform fork, no own commits", "aliases": ["hagopjay/splat-transform"]},
+    {"name": "x3d-coopilot", "dir": "hagopjay/x3d-coopilot", "kind": "fork-idle", "visibility": "public", "role": "X3D authoring-assistant fork, no own commits", "aliases": ["hagopjay/x3d-coopilot", "x3d-coopilot"]},
+    {"name": "blender-mcp", "dir": "hagopjay/blender-mcp", "kind": "fork-idle", "visibility": "public", "role": "Blender MCP fork, no own commits", "aliases": ["hagopjay/blender-mcp"]},
+    {"name": "x3d.xray", "dir": "x3d.xray", "kind": "own", "visibility": "public", "role": "this tool: EDA with X3D output", "aliases": ["x3d.xray", "x3d-ray", "x3dray"]}
+  ]
+}

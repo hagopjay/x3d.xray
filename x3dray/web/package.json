@@ -1,0 +1,6 @@
+{
+  "name": "x3dray-web",
+  "private": true,
+  "type": "module",
+  "description": "The x3d-ray page tools and MCP server. No dependencies."
+}
