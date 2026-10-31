@@ -151,7 +151,8 @@ export function digest(B) {
   const sd = B.self;
   L.push(`\nTHE TOOL ITSELF: x3d.xray ${sd.tool.version}, ${sd.tool.modules} modules, ${sd.tool.lines_of_code} lines, code digest ${sd.tool.code_digest}, git head ${sd.tool.git.head || '?'}${sd.tool.git.uncommitted_changes ? ' plus uncommitted changes' : ''}.`);
   L.push('Pipeline: ' + sd.pipeline.map(p => `${p.stage} (${p.module}${p.model ? '; AI: ' + p.model.split('.')[0] : '; no model'})`).join(' -> '));
-  L.push('In its own data: ' + sd.in_its_own_data.note + ` Commits of x3d.xray in the data: ${sd.in_its_own_data.commits_in_data}.`);
+  L.push('In its own data: ' + sd.in_its_own_data.note + ` Commits of x3d.xray in the data: ${sd.in_its_own_data.commits_in_data}.` +
+    (sd.in_its_own_data.observer_effect ? ' Observer effect: ' + sd.in_its_own_data.observer_effect : ''));
   const cl = sd.claude_in_the_data;
   L.push(`Claude in the data: ${cl.commits} of ${cl.of} own commits (${cl.share_pct}%), ${cl.sessions} sessions with a session trailer, ${cl.multi_repo_sessions} of them in more than one repo, ${cl.paired_commits} of HagopJay's commits carry a Claude co-author trailer. ${cl.note}`);
   if (cl.denominators) L.push('Claude\'s share by denominator: ' + Object.entries(cl.denominators).map(([k, v]) => `${k}: ${v}`).join('; '));

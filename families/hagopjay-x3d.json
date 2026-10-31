@@ -3,7 +3,7 @@
   "title": "HagopJay's X3D repo family",
   "owner": "hagopjay",
   "notes": "Repos are cloned beside each other under --root. Personal names and addresses are matched by the first 16 hex digits of their sha256 (lowercased), so none is written here. x3d_ai is private: only counts, times and identity classes leave the harvester for it. Lineage order is HagopJay's own account (2026-10-30).",
-  "lineage": ["x3d-blender-io", ".prov", "x3d.ML", "x3d_ai", "x3d.onto", "x3d.xray"],
+  "lineage": ["x3d-blender-io", ".prov", "x3d.ML", "x3d_ai", "x3d.onto"],
   "lineage_source": "HagopJay in the Geneology-VIZ project, 2026-10-30: blender-io first (gsplat), then .prov for lineage, then ML, then the private .ai repo, then .ONTO, 'and more to come'.",
   "identities": [
     {"label": "HagopJay", "class": "you", "match_names": ["hagopjay", "HagopJay"], "match_name_sha256": ["282afdff7bda3cec"], "match_email_sha256": ["6f841c1e7dfc38fe", "9d74a82d7f7d8fa3", "b4fbcc08ee3f82e1", "f85c6bb7e7d50307"]},
@@ -35,6 +35,9 @@
     {"name": "splat-transform", "dir": "hagopjay/splat-transform", "kind": "fork-idle", "visibility": "public", "role": "PlayCanvas splat-transform fork, no own commits", "aliases": ["hagopjay/splat-transform"]},
     {"name": "x3d-coopilot", "dir": "hagopjay/x3d-coopilot", "kind": "fork-idle", "visibility": "public", "role": "X3D authoring-assistant fork, no own commits", "aliases": ["hagopjay/x3d-coopilot", "x3d-coopilot"]},
     {"name": "blender-mcp", "dir": "hagopjay/blender-mcp", "kind": "fork-idle", "visibility": "public", "role": "Blender MCP fork, no own commits", "aliases": ["hagopjay/blender-mcp"]},
-    {"name": "x3d.xray", "dir": "x3d.xray", "kind": "own", "visibility": "public", "role": "this tool: EDA with X3D output", "aliases": ["x3d.xray", "x3d-ray", "x3dray"]}
+    {"name": "x3d.xray", "dir": "x3d.xray", "kind": "own", "visibility": "public", "role": "this tool: EDA with X3D output", "aliases": ["x3d.xray", "x3d-ray", "x3dray"],
+     "observer": true,
+     "uses": {"x3d_mcp": "the gates validate the scene with the fork's X3D 4.0 XSD and its validator (x3dray/gates.py)",
+              "x3d.onto": "the loom gate runs x3d.onto's gobbler-demiurge/tools/loom_gate.py on the scene (x3dray/gates.py)"}}
   ]
 }

@@ -107,6 +107,10 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
             else:
                 p["evidence"].append({"kind": kind, "path": path, "line": line_no, "text": (text or "").strip()[:200]})
 
+    # The observer effect: the tool's own repo names every repo it reads (its config, spec, tests, docs, layout), by construction.
+    # Those mentions and hash-shaped strings are set aside and counted, and only the uses its config declares become ties.
+    observers = {r["name"]: r for r in cfg.get("repos", []) if r.get("observer")}
+    set_aside = collections.Counter()
     blob_owners: dict[str, list[tuple[str, str, int]]] = collections.defaultdict(list)
     scanned = collections.Counter()
     for n, r in repos.items():
@@ -125,6 +129,15 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                 continue
             scanned[n] += 1
             text = data.decode("utf-8", errors="replace")
+            if n in observers:
+                for other, pat in pats.items():
+                    if other != n:
+                        k = sum(1 for _ in pat.finditer(text))
+                        if k:
+                            set_aside["mentions"] += k
+                            set_aside["files"] += 1
+                set_aside["hash_shaped"] += sum(1 for m in HEX_RE.finditer(text) if not m.group(0).isdigit() and sha_index.get(m.group(0)[:7]))
+                continue
             # mentions of other repos, by alias; each hit is judged on a window around it,
             # so a one-line JSON file cannot turn into a "dependency" because of distant text
             for other, pat in pats.items():
@@ -215,6 +228,11 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
             p = pair("hagsmac (account)", n)
             p["kinds"]["second_account"] += len(hs)
             p["evidence"].append({"kind": "second_account", "path": None, "line": None, "text": f"{len(hs)} commits by hagsmac in {n}"})
+    for n, r in observers.items():
+        for target, why in (r.get("uses") or {}).items():
+            p = pair(n, target)
+            p["kinds"]["uses"] += 1
+            p["evidence"].append({"kind": "uses", "path": None, "line": None, "text": f"declared by the family config: {why}"})
     lineage, resolved = resolve_lineage(cfg.get("lineage", []), set(repos), cfg.get("vocabulary") or {})
     note = "; ".join(f"'{a}' read as {b} through the vocabulary" for a, b in resolved.items())
     for a, b in zip(lineage, lineage[1:]):
@@ -233,7 +251,9 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
         p["grade"], p["grade_reason"] = machine_grade(p)
         out.append(p)
     out.sort(key=lambda p: ({"C": 0, "L": 1, "S": 2}[p["grade"]], p["from"], p["to"]))
-    return {"pairs": out, "scanned_files": dict(scanned), "detectors": __doc__.strip().splitlines()[2:9]}
+    observer = {"repos": sorted(observers), "set_aside": dict(set_aside),
+                "why": "The tool's own files name every repo it reads, by construction, so they are not evidence of a tie; only its declared uses count."} if observers else None
+    return {"pairs": out, "scanned_files": dict(scanned), "observer": observer, "detectors": __doc__.strip().splitlines()[2:9]}
 
 
 def resolve_lineage(stated: list[str], known: set[str], vocabulary: dict[str, str]) -> tuple[list[str], dict[str, str]]:
@@ -250,12 +270,12 @@ def resolve_lineage(stated: list[str], known: set[str], vocabulary: dict[str, st
     return chain, resolved
 
 
-STRONG = {"pin", "shared_file", "session", "fork_of", "lineage", "second_account"}
+STRONG = {"pin", "shared_file", "session", "fork_of", "lineage", "second_account", "uses"}
 
 
 def machine_grade(p: dict) -> tuple[str, str]:
     k = p["kinds"]
-    for strong in ["pin", "shared_file", "session", "fork_of", "lineage", "second_account"]:
+    for strong in ["pin", "shared_file", "session", "fork_of", "lineage", "second_account", "uses"]:
         if k.get(strong):
             return "C", strong
     mention_kinds = {e["kind"].split(":", 1)[1] for e in p["evidence"] if e["kind"].startswith("mention:")}

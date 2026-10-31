@@ -223,6 +223,11 @@ def describe(dataset: dict, profile: dict, stamp: str | None = None, family_cfg:
                   "city": "the district marked 'this tool'", "self": "the pipeline row in front of the helix"},
         "note": "x3d.xray is one of the repos it x-rays. Its own commits are in the helix, its node in the constellation and its files in the city; commits made after the harvest are not.",
     }
+    tm = next((s_ for s_ in profile.get("signals", []) if s_["id"] == "ties_machine"), None)
+    if tm and "observer_set_aside" in tm["values"]:
+        in_data["observer_effect"] = (f"Its own files name every repo it reads (config, spec, tests, docs), so {tm['values']['observer_set_aside']} such "
+                                      "mentions were set aside rather than counted as ties; only the uses its config declares (the fork's "
+                                      "XSD and validator, x3d.onto's Loom gate) are ties.")
 
     # Claude inside the data
     allc = [(r["name"], c) for r in dataset.get("repos", []) for c in r.get("commits", []) if not c.get("upstream")]

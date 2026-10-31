@@ -262,10 +262,13 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None) -> dict:
 
     # Ties
     grades = collections.Counter(p["grade"] for p in ties.get("pairs", []))
+    obs = ties.get("observer") or {}
+    aside = (obs.get("set_aside") or {}).get("mentions", 0)
     sig(
         "ties_machine", "ties",
-        f"The machine found {len(ties.get('pairs', []))} tie pairs: {grades.get('C', 0)} Confirmed, {grades.get('L', 0)} Likely, {grades.get('S', 0)} Suspected.",
-        grades=dict(grades), pairs=len(ties.get("pairs", [])),
+        f"The machine found {len(ties.get('pairs', []))} tie pairs: {grades.get('C', 0)} Confirmed, {grades.get('L', 0)} Likely, {grades.get('S', 0)} Suspected."
+        + (f" It set aside {aside} mentions in its own files, which name every repo it reads by construction." if obs else ""),
+        grades=dict(grades), pairs=len(ties.get("pairs", [])), observer_set_aside=aside,
     )
     if curated:
         cg = collections.Counter(t["grade"] for t in curated.get("ties", []))
