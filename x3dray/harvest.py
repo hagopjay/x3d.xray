@@ -5,6 +5,8 @@ Privacy rules, applied here so nothing downstream can leak them:
 - Claude-Session URLs are reduced to short hashes (enough to see one session touch two repos);
 - a repo marked "private" keeps only times, identity classes and sizes: no subjects, paths,
   branch names or file lists.
+A public repo's own commits keep the paths they touched (git numstat, renames not followed), which the
+concepts and bridges stages read; upstream history in a fork keeps none.
 """
 
 from __future__ import annotations
@@ -202,6 +204,8 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
             entry["subject"] = c["subject"][:160]
             kinds = collections.Counter(classify_path(p) for _, _, p in c["numstat"])
             entry["kinds"] = dict(kinds)
+            if not is_up:
+                entry["paths"] = sorted({p for _, _, p in c["numstat"]})   # for the concepts and bridges stages; renames not followed
         commits.append(entry)
         if private or not entry["default"] or entry["merge"]:
             continue

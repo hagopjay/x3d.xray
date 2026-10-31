@@ -32,8 +32,10 @@ for (const extra of ['gates', 'receipt']) {
 const tools = makeTools(B, null);
 const send = obj => process.stdout.write(JSON.stringify(obj) + '\n');
 const INSTRUCTIONS = `x3d-ray: read-only tools over ${B.meta.title || 'a repo family'} (harvested ${B.meta.harvested_at}). ` +
-  'Call overview first: it is the digest the page shows its own Claude. Lookup tools (query_commits, activity, top_files, ties, signals) answer exact ' +
-  'questions from tables; traverse walks the tie graph for multi-hop questions. Say which route you used. Repo names resolve through the family\'s ' +
+  'Call overview first: it is the digest the page shows its own Claude. Lookup tools (query_commits, activity, top_files, ties, signals, concepts, ' +
+  'bridges) answer exact questions from tables; traverse walks the tie graph for multi-hop questions. Say which route you used. concepts and bridges ' +
+  'say what each part read and set aside (excluded); a private repo answers with counts only. Two repos that no chain of Claude sessions joins have ' +
+  'no recorded session link, never "no link", and the ties may still join them. Repo names resolve through the family\'s ' +
   'vocabulary (x3d.ai is x3d_ai; .prov is a stage inside x3d.ML); an unknown name is refused with the nearest names, so never guess. A value marked ' +
   'unknown was not measured: never read it as zero. how_built explains how the data and every signal were computed, down to the source lines. ' +
   'Every number comes from git history, computed with no model.';

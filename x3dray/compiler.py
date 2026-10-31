@@ -1,12 +1,16 @@
 """Compile one X3D 4.0 scene from the data and the rendered spec. No model.
 
-xray.x3d holds four views side by side:
+xray.x3d holds six regions side by side:
 - the time helix (centre): the family's own commits, one turn per active day; angle is the hour (UTC), radius the
   repo, colour who committed, size lines changed; Claude-session threads, day, month, gap, series and repo labels,
   the busiest-day ring, and a clock face at the end with per-hour bars;
 - the tie constellation (left): repos and other nodes in a plane, a ring around each repo showing who wrote it,
   machine-found ties as straight lines and the masterclass's hand-graded ties as arcs with arrowheads;
 - the code city (right): one district per repo at its tip, one building per file, a hot roof on heavy rewrites;
+- the concept lattices (above, left): files by the kinds of author that touched them, and repos by the kinds of
+  author they have seen, as Hasse diagrams (x3dray/structure.py, formal concept analysis);
+- the bridges (above, right): the Claude-session graph with its passage points ringed in gold, and each repo's
+  bridge files with and without the high-churn files (betweenness);
 - the tool's own pipeline (front): one block per stage, coral where a model takes part, and lines from the
   tool's row to x3d.xray's own place in the other three views.
 Every pickable thing has a DEF name and a record in layout.json, which the page uses to pick, fly and highlight.
@@ -47,6 +51,10 @@ R0, DR = 1.35, 0.33
 CT = (-47.0, 0.0, 0.0)     # constellation centre
 CC = (44.0, -4.0, -2.0)    # city origin (left-back corner of the first row)
 SELF_Y, SELF_Z = -9.5, 13.0
+CONC = (-26.0, 28.0, -6.0)   # the concept lattices (above, left): high enough to stay out of the ties and helix views
+BRID = (30.0, 28.0, -6.0)    # the bridges (above, right): high enough to stay out of the rhythm and city views
+WHO_NAME = {"you": "HagopJay", "ai": "Claude", "bot": "bots", "other": "other", "upstream": "unmapped"}
+GOLD = "#ffd36b"             # a passage point: on every path between two repos in the session graph
 
 
 # ---- small helpers
@@ -232,6 +240,11 @@ def _fmt_n(n: int) -> str:
     return f"{n:,}"
 
 
+def _some(xs: list[str]) -> str:
+    """Two names joined, or the first and how many more: a label that stays inside its block."""
+    return " + ".join(xs) if len(xs) <= 2 else f"{xs[0]} + {len(xs) - 1} more"
+
+
 def _k(n: int) -> str:
     return f"{n / 1000:.0f}k" if n >= 10000 else (f"{n / 1000:.1f}k" if n >= 1000 else str(n))
 
@@ -242,7 +255,187 @@ def own_commits(ds: dict) -> list[tuple[str, dict]]:
     return rows
 
 
-def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: dict, selfd: dict) -> tuple[str, dict]:
+def ring(S: "Scene", p, r1: float, r2: float, parts: list[tuple[str, float]], z: float = 0.02):
+    """A flat ring around p in the XY plane, split into coloured arcs (colour, share), from twelve o'clock clockwise.
+    Unlit and coloured per face: the Appearance has no Material, so the Color node's colours show as they are."""
+    tot = sum(w for _, w in parts) or 1
+    pts, idx, cols = [], [], []
+    a = math.pi / 2
+    for hexc, w in parts:
+        if w <= 0:
+            continue
+        span = 2 * math.pi * w / tot
+        steps = max(2, int(span / 0.12))
+        for st in range(steps):
+            a0, a1 = a - span * st / steps, a - span * (st + 1) / steps
+            b = len(pts)
+            for (aa, rr) in ((a0, r1), (a1, r1), (a1, r2), (a0, r2)):
+                pts.append(v3((p[0] + rr * math.cos(aa), p[1] + rr * math.sin(aa), p[2] + z)))
+            idx.append(f"{b} {b + 1} {b + 2} {b + 3} -1")
+            cols.append(col(hexc))
+        a -= span
+    if pts:
+        S.w(f"<Shape>{S.mat('ringc', '')}<IndexedFaceSet solid='false' colorPerVertex='false' coordIndex='{' '.join(idx)}'>"
+            f"<Coordinate point='{', '.join(pts)}'/><Color color='{', '.join(cols)}'/></IndexedFaceSet></Shape>")
+
+
+def intent_name(intent: list[str], empty: str = "every file") -> str:
+    return " + ".join(WHO_NAME.get(c, c) for c in intent) if intent else empty
+
+
+def concepts_region(S: "Scene", L: dict, con: dict) -> dict:
+    """Two concept lattices drawn as Hasse diagrams: files by the kinds of author that touched them (left, large) and
+    repos by the kinds of author they have seen (right, small). Level is height (the top concept holds everything), x
+    comes from barycentre sweeps in x3dray/fca.py; a node's size is how many objects it holds, its ring the kinds."""
+    cx, cy, cz = CONC
+    fc, rc = con["files_by_author_class"], con["repos_by_author_class"]
+    L["concepts"] = {"files": [], "repos": []}
+    S.w("<Group DEF='Concepts'>")
+    S.w("<TouchSensor DEF='TS_concepts' description='concept'/>")
+
+    def draw(cs, covers, x0, width, top_y, dy, scale, kind, sub):
+        pos = {}
+        for c in cs:
+            pos[c["i"]] = (x0 + (c["x"] - 0.5) * width, top_y - c["level"] * dy, cz)
+        S.lines("hasse", "#6f8796", [[pos[lo], pos[up]] for lo, up in covers], width=1.6)
+        for c in cs:
+            p = pos[c["i"]]
+            r = scale(c["support"])
+            hexc = CLS_COL.get(c["intent"][0], BONE) if len(c["intent"]) == 1 else BONE
+            S.w(f"<Transform translation='{v3(p)}'><Shape>{S.lit('cnode' + hexc, hexc, 0.3)}<Sphere radius='{f(r)}'/></Shape></Transform>")
+            if c["intent"]:
+                ring(S, p, r + 0.06, r + 0.22, [(CLS_COL.get(k, BONE), 1) for k in c["intent"]])
+            S.label([intent_name(c["intent"], "every file" if kind == "files" else "every repo"), sub(c)], (p[0], p[1] + r + 0.5, p[2] + 0.1),
+                    0.22 if kind == "files" else 0.19, BONE if c["intent"] else DIM, view="concepts")
+            L["concepts"][kind].append({"i": c["i"], "p": [round(v, 3) for v in p], "r": round(r, 3)})
+
+    n_levels = max((c["level"] for c in fc["concepts"]), default=0)
+    draw(fc["concepts"], fc["covers"], cx - 2.0, 18.0, cy + 4.2, 8.4 / max(1, n_levels), lambda n: 0.16 + 0.085 * math.log2(1 + n), "files",
+         lambda c: f"{_fmt_n(c['support'])} files" + (f" · {_fmt_n(c['exact'])} only these" if c["intent"] else ""))
+    r_levels = max((c["level"] for c in rc["concepts"]), default=0)
+    draw(rc["concepts"], rc["covers"], cx + 13.4, 7.6, cy + 4.2, 8.4 / max(1, r_levels), lambda n: 0.14 + 0.1 * math.log2(1 + n), "repos",
+         lambda c: ", ".join(c["exact"])[:46] if c["exact"] else f"{c['support']} repos")
+    ex = con["excluded"]
+    aside = ", ".join(f"{v} {k.split(' (')[0]}" for k, v in ex.items())
+    S.label(["Who touched which files: a concept lattice", f"{_fmt_n(fc['n_commits'])} commits, {_fmt_n(fc['n_files'])} files · set aside: {aside}"],
+            (cx - 11.5, cy + 6.6, cz), 0.3, BONE, justify="BEGIN", billboard=False, view="concepts")
+    S.label(["repos by who has committed"], (cx + 13.4, cy + 6.0, cz), 0.24, DIM, billboard=False, view="concepts")
+    S.label(["a line joins a concept to the next larger one above it · size: how many it holds · ring: the kinds of author"],
+            (cx - 11.5, cy - 5.6, cz), 0.2, DIM, justify="BEGIN", billboard=False, view="concepts")
+    S.w("</Group>")
+    return {"center": [cx + 2.0, cy, cz], "x0": round(cx - 13.2, 3), "x1": round(cx + 19.4, 3)}
+
+
+def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, top_bridges: dict) -> dict:
+    """The Claude-session graph (left): repos on a circle, sessions between the repos they committed to, passage points
+    ringed in gold. The bridge files (right): per repo, the file most other files route through, with the high-churn
+    files kept (hub) and set aside (bridge)."""
+    bx, by, bz = BRID
+    sb = bri["sessions"]
+    L["bridges"] = {"repos": {}, "sessions": {}, "files": []}
+    S.w("<Group DEF='Bridges'>")
+    S.w("<TouchSensor DEF='TS_bridges' description='session, repo or bridge file'/>")
+    gc = (bx - 6.5, by - 0.4, bz)
+    repos_in = sorted({rep for rec in sb["sessions"].values() for rep in rec["repos"]},
+                      key=lambda n: (-sum(1 for rec in sb["sessions"].values() if n in rec["repos"]), n))
+    pp_nodes = collections.defaultdict(list)
+    for pair, via in sb["passage_points"].items():
+        for v in via:
+            pp_nodes[v].append(pair.replace(" -> ", " and "))
+    rp = {}
+    for i, n in enumerate(repos_in):
+        ang = math.pi / 2 - 2 * math.pi * i / max(1, len(repos_in))
+        rp[n] = (gc[0] + 5.2 * math.cos(ang), gc[1] + 4.6 * math.sin(ang), gc[2])
+    # sessions: one that touched several repos sits between them; one that touched one repo orbits it
+    orbit = collections.Counter()
+    n_one = collections.Counter(next(iter(rec["repos"])) for rec in sb["sessions"].values() if len(rec["repos"]) == 1)
+    sp = {}
+    same = collections.defaultdict(list)    # sessions with the same set of repos are spread side by side, not stacked
+    for sid, rec in sorted(sb["sessions"].items()):
+        if len(rec["repos"]) > 1:
+            same[tuple(sorted(rec["repos"]))].append(sid)
+    for sid, rec in sorted(sb["sessions"].items()):
+        rs = sorted(rec["repos"])
+        if len(rs) > 1:
+            m = [sum(rp[x][k] for x in rs) / len(rs) for k in range(3)]
+            grp = same[tuple(rs)]
+            k, n = grp.index(sid), len(grp)
+            # the first sits near the repos' midpoint, the rest step in toward the centre, so a crowded pair fans inward
+            inward = norm(sub(gc, m)) if math.dist(m, gc) > 1e-6 else (0.0, -1.0, 0.0)
+            start = 0.88 if n > 1 else 0.7
+            m = (gc[0] + (m[0] - gc[0]) * start, gc[1] + (m[1] - gc[1]) * start, gc[2] + 0.3)
+            sp[sid] = (m[0] + inward[0] * k * 1.05, m[1] + inward[1] * k * 1.05, m[2])
+        else:
+            home = rp[rs[0]]
+            out = norm(sub(home, gc)) if home != gc else (0.0, 1.0, 0.0)
+            k = orbit[rs[0]]
+            orbit[rs[0]] += 1
+            ang = math.atan2(out[1], out[0]) + (k - (n_one[rs[0]] - 1) / 2) * 0.3
+            sp[sid] = (home[0] + 1.25 * math.cos(ang), home[1] + 1.25 * math.sin(ang), home[2])
+    lines_one, lines_multi = [], []
+    for sid, rec in sb["sessions"].items():
+        for rep in rec["repos"]:
+            (lines_multi if len(rec["repos"]) > 1 else lines_one).append([sp[sid], rp[rep]])
+    S.lines("sess1", "#7c5a50", lines_one, width=1.0)
+    S.lines("sessn", CORAL, lines_multi, width=2.2)
+    for n, p in rp.items():
+        nsess = sum(1 for rec in sb["sessions"].values() if n in rec["repos"])
+        kind = kinds.get(n, "own")
+        hexc = NODE_COL.get(kind, NODE_COL["own"])
+        r = 0.28 + 0.12 * math.log2(1 + nsess)
+        S.w(f"<Transform translation='{v3(p)}'><Shape>{S.lit('bnode' + hexc, hexc, 0.3)}<Sphere radius='{f(r)}'/></Shape></Transform>")
+        sub_ = f"{nsess} session{'s' if nsess != 1 else ''}" + (" · private" if kind == "private" else "")
+        out = norm(sub(p, gc)) if p != gc else (0.0, 1.0, 0.0)
+        lift = 1.15 if (out[1] > 0.45 and n_one[n]) else 0.0     # the label clears the fan of one-repo sessions above it
+        S.label([n, sub_], (p[0], p[1] + r + 0.55 + lift, p[2] + 0.1), 0.24, BONE, view="bridges")
+        if n in pp_nodes:
+            ring(S, p, r + 0.14, r + 0.32, [(GOLD, 1)])
+        L["bridges"]["repos"][n] = {"p": [round(v, 3) for v in p], "r": round(r, 3)}
+    for sid, p in sp.items():
+        multi = len(sb["sessions"][sid]["repos"]) > 1
+        r = 0.2 if multi else 0.09
+        S.w(f"<Transform translation='{v3(p)}'><Shape>{S.lit('snode' + str(multi), CORAL, 0.45)}<Sphere radius='{f(r)}'/></Shape></Transform>")
+        if ("session:" + sid) in pp_nodes:
+            ring(S, p, r + 0.1, r + 0.24, [(GOLD, 1)])
+        if multi:
+            S.label([sid, f"{len(sb['sessions'][sid]['repos'])} repos"], (p[0] + r + 0.16, p[1] + 0.1, p[2] + 0.1), 0.19, CORAL, justify="BEGIN", view="bridges")
+        L["bridges"]["sessions"][sid] = {"p": [round(v, 3) for v in p], "r": r}
+    S.label(["What links the repos: Claude sessions",
+             f"{sb['n_sessions']} sessions left a trailer · {sb['n_multi_repo']} committed to more than one repo · gold: on every session path between two repos"],
+            (gc[0] - 6.0, by + 7.6, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
+    S.label(["white: own repo · cyan: active fork · violet: private (counts only) · big coral: a session in several repos · small: in one",
+             f"{_fmt_n(sb['commits_without_trailer'])} own commits carry no session trailer, so {len(sb['no_recorded_link'])} of {sb['n_repo_pairs']} repo pairs have no recorded session link,",
+             "which is not the same as no link: the ties may still join them"],
+            (gc[0] - 6.0, by - 6.4, bz), 0.2, FOG, justify="BEGIN", billboard=False, view="bridges")
+
+    # bridge files, one row per repo: the hub (high-churn files kept) and the bridge (set aside, Jaccard distance)
+    x0 = bx + 1.6
+    S.label(["Bridge files: what most other files route through",
+             f"hub: every file kept · bridge: {len(bri['files']['high_churn'])} high-churn files set aside · bar: share of paths in its cluster"],
+            (x0, by + 7.6, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
+    order = list(top_bridges) + [r for r in top_hubs if r not in top_bridges]
+    bars = []
+    for j, repo in enumerate(order[:7]):
+        y = by + 4.6 - j * 1.55
+        S.label([repo], (x0, y, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
+        for k, (var, rec) in enumerate((("hub", top_hubs.get(repo)), ("bridge", top_bridges.get(repo)))):
+            yy = y - 0.42 - k * 0.5
+            if not rec:
+                S.label([f"{var}: none in a cluster of ten or more files"], (x0 + 0.2, yy, bz), 0.19, FOG, justify="BEGIN", billboard=False, view="bridges")
+                continue
+            w = 0.15 + 4.2 * rec["share_pct"] / 100
+            bars.append((x0 + 0.2, yy - 0.12, bz - 0.06, x0 + 0.2 + w, yy + 0.12, bz + 0.06, HEAT if var == "hub" else GRADE_COL["C"]))
+            name = rec["file"] if len(rec["file"]) <= 34 else "…" + rec["file"][-33:]
+            S.label([f"{var}: {name} · {rec['share_pct']}% of {rec['cluster']}" + (" · cut" if rec["cut_vertex"] else "")],
+                    (x0 + 0.35 + w, yy, bz), 0.19, LABEL, justify="BEGIN", billboard=False, view="bridges")
+            L["bridges"]["files"].append({"repo": repo, "variant": var, "file": rec["file"], "p": [round(x0 + 0.2 + w / 2, 3), round(yy, 3), bz]})
+    S.boxes("bbar", bars)
+    S.w("</Group>")
+    return {"center": [bx + 0.5, by, bz], "x0": round(gc[0] - 6.5, 3), "x1": round(x0 + 10.5, 3)}
+
+
+def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: dict, selfd: dict,
+                con: dict | None = None, bri: dict | None = None) -> tuple[str, dict]:
     S = Scene()
     L: dict = {"views": {}, "commits": [], "days": [], "lanes": {}, "nodes": {}, "ties": {"machine": [], "curated": []},
                "city": {"districts": {}, "buildings": []}, "self": {"stages": {}}, "regions": {}}
@@ -467,7 +660,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
                     idx.append(f"{b} {b + 1} {b + 2} {b + 3} -1")
                     cols.append(col(CLS_COL[cl]))
                 a -= span
-            S.w(f"<Shape>{S.unlit('donut', '#ffffff')}<IndexedFaceSet solid='false' colorPerVertex='false' coordIndex='{' '.join(idx)}'>"
+            S.w(f"<Shape>{S.mat('ringc', '')}<IndexedFaceSet solid='false' colorPerVertex='false' coordIndex='{' '.join(idx)}'>"
                 f"<Coordinate point='{', '.join(pts)}'/><Color color='{', '.join(cols)}'/></IndexedFaceSet></Shape>")
         pr = per_repo.get(n)
         sub_ = []
@@ -664,6 +857,14 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
     L["regions"]["city"] = {"center": [round((CC[0] + city_x1) / 2, 3), CC[1], round((CC[2] + city_z1) / 2, 3)],
                             "x0": CC[0], "x1": round(city_x1, 3), "z0": CC[2], "z1": round(city_z1, 3)}
 
+    # ================= concepts and bridges (x3dray/structure.py)
+    if con:
+        L["regions"]["concepts"] = concepts_region(S, L, con)
+    if bri:
+        from .profile import top_bridges as _tb
+        kinds = {n: ("private" if pr.get("visibility") == "private" else (repos[n].get("kind") or "own")) for n, pr in per_repo.items()}
+        L["regions"]["bridges"] = bridges_region(S, L, bri, kinds, _tb(bri["files"]["variants"]["count"]), _tb(bri["files"]["variants"]["jaccard"]))
+
     # ================= the tool's own pipeline
     S.w("<Group DEF='Self'>")
     S.w("<TouchSensor DEF='TS_self' description='pipeline stage'/>")
@@ -679,10 +880,12 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         dn = "s_" + st["stage"]
         S.w(f"<Transform DEF='{dn}' translation='{v3(p)}'><Shape><Appearance><Material DEF='{dn}_m' diffuseColor='{col(hexc)}' emissiveColor='{col(hexc, 0.35)}'/>"
             f"</Appearance><Box size='2.3 1.15 0.5'/></Shape></Transform>")
-        sha = next(iter(st.get("sha256", {}).values()), "")[:8]
+        mods = [m_.strip() for m_ in st["module"].split("+")]
+        hs = [st.get("sha256", {}).get(m_, "")[:8] for m_ in mods]
         S.label([st["stage"]], (p[0], p[1] + 0.22, p[2] + 0.27), 0.34, BONE, billboard=False, view="self")
-        S.label([st["module"].split("/")[-1] + f" · {st.get('lines', 0)} lines", f"sha {sha}" + (" · Claude" if ai else " · no model")],
-                (p[0], p[1] - 0.26, p[2] + 0.27), 0.17, LABEL, billboard=False, view="self")
+        S.label([_some([m_.split("/")[-1] for m_ in mods]), "sha " + _some([h for h in hs if h]),               # every module named, with its own hash
+                 f"{_fmt_n(st.get('lines', 0))} lines · " + ("Claude" if ai else "no model")],
+                (p[0], p[1] - 0.27, p[2] + 0.27), 0.17, LABEL, billboard=False, view="self")
         L["self"]["stages"][st["stage"]] = [round(c, 3) for c in p]
         if prev:
             S.lines("pipe", "#8fa3b1", [[(prev[0] + 1.17, prev[1], prev[2]), (p[0] - 1.17, p[1], p[2])]], width=2.0)
@@ -694,7 +897,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         S.w(f"<Transform DEF='{dn}' translation='{v3(p)}'><Shape><Appearance><Material DEF='{dn}_m' diffuseColor='{col(CORAL)}' emissiveColor='{col(CORAL, 0.35)}'/>"
             f"</Appearance><Box size='2.3 1.0 0.5'/></Shape></Transform>")
         S.label([st["stage"] + (" (in the page)" if st["stage"] == "ask" else " (any agent)")], (p[0], p[1] + 0.18, p[2] + 0.27), 0.26, BONE, billboard=False, view="self")
-        S.label([st["module"].split("/")[-1].replace(" + x3dray", " +")[:30], "Claude" if st["stage"] == "ask" else "same tools"],
+        S.label([_some([m_.strip().split("/")[-1] for m_ in st["module"].split("+")]), "Claude" if st["stage"] == "ask" else "same tools"],
                 (p[0], p[1] - 0.24, p[2] + 0.27), 0.17, LABEL, billboard=False, view="self")
         L["self"]["stages"][st["stage"]] = [round(c, 3) for c in p]
         S.lines("pipe", "#8fa3b1", [[(page_p[0], page_p[1] - 0.6, page_p[2]), (p[0], p[1] + 0.5, p[2])]], width=1.5)
@@ -753,8 +956,11 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "city": (reg["city"]["x1"] - reg["city"]["x0"]) / 2 + 1.5,
         "self": 2.75 * (stage_n - 1) / 2 + 1.6,
     }
+    for rid in ("concepts", "bridges"):
+        if rid in reg:
+            halfw[rid] = (reg[rid]["x1"] - reg[rid]["x0"]) / 2 + 0.8
     views = {
-        "overview": ((7, 32, 118), (7, -3, 0), 0.78),
+        "overview": ((7, 42, 118), (7, 8, 0), 0.74),
         "helix": (((hx0 + hx1) / 2, 3.5, 30), ((hx0 + hx1) / 2, -1.2, 0), 0.9),
         "burst": (((bx0 + bx1) / 2, 4.0, (bx1 - bx0) * 0.95 + 5), ((bx0 + bx1) / 2, -0.8, 0), 0.9),
         "peak": ((pxc + 1.5, 3.0, 10.5), (pxc, 0.2, 0), 0.8),
@@ -765,6 +971,11 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "city": ((city_c[0], 19, city_c[2] + 25), (city_c[0], -4, city_c[2]), 0.85),
         "self": ((0, SELF_Y + 2.5, SELF_Z + 22), (0, SELF_Y, SELF_Z), 0.85),
     }
+    for rid in ("concepts", "bridges"):
+        if rid in reg:
+            c_ = reg[rid]["center"]
+            mid = ((reg[rid]["x0"] + reg[rid]["x1"]) / 2, c_[1], c_[2])
+            views[rid] = ((mid[0], mid[1] + 1.2, mid[2] + 24), mid, 0.85)
     if "x3d_mcp" in L["city"]["districts"]:
         dc = L["city"]["districts"]["x3d_mcp"]["center"]
         views["hotspots"] = ((dc[0] + 2, dc[1] + 7, dc[2] + 9), (dc[0], dc[1] + 1.5, dc[2]), 0.85)
@@ -819,8 +1030,9 @@ def source_digest(*objs) -> str:
 def build(data_dir: str, out_dir: str) -> dict:
     j = lambda n: json.load(open(os.path.join(data_dir, n), encoding="utf-8"))
     ds, ti, prof, spec_r, selfd = j("dataset.json"), j("ties.json"), j("profile.json"), j("spec.rendered.json"), j("self.json")
-    cur = j("curated.json") if os.path.exists(os.path.join(data_dir, "curated.json")) else None
-    xml, layout = build_scene(ds, ti, cur, prof, spec_r, selfd)
+    opt = lambda n: j(n) if os.path.exists(os.path.join(data_dir, n)) else None
+    cur = opt("curated.json")
+    xml, layout = build_scene(ds, ti, cur, prof, spec_r, selfd, opt("concepts.json"), opt("bridges.json"))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "xray.x3d"), "w", encoding="utf-8") as fh:
         fh.write(xml)

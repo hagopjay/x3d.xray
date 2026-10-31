@@ -3,6 +3,7 @@
 Steps, in pipeline order (all but `spec --brief` and `mcp` write into --data or --out):
   harvest  --family F --root DIR --data DIR    git clones -> dataset.json + ties.json (no model)
   curated  --masterclass DIR --data DIR        the fork masterclass's graded ties and series -> curated.json
+  structure --data DIR                         concepts (formal concept analysis) and bridges (betweenness) -> concepts.json, bridges.json (no model)
   profile  --data DIR                          -> profile.json: signals, each with its numbers (no model)
   spec     --data DIR --spec S                 fill the spec's slots from the profile -> spec.rendered.json; fails on a stray digit
   spec     --data DIR --brief                  print what an AI needs to write a spec: rules, schema, every slot and its value
@@ -83,10 +84,27 @@ def cmd_curated(a) -> int:
     return 0
 
 
+def cmd_structure(a) -> int:
+    from . import structure
+
+    t0 = time.time()
+    con, bri, problems = structure.run(_read(a.data, "dataset.json"))
+    _write_json(os.path.join(a.data, "concepts.json"), con, compact=True)
+    _write_json(os.path.join(a.data, "bridges.json"), bri, compact=True)
+    f, s = con["files_by_author_class"], bri["sessions"]
+    print(f"structure: {f['n_concepts']} concepts over {f['n_files']} files, {len(con['areas']['rules'])} area rules, "
+          f"{s['n_sessions']} sessions ({s['n_multi_repo']} in more than one repo), {len(s['passage_points'])} repo pairs with a passage point "
+          f"in {time.time() - t0:.1f}s -> {a.data}")
+    for p in problems[:20]:
+        print("  " + p)
+    return 1 if problems else 0
+
+
 def cmd_profile(a) -> int:
     from . import profile
 
-    prof = profile.profile_family(_read(a.data, "dataset.json"), _read(a.data, "ties.json"), _read(a.data, "curated.json", {}) or None)
+    prof = profile.profile_family(_read(a.data, "dataset.json"), _read(a.data, "ties.json"), _read(a.data, "curated.json", {}) or None,
+                                  _read(a.data, "concepts.json", {}) or None, _read(a.data, "bridges.json", {}) or None)
     _write_json(os.path.join(a.data, "profile.json"), prof)
     print(f"profile: {len(prof['signals'])} signals -> {a.data}/profile.json")
     return 0
@@ -156,7 +174,7 @@ def cmd_receipt(a) -> int:
 
 def cmd_all(a) -> int:
     steps = [
-        (cmd_harvest, {}), (cmd_curated, {}), (cmd_profile, {}), (cmd_self, {}), (cmd_spec, {"brief": False}),
+        (cmd_harvest, {}), (cmd_curated, {}), (cmd_structure, {}), (cmd_profile, {}), (cmd_self, {}), (cmd_spec, {"brief": False}),
         (cmd_self, {}), (cmd_build, {}), (cmd_page, {}), (cmd_gate, {}), (cmd_receipt, {}),
     ]
     if not a.masterclass:
@@ -216,6 +234,7 @@ def main(argv=None) -> int:
     c = sp("curated", cmd_curated, data, fam)
     c.add_argument("--masterclass", required=True)
     c.add_argument("--exclude", nargs="*", help="repos to leave out (for a public build)")
+    sp("structure", cmd_structure, data)
     sp("profile", cmd_profile, data)
     sp("self", cmd_self, data, stamp, fam)
     s = sp("spec", cmd_spec, data)
