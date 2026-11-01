@@ -27,12 +27,51 @@ def _pct(a: float, b: float) -> int:
     return round(100 * a / b) if b else 0
 
 
+CLASS_KEYS = ("you", "ai", "bot", "other", "upstream")
+
+
+def _and(xs: list[str]) -> str:
+    """'a', 'a and b', 'a, b and c'."""
+    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1] if xs else ""
+
+
 def _human_date(iso_day: str) -> str:
     d = dt.date.fromisoformat(iso_day[:10])
     return f"{d.day} {d.strftime('%b')} {d.year}"
 
 
-def profile_family(ds: dict, ties: dict, curated: dict | None = None) -> dict:
+def _short(path: str, n: int = 36) -> str:
+    """A path short enough for a sentence: the whole path if it fits, else its file name, cut in the middle if need be."""
+    if len(path) <= n:
+        return path
+    base = path.rsplit("/", 1)[-1]
+    return base if len(base) <= n else base[: n // 2 - 1] + "…" + base[-(n // 2):]
+
+
+BRIDGE_ROWS = 7   # rows in the scene's bridge-file panel; the caption says "up to" this many, and the panel names the rest
+
+
+def bridge_rows(hubs: dict, bridges: dict) -> list[str]:
+    """The repos the bridge-file panel draws, in order: those with a bridge (high churn set aside), then those with only a hub."""
+    return list(bridges) + [r for r in hubs if r not in bridges]
+
+
+def top_bridges(variant: dict, min_component: int = 10) -> dict:
+    """Per repo, the file with the most shortest paths through it (raw betweenness) in a co-change cluster of at least
+    min_component files. Files of one repo only ever share commits with files of the same repo, so clusters never span repos."""
+    best: dict[str, tuple] = {}
+    for fid, v in variant.get("per_file", {}).items():
+        if v["component"] < min_component or v["betweenness"] <= 0:
+            continue
+        repo, path = fid.split(":", 1)
+        key = (v["betweenness"], path)
+        if repo not in best or key > best[repo][0]:
+            best[repo] = (key, path, v)
+    return {r: {"file": p, "betweenness": v["betweenness"], "share_pct": round(100 * v["share"]), "cluster": v["component"],
+                "cut_vertex": v["cut_vertex"], "commits": v["commits"]} for r, (_, p, v) in sorted(best.items(), key=lambda kv: -kv[1][0][0])}
+
+
+def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: dict | None = None, bridges: dict | None = None) -> dict:
     repos = [r for r in ds["repos"] if r.get("present")]
     own = []  # (repo, commit) for commits that are the family's own work
     for r in repos:
@@ -276,6 +315,104 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None) -> dict:
             "ties_curated", "ties",
             f"The fork masterclass graded {len(curated.get('ties', []))} ties by hand: {cg.get('C', 0)} Confirmed, {cg.get('L', 0)} Likely, {cg.get('S', 0)} Suspected.",
             grades=dict(cg), ties=len(curated.get("ties", [])),
+        )
+
+    # Concepts: who touched which files, and which areas move together (x3dray/structure.py, formal concept analysis)
+    if concepts:
+        fc = concepts["files_by_author_class"]
+        ex = concepts["excluded"]
+        mass = concepts["mass_edits"]
+        merges = sum(v for k, v in ex.items() if k.startswith("merges"))
+        privc = sum(v for k, v in ex.items() if k.startswith("private"))
+        nopath = sum(v for k, v in ex.items() if k.startswith("public commits with no paths"))
+        # counted from the files themselves, not looked up as a concept: {you, ai} is a concept only when it is closed
+        kinds = [set(rec["by"]) for rec in fc["files"].values()]
+        only = {k: sum(1 for ks in kinds if ks == {k}) for k in CLASS_KEYS}
+        shared = sum(1 for ks in kinds if len(ks) > 1)
+        you_ai = sum(1 for ks in kinds if {"you", "ai"} <= ks)
+        you_ai_exact = sum(1 for ks in kinds if ks == {"you", "ai"})
+        aside = [f"{n} {what}" for n, what in ((mass["commits"], f"mass edits (more than {concepts['method']['params']['max_files_per_commit']} files)"),
+                                                (merges, "merges"), (privc, "private commits"), (nopath, "public commits with no paths")) if n]
+        sig(
+            "concepts_files", "concepts",
+            (f"Setting aside {_and(aside)}, " if aside else "")
+            + f"{fc['n_commits']} commits touched {fc['n_files']} files: "
+            f"{only['ai']} only by Claude, {only['you']} only by HagopJay's accounts, {only['bot']} only by bots, "
+            f"{only['other'] + only['upstream']} only by other or unmapped identities, and "
+            f"{shared} by more than one kind of author, {you_ai} of them by both HagopJay and Claude. The lattice has {fc['n_concepts']} concepts.",
+            n_files=fc["n_files"], n_commits=fc["n_commits"], n_concepts=fc["n_concepts"], only=only, shared=shared,
+            you_ai=you_ai, you_ai_exact=you_ai_exact, mass_edits=mass["commits"], merges=merges,
+            mass_touch_pct=_pct(mass["file_touches"], mass["of_file_touches"]), mass_touches=mass["file_touches"],
+            private_commits=privc, no_paths=nopath, from_stage="concepts",
+        )
+        rules = sorted(concepts["areas"]["rules"], key=lambda r: (-r["support"], -r["confidence"], r["if"], r["then"]))
+        if rules:
+            top = [{"if": r["if"], "then": r["then"], "both": r["both"], "support": r["support"], "pct": round(100 * r["confidence"]),
+                    "exceptions": len(r["exceptions"])} for r in rules[:5]]
+            sig(
+                "concepts_rules", "concepts",
+                "Areas that move together, as rules: " + "; ".join(f"{t['if']} => {t['then']} in {t['both']} of {t['support']} commits" for t in top[:3])
+                + f". {len(rules)} rules hold for at least {round(100 * concepts['method']['params']['min_rule_confidence'])}% of their commits, each naming its exceptions.",
+                rules=top, n_rules=len(rules), min_pct=round(100 * concepts["method"]["params"]["min_rule_confidence"]), from_stage="concepts",
+            )
+
+    # Bridges: what links the repos and the files (x3dray/structure.py, betweenness and passage points)
+    if bridges:
+        sb = bridges["sessions"]
+        # prefer a pair whose only passage point is a repo: the plainest case of one repo standing between two others
+        repo_pp = sorted(((k, v) for k, v in sb["passage_points"].items() if any(not x.startswith("session:") for x in v)),
+                         key=lambda kv: (len(kv[1]), kv[0]))
+        first_pp = None
+        if repo_pp:
+            k, v = repo_pp[0]
+            a_, b_ = k.split(" -> ")
+            first_pp = {"a": a_, "b": b_, "via": next(x for x in v if not x.startswith("session:"))}
+        pairs = sb["repo_pairs"]
+        sig(                                                  # under 320 characters, so the digest keeps every sentence
+            "bridges_sessions", "bridges",
+            f"{sb['n_multi_repo']} of {sb['n_sessions']} sessions that left a trailer committed to more than one repo, linking "
+            f"{len(pairs)} pairs directly"
+            + (f", most often {pairs[0]['a']} and {pairs[0]['b']} ({len(pairs[0]['sessions'])} sessions)" if pairs else "")
+            + "."
+            + (f" {first_pp['via']} lies on every session path between {first_pp['a']} and {first_pp['b']}." if first_pp else "")
+            + f" {sb['commits_without_trailer']} own commits carry no session trailer, so no recorded session link is not no link.",
+            sessions=sb["n_sessions"], multi=sb["n_multi_repo"], pairs=len(pairs), top_pair=(pairs[0] | {"sessions": len(pairs[0]["sessions"]), "shas": len(pairs[0]["shas"])}) if pairs else None,
+            passage=first_pp, passage_points=sb["passage_points"], unlinked_pairs=len(sb["no_recorded_link"]), repo_pairs=sb.get("n_repo_pairs"),
+            linked_through_others=len(sb.get("linked_through_others", [])),
+            repos_without_session=sb.get("repos_without_session", []),
+            without_trailer=sb["commits_without_trailer"], with_trailer=sb["commits_with_trailer"], from_stage="bridges",
+        )
+        fv = bridges["files"]["variants"]
+        hubs, brid = top_bridges(fv["count"]), top_bridges(fv["jaccard"])
+        big = sorted(r for r, n in fv["jaccard"].get("largest_cluster_by_repo", {}).items() if n >= 10) or sorted(brid)
+        n_b, n_g = len(brid), len(big)                        # a repo can have a cluster of ten in which no file lies between two
+        n_hc = len(bridges["files"]["high_churn"])
+        rows = bridge_rows(hubs, brid)
+        lead = list(brid.items())[:1]                         # one example: the bridges tool lists every repo's
+        hub_lead = list(hubs.items())[:1]
+        if brid:
+            body = ((("the one repo" if n_g == 1 else f"all {n_g} repos") if n_b == n_g else f"{n_b} of the {n_g} repos")
+                    + f" with a cluster of ten or more files {'has' if n_b == 1 else 'have'} a file between others in it; "
+                    + "; ".join(f"in {r}, {_short(v['file'])} is on {v['share_pct']}% of the shortest paths between the other files of its "
+                                f"cluster of {v['cluster']}" for r, v in lead) + ".")
+        elif n_g:
+            body = ("the one repo with a cluster of ten or more files has no file between others in it." if n_g == 1
+                    else f"none of the {n_g} repos with a cluster of ten or more files has a file between others in it.")
+        else:
+            body = "no repo has a cluster of ten or more files, so no file is named as a bridge."
+        # The two graphs differ in their files (high churn set aside) and in their distance (Jaccard, or shared commits), so with
+        # no high-churn file the sentence names the distance, and it gives the hubs whenever they are not the same files.
+        differs = any((hubs.get(r) or {}).get("file") != (brid.get(r) or {}).get("file") for r in set(hubs) | set(brid))
+        sig(
+            "bridges_files", "bridges",
+            (f"With the {n_hc} high-churn files set aside, " if n_hc else "By Jaccard distance, ") + body
+            + ((" With them kept, hubs such as " if n_hc else " Counting shared commits instead, hubs such as ")
+               + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first." if hub_lead and (n_hc or differs) else ""),
+            per_repo=brid, hubs=hubs, high_churn=n_hc, repos_with_a_cluster_of_ten=big, with_bridge=n_b, with_cluster=n_g,
+            rows=len(rows[:BRIDGE_ROWS]), rows_max=BRIDGE_ROWS, rows_left_out=rows[BRIDGE_ROWS:],
+            **({"lead_repo": lead[0][0], "lead_file": lead[0][1]["file"], "lead_share": lead[0][1]["share_pct"],
+                "lead_cluster": lead[0][1]["cluster"], "lead_cut": lead[0][1]["cut_vertex"]} if lead else {}),
+            cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",
         )
 
     # Idle forks and second account

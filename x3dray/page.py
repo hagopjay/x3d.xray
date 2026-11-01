@@ -46,6 +46,7 @@ def _github(cfg_repo: dict | None, owner: str, name: str, visibility: str) -> st
 def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -> dict:
     ds, ti, prof = _j(data_dir, "dataset.json"), _j(data_dir, "ties.json"), _j(data_dir, "profile.json")
     spec, selfd, cur = _j(data_dir, "spec.rendered.json"), _j(data_dir, "self.json"), _j(data_dir, "curated.json", {}) or {}
+    con, bri = _j(data_dir, "concepts.json"), _j(data_dir, "bridges.json")
     layout = _j(scene_dir, "layout.json")
     owner = (family_cfg or {}).get("owner") or ds.get("owner") or "hagopjay"
     cfg_repos = {r["name"]: r for r in (family_cfg or {}).get("repos", [])}
@@ -120,6 +121,8 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
         "files": files,
         "ties": {"machine": machine, "curated": curated_ties, "series": cur.get("series", []), "grades": cur.get("grades") or
                  {"C": "Confirmed", "L": "Likely", "S": "Suspected"}, "dropped_without_witness": len(ti.get("pairs", [])) - len(machine)},
+        "concepts": con,    # x3dray/structure.py: formal concept analysis (None when the stage did not run)
+        "bridges": bri,     # x3dray/structure.py: betweenness and passage points
         "signals": prof["signals"],
         "spec": {k: spec.get(k) for k in ("title", "subtitle", "author", "views", "tour", "questions")},
         "self": sd,

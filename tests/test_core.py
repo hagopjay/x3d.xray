@@ -86,6 +86,14 @@ class Identities(unittest.TestCase):
         self.assertEqual(book.classify("someone", "x@y.z"), ("other", "other"))
         self.assertNotIn("example.org", repr(cfg))
 
+    def test_one_label_is_one_class(self):
+        two = {"identities": [{"label": "Pat", "class": "you", "match_names": ["Pat"]}, {"label": "Pat", "class": "bot", "match_names": ["pat-bot"]}]}
+        with self.assertRaises(ValueError):
+            harvest.IdentityBook(two)
+        with self.assertRaises(ValueError):                                # the default identity is other, of class other
+            harvest.IdentityBook({"identities": [{"label": "other", "class": "you", "match_names": ["x"]}]})
+        harvest.IdentityBook({"identities": [{"label": "Pat", "class": "you", "match_names": ["Pat"]}, {"label": "Pat", "class": "you", "match_names": ["P"]}]})
+
 
 class Privacy(unittest.TestCase):
     def test_addresses_and_session_urls_are_caught(self):

@@ -25,7 +25,7 @@ SLOT = re.compile(r"\{([^{}|]+)(?:\|(\w+))?\}")
 NAMEISH = re.compile(r"(?<![\w.])[A-Za-z_][\w\-]*(?:\.[A-Za-z_][\w\-]*)*\d[\w.\-]*|(?<![\w.])[A-Za-z_][\w\-]*\d[\w\-]*")
 FORMATS = {"n", "pct", "date", "hour", "raw", "k"}
 ACTIONS = {"highlight", "color_by", "xray", "clear"}
-VIEWS_KNOWN = {"overview", "helix", "burst", "peak", "rhythm", "ties", "fork", "city", "hotspots", "self", "claude"}
+VIEWS_KNOWN = {"overview", "helix", "burst", "peak", "rhythm", "ties", "fork", "city", "hotspots", "self", "claude", "concepts", "bridges"}
 MAX_CAPTION = 420
 MAX_CLAIM = 200
 # A view's claim is one sentence the view backs (a Viewpoint named as a claim, not a position). basis says who is speaking:

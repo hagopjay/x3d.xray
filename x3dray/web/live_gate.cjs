@@ -162,6 +162,14 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
       res.fly = call('show', { repo: 'x3d.ML', place: 'city' });
       res.alias = call('show', { repo: 'x3d.ai' });
       res.vocab = call('highlight', { repo: 'x3d.prov.v2' });
+      const sid = Object.keys(window.xray.L.bridges ? window.xray.L.bridges.sessions : {})[0];
+      res.session = sid ? call('show', { session: sid }) : { skipped: true, bundle_has: !!window.xray.B.bridges };
+      res.concept = window.xray.L.concepts ? call('show', { concept: 'claude,hagopjay' }) : { skipped: true, bundle_has: !!window.xray.B.concepts };
+      res.every = window.xray.L.concepts ? call('show', { concept: 'every file' }) : { skipped: true, bundle_has: !!window.xray.B.concepts };
+      // a file as the tools print it: repo:path is that repo's file, and a line number is dropped
+      const root = window.xray.L.city.buildings.find(b => b.path === 'README.md');
+      res.file = root ? call('show', { file: root.repo + ':README.md:3' }) : { skipped: true };
+      res.file_want = root ? root.repo + ':README.md' : null;
       res.state = { view: window.xray.view, lit: window.xray.lit ? window.xray.lit.size : 0, notes: window.xray.notes, mode: window.xray.mode };
       call('highlight', { clear: true }); call('note', { clear: true }); call('color_by', { mode: 'who' });
       return res;
@@ -200,7 +208,8 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
       await q.waitForFunction(() => !document.getElementById('q').disabled, null, { timeout: 15000 }).catch(() => {});
       const ai = await q.evaluate(() => window.xray.B.commits.filter(c => c.c === 'ai').length);
       await q.evaluate(() => { window.__stub.plan = [['query_commits', { who: 'ai', limit: 3 }], ['traverse', { from: 'blender io', to: 'onto' }], ['show', { view: 'claude' }],
-        ['highlight', { who: 'claude', xray: true }], ['note', { text: 'gate: a note from the stand-in', repo: 'x3d.ML' }], ['top_files', { repo: 'graphify' }], ['ties', { repo: 'nonsense-repo' }]]; });
+        ['highlight', { who: 'claude', xray: true }], ['note', { text: 'gate: a note from the stand-in', repo: 'x3d.ML' }], ['top_files', { repo: 'graphify' }], ['ties', { repo: 'nonsense-repo' }],
+        ['concepts', { who: 'you,ai' }], ['bridges', { between: 'x3d.ML,x3d_mcp' }]]; });
       await q.click('.qchip');
       await q.waitForFunction(() => { const a = document.querySelector('.msg.assistant .ans'); return a && /Route: both/.test(a.textContent); }, null, { timeout: 20000 }).catch(() => {});
       await sleep(2800);
@@ -231,7 +240,10 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
     r.checks.claim_shown = !!S.claim;
     r.checks.ask_explains_its_absence = S.ask.shown && S.ask.input_disabled && /Claude/.test(S.ask.text);
     r.checks.scene_tools_work = T.show.shown === 'ties' && T.highlight.lit > 0 && T.note.placed === true && T.color.mode === 'repo' && T.fly.moved === true &&
-      T.alias.shown === 'x3d_ai' && /not in vocabulary/.test(T.vocab.error || '') && T.state.notes === 1;
+      T.alias.shown === 'x3d_ai' && /not in vocabulary/.test(T.vocab.error || '') && T.state.notes === 1 &&
+      (T.session.skipped ? !T.session.bundle_has : T.session.moved === true) && (T.concept.skipped ? !T.concept.bundle_has : T.concept.moved === true) &&
+      (T.every.skipped ? !T.every.bundle_has : T.every.moved === true && T.every.shown === 'every file') &&
+      (T.file.skipped || (T.file.moved === true && T.file.shown === T.file_want));
     r.checks.click_in_scene_opens_card = !!r.click;
     r.checks.no_horizontal_scroll = r.overflow.scrollW <= r.overflow.innerW && r.overflow.bad.length === 0;
     r.checks.no_console_errors = !r.console.some(c => /^(error|pageerror)/.test(c) && !known(c));
@@ -241,10 +253,10 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
     if (run.stub) {
       const A = r.ask;
       r.checks.ask_call_is_well_formed = A.calls === 1 && A.problems.length === 0 && !A.has_cache && A.modelTier === 'default' && A.prompt_bytes < 262144;
-      r.checks.ask_tools_ran = A.results.length === 7 && A.results.slice(0, 5).every(x => !x.error) && /not in vocabulary/.test((A.results[6] || {}).error || '') &&
-        /unknown/.test((A.results[5] || {}).summary || '');
+      r.checks.ask_tools_ran = A.results.length === 9 && A.results.slice(0, 5).every(x => !x.error) && /not in vocabulary/.test((A.results[6] || {}).error || '') &&
+        /unknown/.test((A.results[5] || {}).summary || '') && A.results.slice(7).every(x => !x.error && /"excluded"/.test(x.summary || ''));
       r.checks.ask_moved_the_scene = A.scene.view === 'claude' && A.scene.lit === A.scene.ai && A.scene.notes === 1 && A.scene.xray === true;
-      r.checks.ask_streamed_the_answer = /Route: both/.test(A.answer || '') && A.tool_lines === 7 && A.failed_lines.length === 1;
+      r.checks.ask_streamed_the_answer = /Route: both/.test(A.answer || '') && A.tool_lines === 9 && A.failed_lines.length === 1;
       r.checks.ask_rate_limited_copy = /busy|usage limit/.test(r.ask_rate_limited || '');
       r.checks.ask_not_granted_turns_off = r.ask_not_granted.off === true && /not allowed|off/.test(r.ask_not_granted.answer + r.ask_not_granted.state);
     }

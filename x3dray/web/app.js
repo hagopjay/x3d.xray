@@ -1,6 +1,6 @@
 // x3d-ray page: loads the bundle and the X3D scene (X_ITE), draws the readouts, runs the tour, and wires Claude in
 // through the Artifact's sample capability, with the same tools the MCP server serves plus four that move the scene.
-import { makeTools, digest, matchCommits, resolveRepo, CLASS_NAMES } from './tools.js';
+import { makeTools, digest, matchCommits, resolveRepo, sessionId, kindsOf, splitFile, CLASS_NAMES, kindsName } from './tools.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,7 +16,8 @@ const WHO = { you: 'HagopJay', ai: 'Claude', bot: 'bots', other: 'other', upstre
 const REPO_HUES = ['#5ac8e0', '#f0b443', '#e8795d', '#a4bf7a', '#a68fdc', '#e0a3d8', '#6fb7e0', '#f29e6d', '#7fd1c7', '#d9d2c3', '#8b98d6', '#c9e07a'];
 const SIGNAL_VIEW = { family_span: 'helix', who_commits: 'claude', busiest_month: 'burst', busiest_day: 'peak', births: 'helix', ai_share_by_repo: 'claude',
   weekly_mix: 'claude', bot_identity: 'helix', rhythm: 'rhythm', pairing: 'claude', largest_commits: 'helix', sessions: 'claude', tests: 'city',
-  x3d_assets: 'city', hotspots: 'hotspots', branches: 'helix', pins: 'fork', ties_machine: 'ties', ties_curated: 'ties', idle_forks: 'ties', second_account: 'ties' };
+  x3d_assets: 'city', hotspots: 'hotspots', branches: 'helix', pins: 'fork', ties_machine: 'ties', ties_curated: 'ties', idle_forks: 'ties', second_account: 'ties',
+  concepts_files: 'concepts', concepts_rules: 'concepts', bridges_sessions: 'bridges', bridges_files: 'bridges' };
 const SIGNAL_HI = { bot_identity: { who: 'bot' }, pairing: { trailer: true, who: 'you' }, who_commits: { who: 'ai' }, sessions: { who: 'ai' } };
 
 function hex3(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
@@ -266,11 +267,21 @@ function pick(view, p) {
   }
   if (view === 'city') { const n = nearest(L.city.buildings, p, q => q.p); return n && n.d < 3 ? { type: 'file', b: L.city.buildings[n.i] } : null; }
   if (view === 'self') { const st = Object.entries(L.self.stages), n = nearest(st, p, q => q[1]); return n ? { type: 'stage', name: st[n.i][0] } : null; }
+  if (view === 'concepts' && L.concepts) {
+    const items = L.concepts.files.map(c => ({ kind: 'files', ...c })).concat(L.concepts.repos.map(c => ({ kind: 'repos', ...c })));
+    const n = nearest(items, p, q => q.p); return n && n.d < items[n.i].r + 1.2 ? { type: 'concept', of: items[n.i].kind, i: items[n.i].i } : null;
+  }
+  if (view === 'bridges' && L.bridges) {
+    const items = Object.entries(L.bridges.repos).map(([k, v]) => ({ type: 'brepo', name: k, ...v })).concat(Object.entries(L.bridges.sessions).map(([k, v]) => ({ type: 'session', name: k, ...v })),
+      L.bridges.files.map(b => ({ type: 'bfile', b, p: b.p, r: 0.3 })));
+    const n = nearest(items, p, q => q.p); if (!n || n.d > items[n.i].r + 1.6) return null;
+    const it = items[n.i]; return it.type === 'bfile' ? { type: 'bfile', b: it.b } : { type: it.type, name: it.name };
+  }
   return null;
 }
 function wirePicking() {
   const tag = $('tag');
-  [['TS_helix', 'helix'], ['TS_ties', 'ties'], ['TS_city', 'city'], ['TS_self', 'self']].forEach(([def, view]) => {
+  [['TS_helix', 'helix'], ['TS_ties', 'ties'], ['TS_city', 'city'], ['TS_self', 'self'], ['TS_concepts', 'concepts'], ['TS_bridges', 'bridges']].forEach(([def, view]) => {
     const ts = node(def); if (!ts) return;
     let hp = null, over = false, raf = 0;
     ts.addFieldCallback('xr', 'hitPoint_changed', v => {
@@ -291,8 +302,13 @@ function titleOf(it) {
   if (it.type === 'tie') return (it.tie.id ? it.tie.id + ' ' : '') + it.tie.from + ' → ' + it.tie.to + ' · ' + it.tie.grade;
   if (it.type === 'file') return it.b.repo + ' · ' + it.b.path;
   if (it.type === 'stage') return 'stage: ' + it.name;
+  if (it.type === 'concept') { const c = conceptOf(it); return c ? `${kindsName(c.intent, it.of === 'repos' ? 'every repo' : 'every file')} · ${c.support} ${it.of}` : ''; }
+  if (it.type === 'brepo') return it.name + ' · session graph';
+  if (it.type === 'session') return 'Claude session ' + it.name;
+  if (it.type === 'bfile') return `${it.b.repo} · ${it.b.variant} · ${it.b.file}`;
   return '';
 }
+function conceptOf(it) { const C = X.B.concepts; if (!C) return null; return (it.of === 'repos' ? C.repos_by_author_class : C.files_by_author_class).concepts[it.i]; }
 
 function ghFile(repo, path) { const r = X.B.repos.find(x => x.name === repo); return r && r.github ? r.github + '/blob/HEAD/' + path.split('/').map(encodeURIComponent).join('/') : null; }
 function ghCommit(repo, sha) { const r = X.B.repos.find(x => x.name === repo); return r && r.github && sha ? r.github + '/commit/' + sha : null; }
@@ -330,6 +346,39 @@ function showCard(it) {
     h = `<p class="ck">x3d.xray stage · ${p.model ? 'AI takes part' : 'no model'}</p><h3>${esc(p.stage)}</h3><p class="mono small">${esc(p.module)} · ${fmt(p.lines)} lines · ${esc(Object.values(p.sha256 || {}).join(' '))}</p><p>${esc(p.does)}</p>` +
       (p.model ? `<p class="ai">${esc(p.model)}</p>` : '');
     ask = `How does the ${p.stage} stage of x3d.xray work, and what checks it?`;
+  } else if (it.type === 'concept') {
+    const c = conceptOf(it), C = B.concepts, name = kindsName(c.intent, it.of === 'repos' ? 'every repo' : 'every file');
+    if (it.of === 'files') {
+      h = `<p class="ck">concept · files by who touched them</p><h3>${esc(name)}</h3><dl><dt>files</dt><dd>${fmt(c.support)} touched by at least these kinds</dd>` +
+        `<dt>only these</dt><dd>${fmt(c.exact)} touched by exactly these kinds</dd><dt>repos</dt><dd>${esc(Object.entries(c.by_repo).slice(0, 5).map(([k, v]) => k + ' ' + v).join(', '))}</dd></dl>` +
+        c.top_files.slice(0, 4).map(t => `<p class="ev mono">${esc(t.id)} · ${t.commits} commit${t.commits === 1 ? '' : 's'}</p>`).join('') +
+        `<p class="small">Set aside and counted: ${esc(Object.entries(C.excluded).map(([k, v]) => v + ' ' + k.split(' (')[0]).join(', '))}.</p>`;
+      ask = c.intent.length ? `Which files did ${name} touch, and what were those commits about?` : 'What does the concept lattice say about who touched which files?';
+    } else {
+      h = `<p class="ck">concept · repos by who has committed</p><h3>${esc(name)}</h3><dl><dt>repos</dt><dd>${esc(c.repos.join(', '))}</dd>` +
+        `<dt>exactly these</dt><dd>${esc(c.exact.join(', ') || 'none')}</dd></dl>`;
+      ask = `Which repos have had commits from ${name}, and how many from each?`;
+    }
+  } else if (it.type === 'brepo' || it.type === 'session') {
+    const S = B.bridges.sessions;
+    if (it.type === 'session') {
+      const rec = S.sessions[it.name], pp = Object.entries(S.passage_points).filter(([, v]) => v.includes('session:' + it.name)).map(([k]) => k);
+      h = `<p class="ck">Claude session · ${Object.keys(rec.repos).length > 1 ? 'spans repos' : 'one repo'}</p><h3 class="mono">${esc(it.name)}</h3><dl>` +
+        `<dt>commits</dt><dd>${esc(Object.entries(rec.repos).map(([k, v]) => k + ' ' + v).join(', '))}</dd>` + (pp.length ? `<dt>passage point</dt><dd>on every session path between ${esc(pp.join('; '))}</dd>` : '') + '</dl>' +
+        rec.shas.slice(0, 3).map(sh => `<p class="ev mono">${esc(sh)}</p>`).join('');
+      ask = `What did Claude session ${it.name} do, and which repos does it link?`;
+    } else {
+      const n = Object.values(S.sessions).filter(rec => rec.repos[it.name] !== undefined).length, pp = Object.entries(S.passage_points).filter(([, v]) => v.includes(it.name)).map(([k]) => k);
+      h = `<p class="ck">repo · session graph</p><h3>${esc(it.name)}</h3><dl><dt>sessions</dt><dd>${n}</dd>` + (pp.length ? `<dt>passage point</dt><dd>on every session path between ${esc(pp.join('; '))}</dd>` : '') +
+        `<dt>through others only</dt><dd>with ${(S.linked_through_others || []).filter(p => p.includes(it.name)).length} repos</dd>` +
+        `<dt>no recorded session link</dt><dd>with ${S.no_recorded_link.filter(p => p.includes(it.name)).length} repos</dd></dl>`;
+      ask = `What links ${it.name} to the other repos, and where is there no recorded session link?`;
+    }
+  } else if (it.type === 'bfile') {
+    const b = it.b, gh = ghFile(b.repo, b.file), v = B.bridges.files.variants[b.variant === 'hub' ? 'count' : 'jaccard'].per_file[b.repo + ':' + b.file] || {};
+    h = `<p class="ck">${b.variant === 'hub' ? 'hub · every file kept' : 'bridge · high-churn files set aside'} · ${esc(b.repo)}</p><h3 class="mono">${gh ? `<a href="${esc(gh)}" target="_blank" rel="noopener">${esc(b.file)}</a>` : esc(b.file)}</h3>` +
+      `<dl><dt>paths through it</dt><dd>${Math.round(100 * (v.share || 0))}% of those between the other files of its cluster of ${fmt(v.component)}</dd><dt>cut vertex</dt><dd>${v.cut_vertex ? 'yes: removing it splits its cluster' : 'no'}</dd><dt>commits</dt><dd>${fmt(v.commits)}</dd></dl>`;
+    ask = `Why is ${b.repo}:${b.file} a ${b.variant} in the co-change graph, and what changes with it?`;
   }
   $('cardBody').innerHTML = h;
   $('cardAsk').hidden = !askState.on; $('cardAsk').dataset.q = ask;
@@ -369,11 +418,29 @@ function targetPoint(q) {
   if (q.repo) q = { ...q, repo: resolveRepo(B, q.repo) };   // aliases resolve; an unknown name throws "not in vocabulary"
   if (q.sha) { const i = B.commits.findIndex(c => (c.h || '').startsWith(String(q.sha).toLowerCase())); if (i >= 0) return { p: L.commits[i], kind: 'helix', label: B.commits[i].r + ' ' + B.commits[i].h }; }
   if (q.day) { const d = L.days.find(x => x.day === q.day); if (d) return { p: [(d.x0 + d.x1) / 2, 0, 0], kind: 'helix', label: q.day }; }
-  if (q.file) { const b = L.city.buildings.find(x => x.path === q.file || x.path.endsWith(q.file)); if (b) return { p: b.p, kind: 'city', label: b.repo + ':' + b.path }; }
+  if (q.file) {   // a file as the tools and the ties print it (splitFile), lines dropped: an exact path, then a path ending at a '/', in that repo if named
+    const bs = L.city.buildings, lowPaths = bs.map(b => b.path.toLowerCase());   // in any case, as the tools read a file
+    const f = splitFile(B, q.file, x => lowPaths.some(p => p.includes(x.toLowerCase())), x => lowPaths.some(p => p === x.toLowerCase() || p.endsWith('/' + x.toLowerCase())));
+    const repo = f.repo || q.repo || '', path = f.path, low = path.toLowerCase(), inR = bs.filter(x => !repo || x.repo === repo);
+    const b = inR.find(x => x.path === path) || inR.find(x => x.path.endsWith('/' + path))
+      || inR.find(x => x.path.toLowerCase() === low) || inR.find(x => x.path.toLowerCase().endsWith('/' + low));
+    if (b) return { p: b.p, kind: 'city', label: b.repo + ':' + b.path };
+  }
   if (q.tie) { const t = L.ties.curated.find(x => x.id === String(q.tie).toUpperCase()); if (t) return { p: t.p, kind: 'ties', label: t.id }; }
+  if (q.session && L.bridges) {   // s-..., session:s-... or "session s-...", as the tools print it; an unknown one is refused
+    const sid = sessionId(B, q.session), s = L.bridges.sessions[sid]; if (s) return { p: s.p, kind: 'bridges', label: 'session ' + sid };
+  }
+  if (q.concept && L.concepts && B.concepts) {
+    // kinds as any tool or the scene prints them ("you,ai", "HagopJay + Claude"); the concept for them is their closure: of the
+    // concepts whose kinds include them all, the one holding the most files
+    const wk = kindsOf(q.concept);
+    const c = B.concepts.files_by_author_class.concepts.filter(x => wk.every(k => x.intent.includes(k))).sort((a, b) => b.support - a.support)[0];
+    const at = c && L.concepts.files.find(x => x.i === c.i); if (at) return { p: at.p, kind: 'concepts', label: kindsName(c.intent) };
+  }
   if (q.repo) {
     const place = q.place || 'ties';
     if (place === 'city' && L.city.districts[q.repo]) return { p: L.city.districts[q.repo].center, kind: 'city', label: q.repo };
+    if (place === 'bridges' && L.bridges && L.bridges.repos[q.repo]) return { p: L.bridges.repos[q.repo].p, kind: 'bridges', label: q.repo + ' in the session graph' };
     if (place === 'helix') { const idx = B.commits.map((c, i) => c.r === q.repo ? i : -1).filter(i => i >= 0); if (idx.length) return { p: L.commits[idx[Math.floor(idx.length / 2)]], kind: 'helix', label: q.repo }; }
     if (L.nodes[q.repo]) return { p: L.nodes[q.repo].p, kind: 'ties', label: q.repo };
   }
@@ -393,7 +460,7 @@ function lookAt(pos, tgt) {   // axis-angle for a viewpoint at pos looking at tg
 }
 let flyFlip = false;
 function flyTo(t) {
-  const off = t.kind === 'city' ? [2.5, 6, 8] : t.kind === 'ties' ? [0.8, 1.2, 8.5] : [0.6, 2.2, 6.5];
+  const off = t.kind === 'city' ? [2.5, 6, 8] : t.kind === 'ties' ? [0.8, 1.2, 8.5] : (t.kind === 'concepts' || t.kind === 'bridges') ? [0.4, 0.8, 9.5] : [0.6, 2.2, 6.5];
   const pos = [t.p[0] + off[0], t.p[1] + off[1], t.p[2] + off[2]];
   const vp = node(flyFlip ? 'VP_fly2' : 'VP_fly'); flyFlip = !flyFlip; if (!vp) return false;
   const o = lookAt(pos, t.p);
@@ -412,7 +479,7 @@ const sceneApi = {
       return { shown: q.view, claim: vw.claim ? `[${vw.claim.says}] ${vw.claim.text}` : undefined, caption: captionFor(q.view), scene_ready: X.ready };
     }
     const t = targetPoint(q);
-    if (!t) throw new Error('nothing to show: give a view, or a repo, sha, day, file or tie that exists');
+    if (!t) throw new Error('nothing to show: give a view, or a repo, sha, day, file, tie, session or concept that exists');
     const ok = X.ready && flyTo(t);
     return { shown: t.label, in: t.kind, scene_ready: X.ready, moved: !!ok };
   },
@@ -432,7 +499,7 @@ const sceneApi = {
     const text = String(q.text || '').trim().slice(0, 80);
     if (!text) throw new Error('a note needs text');
     if (X.notes >= 12) throw new Error('12 notes already; clear them first');
-    const t = targetPoint(q); if (!t) throw new Error('give a repo, sha, day, file or tie to pin the note to');
+    const t = targetPoint(q); if (!t) throw new Error('give a repo, sha, day, file, tie, session or concept to pin the note to');
     if (!g) return { placed: false, scene_ready: false };
     const sc = X.browser.currentScene, mk = n => sc.createNode(n);
     const words = text.split(' '), lines = []; let cur = '';
@@ -471,7 +538,8 @@ What you are looking at: a tool called x3d.xray built this page with no model in
 
 How to answer:
 - Ground every number in the digest below or in a tool result. If the data does not hold the answer, say so plainly. Never guess what a private repo contains.
-- Two routes. Lookup: query_commits, activity, top_files, ties and signals answer exact questions from tables. Traverse: traverse walks the tie graph for "what connects A to B" or "what depends on A". End each answer with one short line saying which route you used (lookup, traverse, both, or digest only).
+- Two routes. Lookup: query_commits, activity, top_files, ties, signals, concepts and bridges answer exact questions from tables. Traverse: traverse walks the tie graph for "what connects A to B" or "what depends on A". End each answer with one short line saying which route you used (lookup, traverse, both, or digest only).
+- concepts (who touched which files; which areas move together) and bridges (which sessions link which repos; which files lie on the most shortest paths between others) say what each part read and set aside (excluded): quote it whenever an answer could read as none. A private repo answers with counts only: its files are unknown, never none. Two repos one session committed to are linked directly; two joined only through other repos are linked through others; two that no chain of sessions joins have no recorded session link, never "no link", and the ties may still join them. Betweenness compares files only within one cluster. A list cut for size says how many it left out.
 - how_built says how the page, a stage or a signal was made (it can show source lines), what makes two things the same thing here (identity), and the denominators behind Claude's share.
 - Repo names go through the family's vocabulary: "x3d.ai" is x3d_ai, ".prov" is the provenance stage inside x3d.ML (there is no .prov repo). When a tool answers "not in vocabulary", say so and offer the nearest names; never guess which repo was meant.
 - Unknown is not zero. A repo whose tree was not measured, or a private repo's contents, is unknown: say "not measured", never "none". A tie with no witness is not shown here, so never assert one.
@@ -535,6 +603,8 @@ function bubble(role, html) {
 
 function summarize(name, r) {
   if (!r || typeof r !== 'object') return 'done';
+  if (r.summary) return r.summary;
+  if (r.status) return r.status;
   if (r.route === 'traverse') return r.to ? (r.hops === null ? 'no path within three hops' : `${r.hops} hop${r.hops === 1 ? '' : 's'}`) : `${r.neighbours} neighbours`;
   if (r.unknown) return 'unknown: not measured';
   if (r.matched !== undefined) return `${r.matched} matched`;

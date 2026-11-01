@@ -11,7 +11,7 @@
     {
       "id": "overview",
       "label": "Overview",
-      "caption": "Four instruments on one film. Left, the tie constellation; centre, the time helix; right, the code city; in front, the pipeline that drew all three. That pipeline, x3d.xray, is itself one of the repos it reads.",
+      "caption": "Six instruments on one film. Left, the tie constellation; centre, the time helix; right, the code city; above, the concept lattices and the bridges; in front, the pipeline that drew them all. That pipeline, x3d.xray, is itself one of the repos it reads.",
       "claim": {
         "text": "x3d.xray x-rays {family_span.repos} repos of git history, and it is one of them.",
         "backs": [
@@ -132,9 +132,33 @@
       }
     },
     {
+      "id": "concepts",
+      "label": "Concepts",
+      "caption": "Leaving out mass edits, merges and private commits, each counted under excluded: each sphere is a concept, a set of kinds of author with every file all of them touched. {concepts_files.only.ai} files were touched only by Claude, {concepts_files.only.you} only by HagopJay's accounts and {concepts_files.you_ai} by both. The small lattice sorts the repos the same way, counting every commit but merges. A file missing here is not an untouched file.",
+      "claim": {
+        "text": "Leaving out mass edits, merges and private commits, {concepts_files.you_ai} of {concepts_files.n_files} files carry commits by both HagopJay and Claude.",
+        "backs": [
+          "concepts_files"
+        ],
+        "basis": "git"
+      }
+    },
+    {
+      "id": "bridges",
+      "label": "Bridges",
+      "caption": "Left, the Claude-session graph: {bridges_sessions.multi} of the {bridges_sessions.sessions} sessions that left a trailer committed to more than one repo; gold rings mark what lies on every path between two repos. Right, up to {bridges_files.rows_max|n} repos with a file between others in a cluster of ten or more files: the one on the most shortest paths, high churn kept and set aside. {bridges_sessions.without_trailer|n} own commits carry no session trailer, so a pair with no recorded session link may still be tied.",
+      "claim": {
+        "text": "In the Claude-session graph, {bridges_sessions.passage.via} lies on every path between {bridges_sessions.passage.a} and {bridges_sessions.passage.b}.",
+        "backs": [
+          "bridges_sessions"
+        ],
+        "basis": "git"
+      }
+    },
+    {
       "id": "self",
       "label": "The tool",
-      "caption": "This row is x3d.xray: one block per stage of the pipeline that drew this page, with its module and code hash. Grey stages run no model; coral stages are where Claude writes. Commits of x3d.xray in the data it drew: {self:in_its_own_data.commits_in_data}.",
+      "caption": "This row is x3d.xray: one block per stage of the pipeline that drew this page, with its modules and their code hashes. Grey stages run no model; coral stages are where Claude writes. Commits of x3d.xray in the data it drew: {self:in_its_own_data.commits_in_data}.",
       "claim": {
         "text": "Code draws every shape and fills every number; Claude writes only the captions and the answers.",
         "backs": [
@@ -147,11 +171,11 @@
   "tour": [
     {
       "view": "overview",
-      "title": "Four instruments",
+      "title": "Six instruments",
       "action": {
         "clear": {}
       },
-      "caption": "One scene, four readings of the same {family_span.commits} commits: who and when (the helix), what ties to what (the constellation), what is there now (the city), and how this page was made (the row in front)."
+      "caption": "One scene, six readings drawn from the same {family_span.commits} commits: who and when (the helix), what ties to what (the constellation), what is there now (the city), who touched what and what links what (the two diagrams above, each naming what it set aside), and how this page was made (the row in front)."
     },
     {
       "view": "helix",
@@ -240,6 +264,22 @@
       "caption": "The hottest roofs are vendored schemas: one commit can add tens of thousands of lines nobody typed. The fork's {repo:x3d_mcp/tests|n} test functions are the better measure of its work."
     },
     {
+      "view": "concepts",
+      "title": "Who touched what",
+      "action": {
+        "clear": {}
+      },
+      "caption": "Formal concept analysis groups the {concepts_files.n_files} files that usable commits touched by exactly who touched them. Rules come from the same idea: {concepts_rules.rules.0.if} => {concepts_rules.rules.0.then} holds in {concepts_rules.rules.0.both} of {concepts_rules.rules.0.support} commits, and the tool names the commits that break it."
+    },
+    {
+      "view": "bridges",
+      "title": "What links what",
+      "action": {
+        "clear": {}
+      },
+      "caption": "Betweenness asks what sits between other things. In the Claude-session graph, {bridges_sessions.passage.via} lies on every path between {bridges_sessions.passage.a} and {bridges_sessions.passage.b}. Among files, with the high-churn files set aside, {bridges_files.lead_file|raw} in {bridges_files.lead_repo} lies on {bridges_files.lead_share|pct} of the shortest paths between the other files of its cluster."
+    },
+    {
       "view": "self",
       "title": "The tool in its own data",
       "action": {
@@ -258,6 +298,8 @@
     "Which Claude sessions committed to more than one repo?",
     "How was the busiest day computed? Show me the code.",
     "What on this page did an AI write, and what checked it?",
-    "Where does the machine disagree with the masterclass's hand-graded ties?"
+    "Where does the machine disagree with the masterclass's hand-graded ties?",
+    "Which files did HagopJay and Claude both touch, and do tests move with code?",
+    "What links x3d.ML to the other repos, and where is there no recorded session link?"
   ]
 }
