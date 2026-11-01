@@ -157,38 +157,57 @@ export function bestBridges(variant, min = 10) {
 }
 
 const isRepoName = (B, s) => { try { return !!resolveRepo(B, s); } catch (e) { return false; } };
-const LINES = /^(.+?):(\d+(?:[-:]\d+)?(?:\s*,\s*\d+(?:-\d+)?)*):?$/;   // :12, :12:3, :700-774, :2,16-17,23, ":80, 162", grep's "12:"
-// A file in any form the tools and the tie evidence print it: path, repo:path, and either with lines (path:12, path:700-774,
-// path:2,16-17,23). The head before the first ':' is a repo when the vocabulary knows it (an alias may hold a '/', such as
-// owner/name); the lines are dropped, since the lattice, the graphs and the city hold whole files. holds(p) says whether some
-// known path holds p, so a path with a ':' of its own stays whole. A head that is no repo is refused with the nearest names when
-// it is one word or owner/name with a known name; any other head (it holds a folder) starts a path.
-export function splitFile(B, v, holds = () => false) {
+const LINES = /^(.+?):(\d+(?:[-:]\d+)?(?:\s*,\s*:?\d+(?:-\d+)?)*):?$/;   // :12, :12:3, :700-774, :2,16-17,23, ":80, 162", ":7, :18", grep's "12:"
+// A file in any form the tools and the tie evidence print it: path, repo:path or the evidence's "repo path", any of them with
+// lines (path:12, path:700-774, path:2,16-17,23, "path:7, :18"). The head before the first ':' is a repo when the vocabulary
+// knows it (an alias may hold a '/', such as owner/name, or a space); failing that, so are the first one to three words before a
+// space, unless the whole is a known path. The lines are dropped, since the lattice, the graphs and the city hold whole files.
+// holds(p) says whether some known path holds p, so a path with a ':' of its own stays whole; isPath(p) whether a known path is
+// p or ends in '/' + p. A head that is no repo is refused with the nearest names when it is one word or owner/name with a known
+// name, unless it is itself a known path (then what follows its ':' is dropped like a line); any other head starts a path.
+export function splitFile(B, v, holds = () => false, isPath = () => false) {
   const raw = str(v).replace(/^\/+/, ''), i = raw.indexOf(':'), head = i > 0 ? raw.slice(0, i) : '';
-  const repo = head && isRepoName(B, head) ? resolveRepo(B, head) : '';
-  let path = repo ? raw.slice(i + 1) : raw, line = '';
+  let repo = head && isRepoName(B, head) ? resolveRepo(B, head) : '', path = repo ? raw.slice(i + 1).trim() : raw, line = '';
+  if (!repo && !holds(raw.replace(LINES, '$1'))) {                     // the evidence's "x3d.onto FACTS.md", "fork src/a.py:700-774"
+    const gaps = [...raw.matchAll(/\s+/g)].slice(0, 3);
+    for (let n = gaps.length - 1; n >= 0 && !repo; n--) {
+      const h = raw.slice(0, gaps[n].index);
+      if (!h.includes(':') && isRepoName(B, h)) { repo = resolveRepo(B, h); path = raw.slice(gaps[n].index + gaps[n][0].length); }
+    }
+  }
   const ln = path.match(LINES);
   if (ln && !holds(path)) { path = ln[1]; line = ln[2]; }
+  else if (/[^:]:$/.test(path) && !holds(path)) path = path.slice(0, -1);   // a bare trailing ':' ("README.md:")
   const j = path.indexOf(':');
   if (!repo && j > 0 && !holds(path)) {
     const h = path.slice(0, j), parts = h.split('/');
-    if (parts.length === 1 || (parts.length === 2 && isRepoName(B, parts[1]))) resolveRepo(B, h);     // throws "not in vocabulary"
+    if (isPath(h)) { line = path.slice(j + 1).trim(); path = h; }             // a known file, then something that is not a line
+    else if (parts.length === 1 || (parts.length === 2 && isRepoName(B, parts[1]))) resolveRepo(B, h);     // throws "not in vocabulary"
   }
   return { repo, path, line };
 }
 function fileQuery(B, ids, q) {
-  const s = splitFile(B, q, f => ids.some(id => pathOf(id).toLowerCase().includes(f.toLowerCase())));
-  const query = s.repo ? s.repo + ':' + s.path : s.path;
-  return { query, repo: s.repo, asked: s.line ? { read_as: query, line_dropped: s.line } : {} };
+  const low = ids.map(id => pathOf(id).toLowerCase());
+  const s = splitFile(B, q, f => low.some(x => x.includes(f.toLowerCase())), f => low.some(x => x === f.toLowerCase() || x.endsWith('/' + f.toLowerCase())));
+  if (s.repo && !s.path) throw new Error(`a file needs a path: "${str(q)}" names only the repo ${s.repo}; ask with repo for the repo itself`);
+  if (!s.repo && !s.line && isRepoName(B, s.path) && !low.some(x => x.includes(s.path.toLowerCase())))
+    throw new Error(`"${str(q)}" is a repo, not a file: ask with repo for the repo, or give repo:path for one of its files`);
+  const read = s.repo ? s.repo + ':' + s.path : s.path;
+  return { query: s.path, repo: s.repo, asked: s.line || read !== str(q) ? { read_as: read, ...(s.line ? { line_dropped: s.line } : {}) } : {} };
 }
 
-// files whose id matches a query: an exact repo:path, a path, a path ending, or words in the path
+// files whose path matches a query, in the repos named (all when none): an exact path, else (for a file name, one with a '.' or
+// a '/') a path ending at a '/', each first as written and then in any case, as the page's show finds a file; else words in the
+// path. Only the path is matched, so a repo named in the query narrows the files and never has to start the path.
 function matchFileIds(ids, q, repos) {
-  const fq = str(q).toLowerCase();
-  const inRepo = id => !repos.length || repos.includes(repoOf(id));
-  const exact = ids.filter(id => inRepo(id) && (id.toLowerCase() === fq || pathOf(id).toLowerCase() === fq));
-  if (exact.length) return exact.sort();
-  return ids.filter(id => inRepo(id) && id.toLowerCase().includes(fq)).sort();
+  const fq = str(q), lq = fq.toLowerCase(), inR = ids.filter(id => !repos.length || repos.includes(repoOf(id))), named = /[./]/.test(fq);
+  const tiers = named ? [x => x === fq, x => x.endsWith('/' + fq), x => x.toLowerCase() === lq, x => x.toLowerCase().endsWith('/' + lq)]
+    : [x => x === fq, x => x.toLowerCase() === lq];
+  for (const t of tiers.concat([x => x.toLowerCase().includes(lq)])) {
+    const hit = inR.filter(id => t(pathOf(id)));
+    if (hit.length) return hit.sort();
+  }
+  return [];
 }
 
 // A count with the commits that make it up; a list cut for size says how many it left out, so the count still checks.
@@ -267,9 +286,9 @@ export function digest(B) {
       `: ${S.commits_without_trailer} own commits carry no session trailer, so this is not evidence of no link, and ties may still join them.`);
     const hubList = Object.entries(hubs);
     const flat = noBridge(BR.files.variants.jaccard, brs);
-    L.push('- Bridge file per repo, in a cluster of at least ten files (usable commits, high-churn files set aside; share of the shortest paths between the other files of its cluster): ' + Object.entries(brs).map(([r, v]) => `${r} ${v.file} ${v.share_pct}% of ${v.component}${v.cut_vertex ? ' cut vertex' : ''}`).join('; ') +
-      (flat.length ? `. None in ${flat.map(x => `${x.repo} (${x.largest_cluster})`).join(', ')}: a cluster of ten or more with no file between two others` : '') +
-      `. With every file kept, hubs rank first (${Math.min(5, hubList.length)} of ${hubList.length} repos): ` + hubList.slice(0, 5).map(([r, v]) => `${r} ${v.file}`).join('; ') + '.');
+    L.push('- Bridge file per repo, in a cluster of at least ten files (usable commits, high-churn files set aside; share of the shortest paths between the other files of its cluster): ' + (Object.keys(brs).length ? Object.entries(brs).map(([r, v]) => `${r} ${v.file} ${v.share_pct}% of ${v.component}${v.cut_vertex ? ' cut vertex' : ''}`).join('; ') : 'none') +
+      (flat.length ? `${Object.keys(brs).length ? '. None in' : ', and none in'} ${flat.map(x => `${x.repo} (${x.largest_cluster})`).join(', ')}: a cluster of ten or more with no file between two others` : '') +
+      (hubList.length ? `. With every file kept, hubs rank first (${Math.min(5, hubList.length)} of ${hubList.length} repos): ` + hubList.slice(0, 5).map(([r, v]) => `${r} ${v.file}`).join('; ') : '') + '.');
   }
   L.push('\nVIEWS IN THE SCENE (id: [who says it] claim, then how the caption opens; how_built topic spec has every caption in full):');
   B.spec.views.forEach(v => L.push(`- ${v.id}: ${v.claim ? '[' + v.claim.says + '] ' + v.claim.text + ' ' : ''}${clip(v.caption, 110)}`));
@@ -431,7 +450,7 @@ export function makeTools(B, scene) {
 
   add('concepts',
     'Formal concept analysis of the commits, computed with no model. No arguments: the lattice of files by the kinds of author that touched them, repos by the kinds of author they have seen, the strongest area rules, and what was set aside. file: one file (a path or repo:path) with the commits behind each kind. who: files touched by at least these kinds, such as "you,ai" (add repo to narrow). repo: its files by kind, its authors and its rules (several repos: separate with commas). area: rules for an area such as x3d_mcp/src. Every count names its commits; a cut list says how many it left out. Mass edits, merges and private commits are set aside from the files and rules and counted under excluded: quote that when an answer could read as none. A private repo answers with counts only.',
-    { type: 'object', properties: { file: { type: 'string', description: 'a path, or repo:path' }, repo: { type: 'string', description: 'a repo name, or several separated by commas' },
+    { type: 'object', properties: { file: { type: 'string', description: 'a path, repo:path, or "repo path" as the ties print it; lines such as :12 or :700-774 are dropped' }, repo: { type: 'string', description: 'a repo name, or several separated by commas' },
       who: { type: 'string', description: 'kinds of author: you (HagopJay), ai (Claude), bot, other, upstream; several separated by commas' },
       area: { type: 'string', description: 'repo/top-level folder, such as x3d_mcp/src; files at the root are x3d_mcp/.' },
       limit: { type: 'integer', description: 'rows, at most 40 (default 12)' } } },
@@ -519,7 +538,7 @@ export function makeTools(B, scene) {
 
   add('bridges',
     'Betweenness and passage points, computed with no model. No arguments: which Claude sessions link which repos, the nodes every path between two repos crosses in the session graph, each repo\'s bridge files in the co-change graph (high-churn files kept, and set aside), and what each part set aside. repo: its sessions, passage-point roles, authors and bridge files (several repos: separate with commas). file: one file\'s betweenness, cluster and cut-vertex flag in both variants. between: two repos, "a,b": linked directly (a session committed to both), only through other repos, or not at all. Where no chain of sessions joins two repos, say "no recorded session link", never "no link": the ties may still join them. Compare betweenness only within one cluster.',
-    { type: 'object', properties: { repo: { type: 'string', description: 'a repo name, or several separated by commas' }, file: { type: 'string', description: 'a path, or repo:path' },
+    { type: 'object', properties: { repo: { type: 'string', description: 'a repo name, or several separated by commas' }, file: { type: 'string', description: 'a path, repo:path, or "repo path" as the ties print it; lines such as :12 or :700-774 are dropped' },
       between: { type: 'string', description: 'two repos separated by a comma' }, limit: { type: 'integer', description: 'rows, at most 30 (default 10)' } } },
     q => {
       const BR = B.bridges;
@@ -598,9 +617,13 @@ export function makeTools(B, scene) {
             authors: Au.edges.filter(e => e.repo === repo).map(e => ({ author: e.author, class: e.class, commits: e.commits, private: e.private || undefined })),
             bridge_files: isPriv(repo) ? { note: 'private: its files are never read, so its bridge files are unknown, not none' } : (() => {
               const tc = top('count'), tj = top('jaccard'), out = tc.tied_out + tj.tied_out;
-              const lc = { every_file_kept: (V.count.largest_cluster_by_repo || {})[repo] || 0, high_churn_set_aside: (V.jaccard.largest_cluster_by_repo || {})[repo] || 0 };
-              return { every_file_kept: tc.rows, high_churn_set_aside: tj.rows, largest_cluster: lc,
-                ...(!tc.rows.length && !tj.rows.length ? { note: 'no file of this repo lies on a shortest path between two others, nor splits its cluster' } : {}),
+              const lc = v => (V[v].largest_cluster_by_repo || {})[repo] || 0;
+              if (!lc('count') && !lc('jaccard')) return { note: 'No usable commit touched a file of this repo (see excluded), so none of its files is in the co-change graph and it has no bridge file to name. That is not the same as files that never change together.' };
+              const why = (v, rows) => !lc(v) ? 'none of its files is in this graph' : rows.length ? null
+                : `no file lies on a shortest path between two others, nor splits a cluster: its largest cluster has ${lc(v)} file${lc(v) === 1 ? '' : 's'}`;
+              const notes = Object.fromEntries([['every_file_kept', why('count', tc.rows)], ['high_churn_set_aside', why('jaccard', tj.rows)]].filter(x => x[1]));
+              return { every_file_kept: tc.rows, high_churn_set_aside: tj.rows, largest_cluster: { every_file_kept: lc('count'), high_churn_set_aside: lc('jaccard') },
+                ...(Object.keys(notes).length ? { notes } : {}),
                 shown: `the five highest of the files with any betweenness or a cut, and any tied with the fifth: ${tc.rows.length} of ${tc.total} with every file kept, ${tj.rows.length} of ${tj.total} with high churn set aside` +
                   (out ? `; ${out} more tied with the last one shown are left out` : ''),
                 high_churn_files: BR.files.high_churn.filter(h => repoOf(h.id) === repo).map(h => pathOf(h.id)) };

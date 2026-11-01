@@ -48,6 +48,14 @@ def _short(path: str, n: int = 36) -> str:
     return base if len(base) <= n else base[: n // 2 - 1] + "…" + base[-(n // 2):]
 
 
+BRIDGE_ROWS = 7   # rows in the scene's bridge-file panel; the caption says "up to" this many, and the panel names the rest
+
+
+def bridge_rows(hubs: dict, bridges: dict) -> list[str]:
+    """The repos the bridge-file panel draws, in order: those with a bridge (high churn set aside), then those with only a hub."""
+    return list(bridges) + [r for r in hubs if r not in bridges]
+
+
 def top_bridges(variant: dict, min_component: int = 10) -> dict:
     """Per repo, the file with the most shortest paths through it (raw betweenness) in a co-change cluster of at least
     min_component files. Files of one repo only ever share commits with files of the same repo, so clusters never span repos."""
@@ -378,23 +386,31 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
         hubs, brid = top_bridges(fv["count"]), top_bridges(fv["jaccard"])
         big = sorted(r for r, n in fv["jaccard"].get("largest_cluster_by_repo", {}).items() if n >= 10) or sorted(brid)
         n_b, n_g = len(brid), len(big)                        # a repo can have a cluster of ten in which no file lies between two
-        some = (("the one repo" if n_g == 1 else f"all {n_g} repos") if n_b == n_g else f"{n_b} of the {n_g} repos")
         n_hc = len(bridges["files"]["high_churn"])
+        rows = bridge_rows(hubs, brid)
+        lead = list(brid.items())[:1]                         # one example: the bridges tool lists every repo's
+        hub_lead = list(hubs.items())[:1]
         if brid:
-            lead = list(brid.items())[:1]                     # one example: the bridges tool lists every repo's
-            hub_lead = list(hubs.items())[:1]
-            sig(
-                "bridges_files", "bridges",
-                (f"With the {n_hc} high-churn files set aside, " + some if n_hc else some[0].upper() + some[1:])
-                + f" with a cluster of ten or more files {'has' if n_b == 1 else 'have'} a file between others in it; "
-                + "; ".join(f"in {r}, {_short(v['file'])} is on {v['share_pct']}% of the shortest paths between the other files of its cluster of "
-                            f"{v['cluster']}" for r, v in lead)
-                + "." + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first."
-                         if hub_lead and n_hc else ""),
-                per_repo=brid, hubs=hubs, high_churn=n_hc, repos_with_a_cluster_of_ten=big, with_bridge=n_b, with_cluster=n_g,
-                lead_repo=lead[0][0], lead_file=lead[0][1]["file"], lead_share=lead[0][1]["share_pct"], lead_cluster=lead[0][1]["cluster"],
-                lead_cut=lead[0][1]["cut_vertex"], cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",
-            )
+            body = ((("the one repo" if n_g == 1 else f"all {n_g} repos") if n_b == n_g else f"{n_b} of the {n_g} repos")
+                    + f" with a cluster of ten or more files {'has' if n_b == 1 else 'have'} a file between others in it; "
+                    + "; ".join(f"in {r}, {_short(v['file'])} is on {v['share_pct']}% of the shortest paths between the other files of its "
+                                f"cluster of {v['cluster']}" for r, v in lead) + ".")
+        elif n_g:
+            body = ("the one repo with a cluster of ten or more files has no file between others in it." if n_g == 1
+                    else f"none of the {n_g} repos with a cluster of ten or more files has a file between others in it.")
+        else:
+            body = "no repo has a cluster of ten or more files, so no file is named as a bridge."
+        sig(
+            "bridges_files", "bridges",
+            (f"With the {n_hc} high-churn files set aside, " + body if n_hc else body[0].upper() + body[1:])
+            + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first."
+               if hub_lead and n_hc else ""),
+            per_repo=brid, hubs=hubs, high_churn=n_hc, repos_with_a_cluster_of_ten=big, with_bridge=n_b, with_cluster=n_g,
+            rows=len(rows[:BRIDGE_ROWS]), rows_max=BRIDGE_ROWS, rows_left_out=rows[BRIDGE_ROWS:],
+            **({"lead_repo": lead[0][0], "lead_file": lead[0][1]["file"], "lead_share": lead[0][1]["share_pct"],
+                "lead_cluster": lead[0][1]["cluster"], "lead_cut": lead[0][1]["cut_vertex"]} if lead else {}),
+            cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",
+        )
 
     # Idle forks and second account
     idle = [r["name"] for r in ds["repos"] if r.get("kind") == "fork-idle"]

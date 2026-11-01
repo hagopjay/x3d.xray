@@ -418,8 +418,8 @@ function targetPoint(q) {
   if (q.repo) q = { ...q, repo: resolveRepo(B, q.repo) };   // aliases resolve; an unknown name throws "not in vocabulary"
   if (q.sha) { const i = B.commits.findIndex(c => (c.h || '').startsWith(String(q.sha).toLowerCase())); if (i >= 0) return { p: L.commits[i], kind: 'helix', label: B.commits[i].r + ' ' + B.commits[i].h }; }
   if (q.day) { const d = L.days.find(x => x.day === q.day); if (d) return { p: [(d.x0 + d.x1) / 2, 0, 0], kind: 'helix', label: q.day }; }
-  if (q.file) {   // [repo:]path as the tools print it, a line number dropped: an exact path, then a path ending at a '/', in that repo if named
-    const bs = L.city.buildings, f = splitFile(B, q.file, x => bs.some(b => b.path.includes(x)));
+  if (q.file) {   // a file as the tools and the ties print it (splitFile), lines dropped: an exact path, then a path ending at a '/', in that repo if named
+    const bs = L.city.buildings, f = splitFile(B, q.file, x => bs.some(b => b.path.includes(x)), x => bs.some(b => b.path === x || b.path.endsWith('/' + x)));
     const repo = f.repo || q.repo || '', path = f.path, low = path.toLowerCase(), inR = bs.filter(x => !repo || x.repo === repo);
     const b = inR.find(x => x.path === path) || inR.find(x => x.path.endsWith('/' + path))
       || inR.find(x => x.path.toLowerCase() === low) || inR.find(x => x.path.toLowerCase().endsWith('/' + low));

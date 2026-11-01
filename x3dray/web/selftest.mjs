@@ -236,12 +236,49 @@ if (B.concepts && B.bridges) {
     const [al, rn] = slashAlias, id = ids.find(x => x.startsWith(rn + ':')), sa = tools.concepts.execute({ file: al + ':' + pathOf(id) }), sb = tools.bridges.execute({ file: al + ':' + pathOf(id) });
     check('concepts and bridges: a file named through an owner/name alias is that repo\'s file', sa.matched >= 1 && sa.files.some(f => f.file === id) && sb.matched >= 1, `${al}: ${sa.summary} / ${sb.summary}`);
   }
-  const plain = B.repos.find(r => r.visibility !== 'private' && !Object.keys(B.vocab || {}).includes('nobody/' + r.name.toLowerCase()));
-  let own = ''; try { tools.concepts.execute({ file: `nobody/${plain.name}:README.md` }); } catch (e) { own = e.message; }
-  check('concepts: an owner/name that is not in the vocabulary is refused, its repo named first', own.startsWith(`not in vocabulary: "nobody/${plain.name}". Nearest: ${plain.name}`), own.slice(0, 120));
+  const ownMiss = B.repos.filter(r => r.visibility !== 'private' && !(('hagopjay/' + r.name.toLowerCase()) in (B.vocab || {}))).filter(r => {
+    let m = ''; try { tools.concepts.execute({ file: `hagopjay/${r.name}:README.md` }); } catch (e) { m = e.message; }
+    return !m.startsWith(`not in vocabulary: "hagopjay/${r.name}". Nearest: ${r.name}`);   // the edit distance alone puts others first
+  }).map(r => r.name);
+  check('concepts: an owner/name that is not in the vocabulary is refused, its repo named first, for every repo', !ownMiss.length, ownMiss.join(', '));
+  // every file in the lattice, in the forms the graded ties print it: "repo path", "repo: path" with lines, repo:file name, and a
+  // line list that repeats its ':'
+  const formMiss = [], repoOfId = id => id.slice(0, id.indexOf(':'));
+  for (const id of ids) {
+    const r = repoOfId(id), p = pathOf(id), base = p.slice(p.lastIndexOf('/') + 1);
+    const forms = [`${r} ${p}`, `${r}: ${p}:700-774`, `${p}:7, :18`];
+    if (base.trim() === base && ids.filter(x => repoOfId(x) === r && (pathOf(x) === base || pathOf(x).endsWith('/' + base))).length === 1) forms.push(`${r}:${base}`);   // a name that is its repo's only one, with no space at its ends
+    for (const f of forms) {
+      let res; try { res = tools.concepts.execute({ file: f, limit: 40 }); } catch (e) { res = {}; }
+      if (!(res.files || []).some(x => x.file === id)) formMiss.push(f);
+    }
+  }
+  check('concepts: every file in the lattice is read in the forms the ties print it ("repo path", "repo: path:700-774", "path:7, :18", repo:file name)', !formMiss.length,
+    `${formMiss.length} missed: ${formMiss.slice(0, 4).join(' | ')}`);
+  const pubRepo = repoOfId(ids[0]);
+  let ro = ''; try { tools.concepts.execute({ file: pubRepo + ':' }); } catch (e) { ro = e.message; }
+  const colon = tools.bridges.execute({ file: ':' });
+  check('concepts and bridges: a repo with no path is refused, and ":" names no file', ro.startsWith('a file needs a path') && colon.matched === 0, `${ro.slice(0, 80)} / ${colon.summary}`);
+  const bareRepo = B.repos.find(r => r.visibility !== 'private' && !ids.some(id => pathOf(id).toLowerCase().includes(r.name.toLowerCase())));
+  if (bareRepo) {
+    let br = ''; try { tools.bridges.execute({ file: bareRepo.name }); } catch (e) { br = e.message; }
+    check('bridges: a repo name given as a file is refused, pointing to repo', br.startsWith(`"${bareRepo.name}" is a repo, not a file`), br.slice(0, 100));
+  }
   const flat = tools.bridges.execute({}).clusters_with_no_bridge_file || [], sig = B.signals.find(s => s.id === 'bridges_files');
   check('bridges: a repo with a cluster of ten files and no file between others is named, in the tool and the digest', sig && flat.length === sig.values.with_cluster - sig.values.with_bridge
     && flat.every(x => tools.overview.execute({}).digest.includes(`${x.repo} (${x.largest_cluster})`)), JSON.stringify(flat));
+  const inGraph = r => [BR.files.variants.count, BR.files.variants.jaccard].some(v => (v.largest_cluster_by_repo || {})[r]);
+  const pubs = B.repos.filter(r => r.visibility !== 'private'), bfOf = r => tools.bridges.execute({ repo: r }).bridge_files || {};
+  const outBad = pubs.filter(r => !inGraph(r.name)).filter(r => { const bf = bfOf(r.name); return !/^No usable commit touched a file of this repo/.test(bf.note || '') || 'largest_cluster' in bf; });
+  check('bridges: a repo with no file in the co-change graph says so, with no cluster size and no claim about its cluster', !outBad.length,
+    `${pubs.filter(r => !inGraph(r.name)).length} such repos; wrong: ${outBad.map(r => r.name).join(', ')}`);
+  const noteBad = pubs.filter(r => inGraph(r.name)).filter(r => { const bf = bfOf(r.name);
+    return ['every_file_kept', 'high_churn_set_aside'].some(k => !(bf[k] || []).length !== !!(bf.notes || {})[k]); });
+  check('bridges: a repo with no file between others in one graph says so for that graph, and only then', !noteBad.length, noteBad.map(r => r.name).join(', '));
+  const drawn = new Set((((B.layout || {}).bridges || {}).files || []).map(f => f.repo)).size, sv = (sig || {}).values || {};
+  const wantRows = new Set(Object.keys(sv.per_repo || {}).concat(Object.keys(sv.hubs || {}))).size;
+  check('bridges: the panel draws the rows the caption counts, up to its cap, and names the rest', sig && drawn === sv.rows && sv.rows <= sv.rows_max && sv.rows + (sv.rows_left_out || []).length === wantRows,
+    `${drawn} drawn, rows ${sv.rows} of at most ${sv.rows_max}, ${(sv.rows_left_out || []).length} left out, ${wantRows} with a hub or bridge`);
   const np = tools.concepts.execute({ file: 'no/such/dir:file.md' });
   check('concepts: a path with a folder before its ":" is a path, not an unknown repo', np.summary === 'not in the lattice', np.summary);
   const every = tools.concepts.execute({ who: 'every file' });

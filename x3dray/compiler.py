@@ -413,9 +413,10 @@ def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, 
     S.label(["Bridge files: on the most shortest paths between files",
              f"hub: every file kept · bridge: {len(bri['files']['high_churn'])} high-churn files set aside · bar: share of paths in its cluster"],
             (x0, by + 7.6, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
-    order = list(top_bridges) + [r for r in top_hubs if r not in top_bridges]
+    from .profile import BRIDGE_ROWS, bridge_rows
+    order = bridge_rows(top_hubs, top_bridges)
     bars = []
-    for j, repo in enumerate(order[:7]):
+    for j, repo in enumerate(order[:BRIDGE_ROWS]):
         y = by + 4.6 - j * 1.55
         S.label([repo], (x0, y, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
         for k, (var, rec) in enumerate((("hub", top_hubs.get(repo)), ("bridge", top_bridges.get(repo)))):
@@ -429,6 +430,9 @@ def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, 
             S.label([f"{var}: {name} · {rec['share_pct']}% of {rec['cluster']}" + (" · cut" if rec["cut_vertex"] else "")],
                     (x0 + 0.35 + w, yy, bz), 0.19, LABEL, justify="BEGIN", billboard=False, view="bridges")
             L["bridges"]["files"].append({"repo": repo, "variant": var, "file": rec["file"], "p": [round(x0 + 0.2 + w / 2, 3), round(yy, 3), bz]})
+    if len(order) > BRIDGE_ROWS:                           # no silent cap: the panel names the repos it has no row for
+        S.label([f"{len(order) - BRIDGE_ROWS} more with a hub or a bridge: " + ", ".join(order[BRIDGE_ROWS:]), "the bridges tool has every repo"],
+                (x0, by + 4.6 - BRIDGE_ROWS * 1.55, bz), 0.19, FOG, justify="BEGIN", billboard=False, view="bridges")
     S.boxes("bbar", bars)
     S.w("</Group>")
     return {"center": [bx + 0.5, by, bz], "x0": round(gc[0] - 6.5, 3), "x1": round(x0 + 10.5, 3)}

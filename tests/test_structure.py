@@ -5,7 +5,7 @@ import copy
 import json
 import unittest
 
-from x3dray import gates, profile, structure
+from x3dray import compiler, gates, profile, structure
 
 
 def row(repo, sha, cls, paths, private=False, merge=False, who="a1", sessions=(), t=1):
@@ -642,6 +642,59 @@ class Signals(unittest.TestCase):
         self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"]), (1, 2))
         self.assertEqual(s["values"]["repos_with_a_cluster_of_ten"], ["p", "q"])
         self.assertLessEqual(len(s["text"]), 320)
+
+    @staticmethod
+    def _bridge_family(repos: dict) -> dict:
+        def c(sha, paths, t):
+            return {"sha": sha.ljust(40, "0"), "cls": "you", "who": "HagopJay", "t": 1760000000 + t, "add": 1, "del": 0, "paths": paths,
+                    "sessions": [], "subject": "s", "upstream": False, "merge": False}
+        out = []
+        for k, (name, shape) in enumerate(repos.items()):
+            pre = "%02x" % k
+            if shape == "chain":                                  # twelve files in a line: the middle ones lie between others
+                cs = [c(pre + "a%02d" % i, ["f%02d.py" % i, "f%02d.py" % (i + 1)], 100 * k + i) for i in range(11)]
+            elif shape == "clique":                               # ten files, one commit: none lies between two others
+                cs = [c(pre + "b", ["g%d.py" % i for i in range(10)], 100 * k)]
+            elif shape == "small":                                # three files in a line: a cluster under ten
+                cs = [c(pre + "c%d" % i, ["h%d.py" % i, "h%d.py" % (i + 1)], 100 * k + i) for i in range(2)]
+            else:                                                 # six files, one commit each: the profile wants a repo of five commits
+                cs = [c(pre + "d%d" % i, ["z%d.md" % i], 100 * k + i) for i in range(6)]
+            out.append({"name": name, "present": True, "visibility": "public", "kind": "own", "commits": cs, "files": [], "branches": [], "tree": {}})
+        return {"family": "synthetic", "lineage": [], "repos": out}
+
+    def _bridges_signal(self, repos: dict):
+        ds = self._bridge_family({**repos, "z": "filler"})
+        con, bri, problems = structure.run(ds)
+        self.assertEqual(problems, [])
+        prof = profile.profile_family(ds, {"pairs": []}, None, con, bri)
+        return next(x for x in prof["signals"] if x["id"] == "bridges_files"), bri
+
+    def test_bridge_files_are_reported_when_no_repo_has_one(self):
+        s, _ = self._bridges_signal({"q": "clique"})
+        self.assertEqual(s["text"], "The one repo with a cluster of ten or more files has no file between others in it.")
+        self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"], s["values"]["rows"]), (0, 1, 0))
+        self.assertNotIn("lead_repo", s["values"])
+        s, _ = self._bridges_signal({"q": "clique", "q2": "clique"})
+        self.assertEqual(s["text"], "None of the 2 repos with a cluster of ten or more files has a file between others in it.")
+        s, _ = self._bridges_signal({"t": "small"})
+        self.assertEqual(s["text"], "No repo has a cluster of ten or more files, so no file is named as a bridge.")
+        self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"]), (0, 0))
+
+    def test_the_bridge_panel_draws_up_to_its_cap_and_names_the_rest(self):
+        names = ["p%d" % i for i in range(profile.BRIDGE_ROWS + 2)]
+        s, bri = self._bridges_signal({n: "chain" for n in names})
+        v = s["values"]
+        self.assertEqual((v["with_bridge"], v["rows"], v["rows_max"]), (len(names), profile.BRIDGE_ROWS, profile.BRIDGE_ROWS))
+        self.assertEqual(len(v["rows_left_out"]), 2)
+        S, L = compiler.Scene(), {}
+        fv = bri["files"]["variants"]
+        compiler.bridges_region(S, L, bri, {}, profile.top_bridges(fv["count"]), profile.top_bridges(fv["jaccard"]))
+        drawn = {f["repo"] for f in L["bridges"]["files"]}
+        self.assertEqual(len(drawn), profile.BRIDGE_ROWS)
+        self.assertEqual(drawn | set(v["rows_left_out"]), set(names))
+        more = [x["text"] for x in S.label_texts if x["text"].startswith("2 more with a hub or a bridge: ")]
+        self.assertEqual(len(more), 1)
+        self.assertTrue(all(r in more[0] for r in v["rows_left_out"]), more[0])
 
     def test_the_session_sentence_counts_session_trailers(self):
         def c(sha, cls, paths, t, sessions=()):
