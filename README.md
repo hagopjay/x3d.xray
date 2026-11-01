@@ -11,7 +11,8 @@ x3d-ray reads the git history of a family of repositories and builds a page arou
 - **concept lattices** (formal concept analysis): files by the kinds of author that touched them, and repos by the kinds of author
   they have seen, with rules for the areas that change together and the commits that break each rule;
 - **bridges** (betweenness): the Claude sessions that committed to more than one repo, the repos and sessions every path between
-  two repos crosses in that session graph, and per repo the file most other files route through when they change together;
+  two repos crosses in that session graph, and per repo the file on the most shortest paths between its other files (two files
+  are linked when one commit changed both);
 - a **pipeline row**: the stages of x3d.xray itself, the tool that drew all of it.
 
 Around the scene the page carries dense readouts (signals, KPIs, per-repo table, charts), a tour, and an **Ask Claude** panel.

@@ -1,6 +1,6 @@
 // x3d-ray page: loads the bundle and the X3D scene (X_ITE), draws the readouts, runs the tour, and wires Claude in
 // through the Artifact's sample capability, with the same tools the MCP server serves plus four that move the scene.
-import { makeTools, digest, matchCommits, resolveRepo, sessionId, kindsOf, CLASS_NAMES, kindsName } from './tools.js';
+import { makeTools, digest, matchCommits, resolveRepo, sessionId, kindsOf, splitFile, CLASS_NAMES, kindsName } from './tools.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -418,7 +418,13 @@ function targetPoint(q) {
   if (q.repo) q = { ...q, repo: resolveRepo(B, q.repo) };   // aliases resolve; an unknown name throws "not in vocabulary"
   if (q.sha) { const i = B.commits.findIndex(c => (c.h || '').startsWith(String(q.sha).toLowerCase())); if (i >= 0) return { p: L.commits[i], kind: 'helix', label: B.commits[i].r + ' ' + B.commits[i].h }; }
   if (q.day) { const d = L.days.find(x => x.day === q.day); if (d) return { p: [(d.x0 + d.x1) / 2, 0, 0], kind: 'helix', label: q.day }; }
-  if (q.file) { const b = L.city.buildings.find(x => x.path === q.file || x.path.endsWith(q.file)); if (b) return { p: b.p, kind: 'city', label: b.repo + ':' + b.path }; }
+  if (q.file) {   // [repo:]path as the tools print it, a line number dropped: an exact path, then a path ending at a '/', in that repo if named
+    const bs = L.city.buildings, f = splitFile(B, q.file, x => bs.some(b => b.path.includes(x)));
+    const repo = f.repo || q.repo || '', path = f.path, low = path.toLowerCase(), inR = bs.filter(x => !repo || x.repo === repo);
+    const b = inR.find(x => x.path === path) || inR.find(x => x.path.endsWith('/' + path))
+      || inR.find(x => x.path.toLowerCase() === low) || inR.find(x => x.path.toLowerCase().endsWith('/' + low));
+    if (b) return { p: b.p, kind: 'city', label: b.repo + ':' + b.path };
+  }
   if (q.tie) { const t = L.ties.curated.find(x => x.id === String(q.tie).toUpperCase()); if (t) return { p: t.p, kind: 'ties', label: t.id }; }
   if (q.session && L.bridges) {   // s-..., session:s-... or "session s-...", as the tools print it; an unknown one is refused
     const sid = sessionId(B, q.session), s = L.bridges.sessions[sid]; if (s) return { p: s.p, kind: 'bridges', label: 'session ' + sid };
@@ -532,7 +538,7 @@ What you are looking at: a tool called x3d.xray built this page with no model in
 How to answer:
 - Ground every number in the digest below or in a tool result. If the data does not hold the answer, say so plainly. Never guess what a private repo contains.
 - Two routes. Lookup: query_commits, activity, top_files, ties, signals, concepts and bridges answer exact questions from tables. Traverse: traverse walks the tie graph for "what connects A to B" or "what depends on A". End each answer with one short line saying which route you used (lookup, traverse, both, or digest only).
-- concepts (who touched which files; which areas move together) and bridges (which sessions link which repos; which files others route through) say what each part read and set aside (excluded): quote it whenever an answer could read as none. A private repo answers with counts only: its files are unknown, never none. Two repos one session committed to are linked directly; two joined only through other repos are linked through others; two that no chain of sessions joins have no recorded session link, never "no link", and the ties may still join them. Betweenness compares files only within one cluster. A list cut for size says how many it left out.
+- concepts (who touched which files; which areas move together) and bridges (which sessions link which repos; which files lie on the most shortest paths between others) say what each part read and set aside (excluded): quote it whenever an answer could read as none. A private repo answers with counts only: its files are unknown, never none. Two repos one session committed to are linked directly; two joined only through other repos are linked through others; two that no chain of sessions joins have no recorded session link, never "no link", and the ties may still join them. Betweenness compares files only within one cluster. A list cut for size says how many it left out.
 - how_built says how the page, a stage or a signal was made (it can show source lines), what makes two things the same thing here (identity), and the denominators behind Claude's share.
 - Repo names go through the family's vocabulary: "x3d.ai" is x3d_ai, ".prov" is the provenance stage inside x3d.ML (there is no .prov repo). When a tool answers "not in vocabulary", say so and offer the nearest names; never guess which repo was meant.
 - Unknown is not zero. A repo whose tree was not measured, or a private repo's contents, is unknown: say "not measured", never "none". A tie with no witness is not shown here, so never assert one.

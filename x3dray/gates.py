@@ -92,28 +92,34 @@ def gate_privacy(out_dir: str) -> dict:
         p = os.path.join(out_dir, name)
         if not os.path.exists(p):
             continue
-        text = open(p, encoding="utf-8", errors="replace").read()
+        with open(p, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
         for rx, what in ((EMAIL, "address"), (SESSION_URL, "session URL"), (SECRET, "secret-shaped string")):
             for m in rx.findall(text):
                 hits.append(f"{name}: {what} {m[:3]}…")
-    b = json.load(open(os.path.join(out_dir, "bundle.json"), encoding="utf-8"))
+    with open(os.path.join(out_dir, "bundle.json"), encoding="utf-8") as fh:
+        b = json.load(fh)
     priv = {r["name"] for r in b["repos"] if r.get("visibility") == "private"}
     leaked = [c for c in b["commits"] if c["r"] in priv and (c.get("h") or c.get("sub"))]
     if leaked:
         hits.append(f"bundle.json: {len(leaked)} commits of a private repo carry a sha or subject")
     if any(f for r, fs in b["files"].items() if r in priv for f in fs):
         hits.append("bundle.json: a private repo's file list")
+    from . import structure
+    nodes = structure.node_ids([r["name"] for r in b["repos"]], {c["w"] for c in b["commits"] if c.get("w")},
+                               {s for c in b["commits"] for s in (c.get("s") or [])})       # the graphs' nodes, from the commits
     for sec in ("concepts", "bridges"):
-        hits += [f"bundle.json: {t}" for t in _itemised(b.get(sec) or {}, priv, sec)][:10]
+        hits += [f"bundle.json: {t}" for t in _itemised(b.get(sec) or {}, priv, sec, nodes)][:10]
     return {"status": "pass" if not hits else "fail", "summary": f"{len(hits)} findings in {len([n for n in OURS if os.path.exists(os.path.join(out_dir, n))])} files we wrote",
             "findings": hits[:20], "scanned": [n for n in OURS if os.path.exists(os.path.join(out_dir, n))]}
 
 
-def _itemised(x, priv: set, trail: str) -> list[str]:
+def _itemised(x, priv: set, trail: str, nodes=frozenset()) -> list[str]:
     """Where a section names a private repo's file, path or area (a key or a string that starts with repo:path or
-    repo/area, as every id does), or lists a private record's shas. The stage's own check uses the same function."""
+    repo/area, as every id does, and is not one of the graphs' node ids), or lists a private record's shas. The stage's own
+    check uses the same function."""
     from . import structure
-    return structure.itemised(x, priv, trail)
+    return structure.itemised(x, priv, trail, nodes)
 
 
 FIXED_TEXT = ("checks", "csp", "chromium", "caveat", "scanned")   # the gates' own words: check names, the page's CSP, versions
@@ -140,7 +146,8 @@ def _guard(g: dict, priv: set) -> list[str]:
     if own:
         for k in list(g):
             summ = str(g[k].get("summary", ""))                # tested whole, then cut: a cut could split what it carries
-            g[k] = {"status": g[k]["status"], "summary": "(withheld: it carried what the privacy gate looks for)" if hits(summ) else summ[:200]}
+            seen = hits(summ) or hits(json.dumps(summ, ensure_ascii=False))       # as written, and as the scan above read it
+            g[k] = {"status": g[k]["status"], "summary": "(withheld: it carried what the privacy gate looks for)" if seen else summ[:200]}
         g["privacy"] = {"status": "fail", "summary": f"{len(own)} findings in the gate results themselves (details dropped)",
                         "findings": sorted(set(own))[:10]}
     return own

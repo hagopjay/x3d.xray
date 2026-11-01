@@ -11,10 +11,11 @@ const SHORT = { you: 'HagopJay', ai: 'Claude', bot: 'bots', other: 'other', upst
 const KIND_NAMES = { ...Object.fromEntries(Object.entries(CLASS_NAMES).map(([k, v]) => [v.toLowerCase(), k])),
   ...Object.fromEntries(Object.entries(SHORT).map(([k, v]) => [v.toLowerCase(), k])), ...WHO_ALIASES };
 // Kinds of author in any form the tools and the scene print them ("HagopJay + Claude", "HagopJay (his accounts)", "you,ai"),
-// as classes; a name that is not one passes through, for the caller to refuse.
+// as classes; "every file", the name printed for the concept with no kinds, is none. A name that is not one passes through, for
+// the caller to refuse.
 export function parseKinds(v) {
   const parts = Array.isArray(v) ? v : String(v === undefined || v === null ? '' : v).split(/\s*(?:,|\+|&|\band\b)\s*/i);
-  return parts.map(x => String(x).trim().toLowerCase()).filter(Boolean).map(x => KIND_NAMES[x] || x);
+  return parts.map(x => String(x).trim().toLowerCase()).filter(x => x && x !== 'every file').map(x => KIND_NAMES[x] || x);
 }
 export function kindsOf(v) {
   const ks = [...new Set(parseKinds(v))], bad = ks.filter(k => !CLASS_ORDER.includes(k));
@@ -148,18 +149,28 @@ export function bestBridges(variant, min = 10) {
   return best;
 }
 
-// A file named as repo:path: the repo part goes through the vocabulary like any repo name, so an alias resolves and an unknown
-// repo is refused. A query whose head is no repo but which some path holds (a path with a ':') is read as a path.
-function fileQuery(B, ids, q) {
-  const f = str(q), i = f.indexOf(':');
-  if (i <= 0) return { query: f, repo: '' };
+const isRepoName = (B, s) => { try { return !!resolveRepo(B, s); } catch (e) { return false; } };
+// A file in any form the tools and the tie evidence print it: path, repo:path, path:line or repo:path:line. The repo part goes
+// through the vocabulary like any repo name, so an alias resolves and an unknown word is refused with the nearest names. A head
+// that holds a '/' is part of a path, since no repo name holds one, and a line number is dropped, since the lattice, the graphs
+// and the city hold whole files. holds(f) says whether some known path holds f, so a path with a ':' of its own stays a path.
+export function splitFile(B, v, holds = () => false) {
+  const raw = str(v).replace(/^\/+/, ''), ln = raw.match(/^(.+?):\d+(?::\d+)?$/);
+  const f = ln && !holds(raw) && !isRepoName(B, ln[1]) ? ln[1] : raw, line = raw.slice(f.length).replace(/^:/, '');
+  const i = f.indexOf(':');
+  if (i <= 0 || f.slice(0, i).includes('/')) return { repo: '', path: f, line };
   try {
     const repo = resolveRepo(B, f.slice(0, i));
-    return { query: repo + ':' + f.slice(i + 1), repo };
+    return { repo, path: f.slice(i + 1), line };
   } catch (e) {
-    if (ids.some(id => pathOf(id).toLowerCase().includes(f.toLowerCase()))) return { query: f, repo: '' };
+    if (holds(f)) return { repo: '', path: f, line };
     throw e;
   }
+}
+function fileQuery(B, ids, q) {
+  const s = splitFile(B, q, f => ids.some(id => pathOf(id).toLowerCase().includes(f.toLowerCase())));
+  const query = s.repo ? s.repo + ':' + s.path : s.path;
+  return { query, repo: s.repo, asked: s.line ? { read_as: query, line_dropped: s.line } : {} };
 }
 
 // files whose id matches a query: an exact repo:path, a path, a path ending, or words in the path
@@ -437,9 +448,9 @@ export function makeTools(B, scene) {
         const fq = fileQuery(B, Object.keys(F.files), q.file);
         if (fq.repo && isPriv(fq.repo)) return { ...base, ...privRecord(fq.repo), summary: 'private: counts only' };
         const ids = matchFileIds(Object.keys(F.files), fq.query, fq.repo ? [fq.repo] : pubs);
-        if (!ids.length) return { ...base, ...privPart, matched: 0, summary: 'not in the lattice',
+        if (!ids.length) return { ...base, ...privPart, ...fq.asked, matched: 0, summary: 'not in the lattice',
           note: `No usable commit touched a file matching "${str(q.file)}". The lattice holds files touched by public commits that are not merges and change at most ${P.max_files_per_commit} files; this file may have been touched only by mass edits or merges (see excluded), sit in a private repo, or be named differently. Not in the lattice is not the same as never touched.` };
-        return { ...base, ...privPart, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`, ...cutList('files', ids, lim, fileRow) };
+        return { ...base, ...privPart, ...fq.asked, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`, ...cutList('files', ids, lim, fileRow) };
       }
       if (str(q.who)) {
         const want = sortCls(kindsOf(q.who));
@@ -538,11 +549,11 @@ export function makeTools(B, scene) {
         const fq = fileQuery(B, all, q.file);
         if (fq.repo && isPriv(fq.repo)) return { ...scope, private_repos: [privRec(fq.repo)], summary: 'private: counts only' };
         const ids = matchFileIds(all, fq.query, fq.repo ? [fq.repo] : pubs);
-        if (!ids.length) return { ...scope, ...privPart, matched: 0, summary: 'not in the graph',
+        if (!ids.length) return { ...scope, ...privPart, ...fq.asked, matched: 0, summary: 'not in the graph',
           note: `No usable commit touched a file matching "${str(q.file)}" (see excluded; private repos are never read), so it is not in the co-change graph. That is not the same as never changed.` };
         const high = Object.fromEntries(BR.files.high_churn.map(h => [h.id, h])), HP = BR.method.params;
         const churn = h => ({ set_aside: `high churn: ${h.commits} of its repo's ${h.of} usable commits changed it; a file is set aside when at least ${HP.high_churn_min_commits} commits and ${Math.round(100 * HP.high_churn_share)}% of its repo's usable commits changed it` });
-        return { ...scope, ...privPart, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`,
+        return { ...scope, ...privPart, ...fq.asked, matched: ids.length, summary: `${ids.length} file${ids.length === 1 ? '' : 's'}`,
           ...cutList('files', ids, lim, id => {
             const shas = conceptsFiles[id] ? [...new Set(Object.values(conceptsFiles[id].by).flat())].sort() : [];
             return { file: id,

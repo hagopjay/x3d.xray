@@ -218,6 +218,18 @@ if (B.concepts && B.bridges) {
     });
   });
   check('bridges: a file tied with the last bridge file shown is kept, or counted as left out', tieOk);
+  // a file as the tie evidence prints it (path:line, repo:path:line) is that file, its line dropped; a path is never read as a repo
+  const ids = Object.keys(F.files), pathOf = id => id.slice(id.indexOf(':') + 1);
+  const uniq = ids.find(id => pathOf(id).includes('/') && ids.filter(x => pathOf(x) === pathOf(id)).length === 1);
+  if (uniq) {
+    const pl = tools.concepts.execute({ file: pathOf(uniq) + ':120' }), rpl = tools.bridges.execute({ file: uniq + ':12:3' });
+    check('concepts and bridges: path:line and repo:path:line are that file, the line dropped', pl.matched === 1 && pl.files[0].file === uniq && pl.line_dropped === '120'
+      && rpl.matched === 1 && rpl.files[0].file === uniq && rpl.read_as === uniq && rpl.line_dropped === '12:3', `${uniq}: ${pl.matched} ${pl.read_as} / ${rpl.matched} ${rpl.read_as}`);
+  }
+  const np = tools.concepts.execute({ file: 'no/such/dir:file.md' });
+  check('concepts: a path with a folder before its ":" is a path, not an unknown repo', np.summary === 'not in the lattice', np.summary);
+  const every = tools.concepts.execute({ who: 'every file' });
+  check('concepts: "every file", the name printed for the concept with no kinds, is every file', every.files === F.n_files && every.kinds.length === 0, `${every.files} of ${F.n_files}`);
 }
 
 // 8. sample's limits on tool definitions: description at most 1 KB, input schema at most 4 KB

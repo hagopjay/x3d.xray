@@ -278,6 +278,43 @@ class Witnesses(unittest.TestCase):
             self.assertCaught(bad, bri, words, rows)
         self.assertEqual(list(con["files_by_author_class"]["files"]["r:a.py"]["by"]), ["you", "ai"])    # class order, not alphabetical
 
+    def test_verify_reads_ranked_maps_in_order(self):
+        rows = [row("r", "a%d" % i, "you" if i % 2 else "ai", ["x.py", "y%d.py" % i], who="a1" if i % 2 else "claude", t=i) for i in range(4)]
+        rows += [row("r4", "d1", "you", ["a", "b"], t=10), row("r4", "d2", "you", ["b", "c"], t=11), row("r5", "e1", "you", ["k.py"], t=12)]
+        rows += [row("r", "m%d" % i, "you", ["v%d.js" % j for j in range(20)], t=20 + i) for i in range(2)]
+        rows += [row("r4", "m9", "bot", ["w%d.js" % j for j in range(20)], who="bot1", t=30)]
+        con, bri = run(rows)
+        self.assertEqual(structure.verify(con, bri, rows), [])
+        self.assertEqual((list(con["mass_edits"]["by_repo"]), list(con["mass_edits"]["by_class"])), (["r", "r4"], ["you", "bot"]))
+        self.assertEqual(list(con["repos_by_author_class"]["repos"]["r"]["first_commit_by_class"]), ["you", "ai"])   # class order, not time
+        self.assertEqual(bri["files"]["variants"]["count"]["largest_cluster_by_repo"], {"r": 5, "r4": 3, "r5": 1})
+        wide = max(con["files_by_author_class"]["concepts"], key=lambda c: len(c["by_repo"]))
+        self.assertEqual(list(wide["by_repo"]), ["r", "r4", "r5"])
+
+        def flip(holder, key):
+            holder[key] = dict(reversed(list(holder[key].items())))
+        for f, words in ((lambda c: flip(next(k for k in c["files_by_author_class"]["concepts"] if k["i"] == wide["i"]), "by_repo"),
+                          f"concept {wide['i']} by_repo does not match the files, largest first"),
+                         (lambda c: flip(c["mass_edits"], "by_repo"), "concepts: mass_edits does not match"),
+                         (lambda c: flip(c["mass_edits"], "by_class"), "concepts: mass_edits does not match"),
+                         (lambda c: flip(c["repos_by_author_class"]["repos"]["r"], "first_commit_by_class"), "r first_commit_by_class does not name")):
+            bad = copy.deepcopy(con)
+            f(bad)
+            self.assertCaught(bad, bri, words, rows)
+        for f, words in ((lambda b: flip(b["files"]["variants"]["count"], "cut_vertices_by_repo"), "count cut vertices do not match"),
+                         (lambda b: flip(b["mass_edits"], "by_repo"), "bridges: mass_edits does not match"),
+                         (lambda b: b["files"]["variants"]["jaccard"]["largest_cluster_by_repo"].update(r4=4), "jaccard largest_cluster_by_repo"),
+                         (lambda b: flip(b["files"]["variants"]["jaccard"], "largest_cluster_by_repo"), "jaccard largest_cluster_by_repo")):
+            bad = copy.deepcopy(bri)
+            f(bad)
+            self.assertCaught(con, bad, words, rows)
+
+    def test_a_label_with_two_kinds_is_named_as_such(self):
+        rows = [row("r", "a1", "you", ["x.py"], who="pat", t=1), row("r", "a2", "bot", ["x.py", "y.py"], who="pat", t=2)]
+        con, bri = run(rows)
+        self.assertEqual(structure.verify(con, bri, rows),
+                         ["bridges: author pat has commits of 2 kinds (you, bot): the family's identities give each label one kind"])
+
     def test_verify_never_prints_a_private_file_or_area(self):
         con, bri = run()
         leak = "priv:secret.py"
@@ -305,7 +342,14 @@ class Witnesses(unittest.TestCase):
             probs = structure.verify(bad, bri, ROWS)
             self.assertTrue(probs)
             self.assertFalse([p for p in probs if "secret" in p], probs)
-        for f in (churn, per_file, top, edge):
+        quoted = 'priv:"src/secret\\303\\257.md"'                       # git's quoted form
+
+        def pair(b):
+            b["sessions"]["repo_pairs"][0]["a"] = quoted
+
+        def author(b):
+            b["authors"]["edges"][0]["author"] = quoted
+        for f in (churn, per_file, top, edge, pair, author):
             bad = copy.deepcopy(bri)
             f(bad)
             probs = structure.verify(con, bad, ROWS)
@@ -324,7 +368,7 @@ class Witnesses(unittest.TestCase):
         self.assertFalse([p for p in pairs if p[0].split("/")[0] != p[1].split("/")[0]])
 
     def test_deterministic(self):
-        self.assertEqual(json.dumps(run(), sort_keys=True), json.dumps(run(list(reversed(ROWS))), sort_keys=True))
+        self.assertEqual(json.dumps(run()), json.dumps(run(list(reversed(ROWS)))))           # map order included
 
 
 class Privacy(unittest.TestCase):
@@ -352,6 +396,39 @@ class Privacy(unittest.TestCase):
         leak["areas"]["rules"].append({"if": "priv/src", "then": "r1/src"})
         self.assertTrue(gates._itemised(leak, {"priv"}, "concepts"))
 
+    def test_a_private_repo_may_be_named_like_a_word_the_stage_writes(self):
+        for name in ("repo", "session", "author", "x3dray"):
+            rows = [dict(r, repo=name) if r["repo"] == "priv" else r for r in ROWS]
+            con, bri = run(rows)
+            self.assertEqual(structure.verify(con, bri, rows), [], name)
+            nodes = structure.node_ids({r["repo"] for r in rows}, {r["who"] for r in rows}, {s_ for r in rows for s_ in r["sessions"]})
+            self.assertEqual(gates._itemised(con, {name}, "concepts", nodes) + gates._itemised(bri, {name}, "bridges", nodes), [], name)
+        rows = [dict(r, repo="author") if r["repo"] == "priv" else r for r in ROWS]
+        con, bri = run(rows)
+        leak = copy.deepcopy(bri)
+        leak["authors"]["cut_vertices"].append("author:secret.py")       # a file of the private repo "author", not an author
+        probs = structure.verify(con, leak, rows)
+        self.assertTrue([p for p in probs if "names a private repo's file or area" in p], probs)
+        self.assertFalse([p for p in probs if "secret" in p], probs)
+
+    def test_the_privacy_gate_tells_graph_nodes_from_private_files(self):
+        import os
+        import tempfile
+        rows = [dict(r, repo="author") if r["repo"] == "priv" else r for r in ROWS]
+        con, bri = run(rows)
+
+        def bundle(b):
+            return {"repos": [{"name": n, "visibility": "private" if n == "author" else "public"} for n in ("r1", "r2", "r3", "author")],
+                    "commits": [{"r": r["repo"], "w": r["who"], "s": r["sessions"], **({"h": r["sha"]} if r["sha"] else {})} for r in rows],
+                    "files": {}, "concepts": con, "bridges": b}
+        leak = copy.deepcopy(bri)
+        leak["authors"]["cut_vertices"].append("author:secret.py")
+        with tempfile.TemporaryDirectory() as d:
+            for b, want in ((bri, "pass"), (leak, "fail")):
+                with open(os.path.join(d, "bundle.json"), "w", encoding="utf-8") as fh:
+                    json.dump(bundle(b), fh)
+                self.assertEqual(gates.gate_privacy(d)["status"], want)
+
     def test_an_id_names_a_private_file_only_from_its_start(self):
         self.assertEqual(gates._itemised({"priv:secret.md": 1}, {"priv"}, "gates"), ["gates has a key naming a private repo's file or area"])
         self.assertTrue(gates._itemised({"m": ["priv/src"]}, {"priv"}, "concepts"))
@@ -365,9 +442,11 @@ class Privacy(unittest.TestCase):
 
     def test_free_text_names_a_private_file_where_a_word_starts(self):
         rx = structure.private_rx({"priv"})
-        for t in ("bridges: count priv:secret.md is not a usable file", "rule priv/src => r1/src", "(priv:x.py)", '"priv:a"', "priv/src"):
+        for t in ("bridges: count priv:secret.md is not a usable file", "rule priv/src => r1/src", "(priv:x.py)", '"priv:a"', "priv/src",
+                  'error Text string priv:"docs/na\\303\\257ve.md" is too long', 'priv:\\"src/a.md'):    # git's quoted form, raw and in JSON
             self.assertTrue(rx.search(t), t)
-        for t in ("built /home/u/priv/site/xray.x3d", "repo:priv", "priv: counts only", "a.priv/x", "r1:docs/priv/plan.md", "priv"):
+        for t in ("built /home/u/priv/site/xray.x3d", "repo:priv", "priv: counts only", "a.priv/x", "r1:docs/priv/plan.md", "priv",
+                  '{"a": "priv:"}', 'priv:""'):
             self.assertFalse(rx.search(t), t)
 
     def test_gate_results_never_carry_a_private_file(self):
@@ -409,6 +488,13 @@ class Privacy(unittest.TestCase):
         g["tools"]["failed"] = ["concepts {file}: answered tools/secret.py"]
         self.assertTrue(gates._guard(g, {"tools"}))                 # a data field still counts
         self.assertEqual(g["privacy"]["status"], "fail")
+
+    def test_a_quoted_private_path_in_a_summary_is_withheld(self):
+        g = {"loom": {"status": "fail", "summary": 'xray.x3d:9: error Text string priv:"docs/na\\303\\257ve.md" is too long'},
+             "privacy": {"status": "pass", "summary": "0"}}
+        self.assertTrue(gates._guard(g, {"priv"}))
+        self.assertNotIn("docs/na", json.dumps(g))
+        self.assertEqual((g["loom"]["status"], g["privacy"]["status"]), ("fail", "fail"))
 
     def test_a_summary_is_tested_whole_before_it_is_cut(self):
         g = {"xsd": {"status": "fail", "summary": "x" * 184 + " someone@example.org is not accepted"}, "privacy": {"status": "pass", "summary": "0"}}
@@ -534,6 +620,41 @@ class Signals(unittest.TestCase):
         self.assertIn("1 of them by both HagopJay and Claude", s["text"])
         only = s["values"]["only"]
         self.assertEqual(sum(only.values()) + s["values"]["shared"], s["values"]["n_files"])
+
+    def test_bridge_files_say_how_many_repos_have_a_file_between_others(self):
+        def c(sha, paths, t):
+            return {"sha": sha.ljust(40, "0"), "cls": "you", "who": "HagopJay", "t": 1760000000 + t, "add": 1, "del": 0, "paths": paths,
+                    "sessions": [], "subject": "s", "upstream": False, "merge": False}
+
+        def repo(n, cs):
+            return {"name": n, "present": True, "visibility": "public", "kind": "own", "commits": cs, "files": [], "branches": [], "tree": {}}
+        chain = [c("a%02d" % i, ["f%02d.py" % i, "f%02d.py" % (i + 1)], i) for i in range(11)]       # twelve files in a line
+        clique = [c("b", ["g%d.py" % i for i in range(10)], 50)]                                       # ten files, one commit: none between
+        ds = {"family": "synthetic", "lineage": [], "repos": [repo("p", chain), repo("q", clique)]}
+        con, bri, problems = structure.run(ds)
+        self.assertEqual(problems, [])
+        prof = profile.profile_family(ds, {"pairs": []}, None, con, bri)
+        s = next(x for x in prof["signals"] if x["id"] == "bridges_files")
+        self.assertIn("1 of the 2 repos with a cluster of at least ten files has a file that lies between others; in p,", s["text"])
+        self.assertNotIn("most others", s["text"])
+        self.assertEqual(s["values"]["repos_with_a_cluster_of_ten"], ["p", "q"])
+        self.assertLessEqual(len(s["text"]), 320)
+
+    def test_the_session_sentence_counts_session_trailers(self):
+        def c(sha, cls, paths, t, sessions=()):
+            return {"sha": sha.ljust(40, "0"), "cls": cls, "who": {"you": "HagopJay", "ai": "claude"}[cls], "t": 1760000000 + t, "add": 1,
+                    "del": 0, "paths": paths, "sessions": list(sessions), "subject": "s", "upstream": False, "merge": False, "ai_trailer": cls == "you"}
+
+        def repo(n, cs):
+            return {"name": n, "present": True, "visibility": "public", "kind": "own", "commits": cs, "files": [], "branches": [], "tree": {}}
+        r1 = [c("a", "ai", ["a.py"], 1, ["S1"])] + [c("b%d" % i, "you", ["a.py"], 2 + i) for i in range(4)]     # the profile wants five
+        ds = {"family": "synthetic", "lineage": [], "repos": [repo("r1", r1), repo("r2", [c("d", "ai", ["x.py"], 9, ["S1"]), c("e", "you", ["x.py"], 10)])]}
+        con, bri, problems = structure.run(ds)
+        self.assertEqual(problems, [])
+        prof = profile.profile_family(ds, {"pairs": []}, None, con, bri)
+        t = next(x for x in prof["signals"] if x["id"] == "bridges_sessions")["text"]
+        self.assertIn("1 of 1 sessions that left a trailer committed to more than one repo", t)
+        self.assertIn("5 own commits carry no session trailer", t)          # each also carries a co-author trailer: not the same trailer
 
 
 if __name__ == "__main__":

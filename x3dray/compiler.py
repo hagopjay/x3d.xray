@@ -328,8 +328,8 @@ def concepts_region(S: "Scene", L: dict, con: dict) -> dict:
 
 def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, top_bridges: dict) -> dict:
     """The Claude-session graph (left): repos on a circle, sessions between the repos they committed to, passage points
-    ringed in gold. The bridge files (right): per repo, the file most other files route through, with the high-churn
-    files kept (hub) and set aside (bridge)."""
+    ringed in gold. The bridge files (right): per repo, the file on the most shortest paths between its other files, with
+    the high-churn files kept (hub) and set aside (bridge)."""
     bx, by, bz = BRID
     sb = bri["sessions"]
     L["bridges"] = {"repos": {}, "sessions": {}, "files": []}
@@ -410,7 +410,7 @@ def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, 
 
     # bridge files, one row per repo: the hub (high-churn files kept) and the bridge (set aside, Jaccard distance)
     x0 = bx + 1.6
-    S.label(["Bridge files: what most other files route through",
+    S.label(["Bridge files: on the most shortest paths between files",
              f"hub: every file kept · bridge: {len(bri['files']['high_churn'])} high-churn files set aside · bar: share of paths in its cluster"],
             (x0, by + 7.6, bz), 0.24, BONE, justify="BEGIN", billboard=False, view="bridges")
     order = list(top_bridges) + [r for r in top_hubs if r not in top_bridges]

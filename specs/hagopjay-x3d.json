@@ -146,7 +146,7 @@
     {
       "id": "bridges",
       "label": "Bridges",
-      "caption": "Left, the Claude-session graph: {bridges_sessions.multi} of {bridges_sessions.sessions} sessions committed to more than one repo; gold rings mark what lies on every session path between two repos. Right, the file most others route through, per repo with a cluster of ten or more files, high churn kept and set aside. {bridges_sessions.without_trailer|n} own commits carry no session trailer, so repos no chain of sessions joins have no recorded session link, not no link: ties may still join them.",
+      "caption": "Left, the Claude-session graph: {bridges_sessions.multi} of the {bridges_sessions.sessions} sessions that left a trailer committed to more than one repo; gold rings mark what lies on every session path between two repos. Right, per repo with a cluster of ten or more files, the file on the most shortest paths between others, high churn kept and set aside. {bridges_sessions.without_trailer|n} own commits carry no session trailer, so two repos with no recorded session link may still be tied.",
       "claim": {
         "text": "In the Claude-session graph, {bridges_sessions.passage.via} lies on every path between {bridges_sessions.passage.a} and {bridges_sessions.passage.b}.",
         "backs": [

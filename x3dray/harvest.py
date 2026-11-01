@@ -93,6 +93,11 @@ class IdentityBook:
     def __init__(self, cfg: dict):
         self.rules = cfg.get("identities", [])
         self.default = cfg.get("default_identity", {"label": "other", "class": "other"})
+        kind: dict[str, str] = {}
+        for rule in self.rules + [self.default]:                   # one label is one identity, of one class
+            if kind.setdefault(rule["label"], rule["class"]) != rule["class"]:
+                raise ValueError(f"identities: the label {rule['label']} has two classes, {kind[rule['label']]} and {rule['class']}; "
+                                 "give each label one class")
         self.seen: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
 
     def classify(self, name: str, email: str) -> tuple[str, str]:

@@ -165,6 +165,11 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
       const sid = Object.keys(window.xray.L.bridges ? window.xray.L.bridges.sessions : {})[0];
       res.session = sid ? call('show', { session: sid }) : { skipped: true, bundle_has: !!window.xray.B.bridges };
       res.concept = window.xray.L.concepts ? call('show', { concept: 'claude,hagopjay' }) : { skipped: true, bundle_has: !!window.xray.B.concepts };
+      res.every = window.xray.L.concepts ? call('show', { concept: 'every file' }) : { skipped: true, bundle_has: !!window.xray.B.concepts };
+      // a file as the tools print it: repo:path is that repo's file, and a line number is dropped
+      const root = window.xray.L.city.buildings.find(b => b.path === 'README.md');
+      res.file = root ? call('show', { file: root.repo + ':README.md:3' }) : { skipped: true };
+      res.file_want = root ? root.repo + ':README.md' : null;
       res.state = { view: window.xray.view, lit: window.xray.lit ? window.xray.lit.size : 0, notes: window.xray.notes, mode: window.xray.mode };
       call('highlight', { clear: true }); call('note', { clear: true }); call('color_by', { mode: 'who' });
       return res;
@@ -236,7 +241,9 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
     r.checks.ask_explains_its_absence = S.ask.shown && S.ask.input_disabled && /Claude/.test(S.ask.text);
     r.checks.scene_tools_work = T.show.shown === 'ties' && T.highlight.lit > 0 && T.note.placed === true && T.color.mode === 'repo' && T.fly.moved === true &&
       T.alias.shown === 'x3d_ai' && /not in vocabulary/.test(T.vocab.error || '') && T.state.notes === 1 &&
-      (T.session.skipped ? !T.session.bundle_has : T.session.moved === true) && (T.concept.skipped ? !T.concept.bundle_has : T.concept.moved === true);
+      (T.session.skipped ? !T.session.bundle_has : T.session.moved === true) && (T.concept.skipped ? !T.concept.bundle_has : T.concept.moved === true) &&
+      (T.every.skipped ? !T.every.bundle_has : T.every.moved === true && T.every.shown === 'every file') &&
+      (T.file.skipped || (T.file.moved === true && T.file.shown === T.file_want));
     r.checks.click_in_scene_opens_card = !!r.click;
     r.checks.no_horizontal_scroll = r.overflow.scrollW <= r.overflow.innerW && r.overflow.bad.length === 0;
     r.checks.no_console_errors = !r.console.some(c => /^(error|pageerror)/.test(c) && !known(c));
