@@ -162,13 +162,15 @@ const LINES = /^(.+?):(\d+(?:[-:]\d+)?(?:\s*,\s*:?\d+(?:-\d+)?)*):?$/;   // :12,
 // lines (path:12, path:700-774, path:2,16-17,23, "path:7, :18"). The head before the first ':' is a repo when the vocabulary
 // knows it (an alias may hold a '/', such as owner/name, or a space); failing that, so are the first one to three words before a
 // space, unless the whole is a known path. The lines are dropped, since the lattice, the graphs and the city hold whole files.
-// holds(p) says whether some known path holds p, so a path with a ':' of its own stays whole; isPath(p) whether a known path is
-// p or ends in '/' + p. A head that is no repo is refused with the nearest names when it is one word or owner/name with a known
-// name, unless it is itself a known path (then what follows its ':' is dropped like a line); any other head starts a path.
+// holds(p) says whether some known path holds p, so a path with a ':' of its own stays whole and a word of a path with spaces is
+// never read as a repo; isPath(p) whether a known path is p or ends in '/' + p. A known path before a ':', or a known path's part
+// that holds a '.' or a space (a file name, not a repo word), has what follows dropped like a line, repo or not. Any other head
+// that is no repo is refused with the nearest names when it is one word or owner/name with a known name; any other starts a path.
 export function splitFile(B, v, holds = () => false, isPath = () => false) {
   const raw = str(v).replace(/^\/+/, ''), i = raw.indexOf(':'), head = i > 0 ? raw.slice(0, i) : '';
   let repo = head && isRepoName(B, head) ? resolveRepo(B, head) : '', path = repo ? raw.slice(i + 1).trim() : raw, line = '';
-  if (!repo && !holds(raw.replace(LINES, '$1'))) {                     // the evidence's "x3d.onto FACTS.md", "fork src/a.py:700-774"
+  const whole = raw.replace(LINES, '$1').replace(/([^:]):$/, '$1');     // the input, its lines or a bare trailing ':' dropped
+  if (!repo && !holds(whole) && !(head && holds(head))) {              // the evidence's "x3d.onto FACTS.md", "fork src/a.py:700-774"
     const gaps = [...raw.matchAll(/\s+/g)].slice(0, 3);
     for (let n = gaps.length - 1; n >= 0 && !repo; n--) {
       const h = raw.slice(0, gaps[n].index);
@@ -179,17 +181,18 @@ export function splitFile(B, v, holds = () => false, isPath = () => false) {
   if (ln && !holds(path)) { path = ln[1]; line = ln[2]; }
   else if (/[^:]:$/.test(path) && !holds(path)) path = path.slice(0, -1);   // a bare trailing ':' ("README.md:")
   const j = path.indexOf(':');
-  if (!repo && j > 0 && !holds(path)) {
+  if (j > 0 && !holds(path)) {
     const h = path.slice(0, j), parts = h.split('/');
-    if (isPath(h)) { line = path.slice(j + 1).trim(); path = h; }             // a known file, then something that is not a line
-    else if (parts.length === 1 || (parts.length === 2 && isRepoName(B, parts[1]))) resolveRepo(B, h);     // throws "not in vocabulary"
+    if (isPath(h) || (/[\s.]/.test(h) && holds(h))) { line = path.slice(j + 1).trim(); path = h; }   // a file, then text that is no line
+    else if (!repo && (parts.length === 1 || (parts.length === 2 && isRepoName(B, parts[1])))) resolveRepo(B, h);   // throws "not in vocabulary"
   }
   return { repo, path, line };
 }
 function fileQuery(B, ids, q) {
   const low = ids.map(id => pathOf(id).toLowerCase());
   const s = splitFile(B, q, f => low.some(x => x.includes(f.toLowerCase())), f => low.some(x => x === f.toLowerCase() || x.endsWith('/' + f.toLowerCase())));
-  if (s.repo && !s.path) throw new Error(`a file needs a path: "${str(q)}" names only the repo ${s.repo}; ask with repo for the repo itself`);
+  if (!/[\p{L}\p{N}]/u.test(s.path)) throw new Error(s.repo ? `a file needs a path: "${str(q)}" names only the repo ${s.repo}; ask with repo for the repo itself`
+    : `a file needs a path: "${str(q)}" has no letter or digit`);
   if (!s.repo && !s.line && isRepoName(B, s.path) && !low.some(x => x.includes(s.path.toLowerCase())))
     throw new Error(`"${str(q)}" is a repo, not a file: ask with repo for the repo, or give repo:path for one of its files`);
   const read = s.repo ? s.repo + ':' + s.path : s.path;

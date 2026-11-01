@@ -167,7 +167,10 @@ def modules() -> list[dict]:
     return out
 
 
-SIG_CALL = re.compile(r'sig\(\s*"(\w+)"')
+SIG_CALL = re.compile(r'sig\(\s*(?:#[^\n]*\n\s*)*"(\w+)"')   # a comment may follow the parenthesis
+
+
+CODE_MAX = 6000   # characters of one signal's code that how_built serves; a longer span says it was cut
 
 
 def signal_code(profile_src: str, rel: str = "x3dray/profile.py") -> dict:
@@ -194,7 +197,9 @@ def signal_code(profile_src: str, rel: str = "x3dray/profile.py") -> dict:
             k -= 1
         prev_end = b
         if sid not in out:
-            out[sid] = {"file": rel, "start": first + 1, "end": b + 1, "code": "\n".join(lines[first:b + 1])[:4000]}
+            code = "\n".join(lines[first:b + 1])
+            out[sid] = {"file": rel, "start": first + 1, "end": b + 1, "code": code[:CODE_MAX],
+                        **({"cut": f"the first {CODE_MAX:,} of {len(code):,} characters"} if len(code) > CODE_MAX else {})}
     return out
 
 

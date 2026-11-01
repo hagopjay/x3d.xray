@@ -246,19 +246,42 @@ if (B.concepts && B.bridges) {
   const formMiss = [], repoOfId = id => id.slice(0, id.indexOf(':'));
   for (const id of ids) {
     const r = repoOfId(id), p = pathOf(id), base = p.slice(p.lastIndexOf('/') + 1);
-    const forms = [`${r} ${p}`, `${r}: ${p}:700-774`, `${p}:7, :18`];
+    const forms = [`${r} ${p}`, `${r}: ${p}:700-774`, `${p}:7, :18`, `${r}:${p}:3, section 6`, `${r} ${p}:3, section 6`];
     if (base.trim() === base && ids.filter(x => repoOfId(x) === r && (pathOf(x) === base || pathOf(x).endsWith('/' + base))).length === 1) forms.push(`${r}:${base}`);   // a name that is its repo's only one, with no space at its ends
     for (const f of forms) {
       let res; try { res = tools.concepts.execute({ file: f, limit: 40 }); } catch (e) { res = {}; }
       if (!(res.files || []).some(x => x.file === id)) formMiss.push(f);
     }
   }
-  check('concepts: every file in the lattice is read in the forms the ties print it ("repo path", "repo: path:700-774", "path:7, :18", repo:file name)', !formMiss.length,
-    `${formMiss.length} missed: ${formMiss.slice(0, 4).join(' | ')}`);
-  const pubRepo = repoOfId(ids[0]);
-  let ro = ''; try { tools.concepts.execute({ file: pubRepo + ':' }); } catch (e) { ro = e.message; }
-  const colon = tools.bridges.execute({ file: ':' });
-  check('concepts and bridges: a repo with no path is refused, and ":" names no file', ro.startsWith('a file needs a path') && colon.matched === 0, `${ro.slice(0, 80)} / ${colon.summary}`);
+  check('concepts: every file in the lattice is read in the forms the ties print it ("repo path", "repo: path:700-774", "path:7, :18", "repo:path:3, section 6", repo:file name)',
+    !formMiss.length, `${formMiss.length} missed: ${formMiss.slice(0, 4).join(' | ')}`);
+  if (uniq) {   // each line rule on its own: a list that repeats its ':', with its repo named; a bare trailing ':' after part of a name
+    const rl = tools.concepts.execute({ file: `${repoOfId(uniq)} ${pathOf(uniq)}:7, :18` }), part = tools.concepts.execute({ file: pathOf(uniq).slice(0, -1) + ':' });
+    check('concepts: "repo path:7, :18" drops "7, :18", and a trailing ":" after part of a name is dropped', rl.matched === 1 && rl.line_dropped === '7, :18'
+      && (part.files || []).some(x => x.file === uniq), `${rl.summary} ${rl.line_dropped} / ${part.summary}`);
+  }
+  const isRepoWord = w => { try { return !!resolveRepo(B, w); } catch (e) { return false; } };
+  const folderId = ids.find(id => { const d = pathOf(id).split('/'); return d.length > 1 && /^[\w-]+$/.test(d[0]) && !isRepoWord(d[0]); });
+  if (folderId) {   // a plain word, then a bare trailing ':', is that word (grep -l prints "folder:"), not an unknown repo
+    const w = pathOf(folderId).split('/')[0]; let res; try { res = tools.concepts.execute({ file: w + ':', limit: 40 }); } catch (e) { res = { summary: e.message.slice(0, 60) }; }
+    check('concepts: a word with a bare trailing ":" is read as that word', (res.matched || 0) >= 1 && !('line_dropped' in res), `${w}: ${res.summary}`);
+  }
+  const spaced = ids.filter(id => /\s/.test(pathOf(id))), spMiss = [];   // a word of a path with spaces is never read as a repo
+  for (const id of spaced) {
+    const p = pathOf(id);
+    for (const m of p.matchAll(/\s+/g)) {
+      const sfx = p.slice(m.index + m[0].length);
+      if (ids.some(x => x !== id && (pathOf(x) === sfx || pathOf(x).endsWith('/' + sfx)))) continue;   // another file is named that: it comes first
+      for (const f of [sfx, sfx + ':', sfx + ':12', sfx + ':3, section 6']) {
+        let res; try { res = tools.concepts.execute({ file: f, limit: 40 }); } catch (e) { res = {}; }
+        if (!(res.files || []).some(x => x.file === id)) spMiss.push(f);
+      }
+    }
+  }
+  check('concepts: the end of a path with spaces, from any word, is that file, bare or with lines, a trailing ":" or text', !spMiss.length,
+    `${spaced.length} such files; ${spMiss.length} missed: ${spMiss.slice(0, 3).join(' | ')}`);
+  const pubRepo = repoOfId(ids[0]), noPath = [pubRepo + ':', pubRepo + ':/', pubRepo + ': .', ':', '/'].map(f => { try { tools.bridges.execute({ file: f }); return f + ' answered'; } catch (e) { return e.message; } });
+  check('concepts and bridges: a file with no letter or digit is refused, with its repo or alone', noPath.every(m => m.startsWith('a file needs a path')), noPath.join(' | ').slice(0, 200));
   const bareRepo = B.repos.find(r => r.visibility !== 'private' && !ids.some(id => pathOf(id).toLowerCase().includes(r.name.toLowerCase())));
   if (bareRepo) {
     let br = ''; try { tools.bridges.execute({ file: bareRepo.name }); } catch (e) { br = e.message; }
@@ -277,8 +300,10 @@ if (B.concepts && B.bridges) {
   check('bridges: a repo with no file between others in one graph says so for that graph, and only then', !noteBad.length, noteBad.map(r => r.name).join(', '));
   const drawn = new Set((((B.layout || {}).bridges || {}).files || []).map(f => f.repo)).size, sv = (sig || {}).values || {};
   const wantRows = new Set(Object.keys(sv.per_repo || {}).concat(Object.keys(sv.hubs || {}))).size;
-  check('bridges: the panel draws the rows the caption counts, up to its cap, and names the rest', sig && drawn === sv.rows && sv.rows <= sv.rows_max && sv.rows + (sv.rows_left_out || []).length === wantRows,
-    `${drawn} drawn, rows ${sv.rows} of at most ${sv.rows_max}, ${(sv.rows_left_out || []).length} left out, ${wantRows} with a hub or bridge`);
+  const outLeft = sv.rows_left_out || [], moreLabel = ((B.layout || {}).labels || []).filter(l => l.view === 'bridges' && /^\d+ more with a hub or a bridge: /.test(l.text));
+  check('bridges: the panel draws the rows the caption counts, up to its cap, and a label names the rest', sig && drawn === sv.rows && sv.rows <= sv.rows_max && sv.rows + outLeft.length === wantRows
+    && (outLeft.length ? moreLabel.length === 1 && moreLabel[0].text.startsWith(`${outLeft.length} more`) && outLeft.every(r => moreLabel[0].text.includes(r)) : !moreLabel.length),
+    `${drawn} drawn, rows ${sv.rows} of at most ${sv.rows_max}, ${outLeft.length} left out, ${wantRows} with a hub or bridge, ${moreLabel.length} label naming the rest`);
   const np = tools.concepts.execute({ file: 'no/such/dir:file.md' });
   check('concepts: a path with a folder before its ":" is a path, not an unknown repo', np.summary === 'not in the lattice', np.summary);
   const every = tools.concepts.execute({ who: 'every file' });

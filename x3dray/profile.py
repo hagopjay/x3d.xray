@@ -400,11 +400,14 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
                     else f"none of the {n_g} repos with a cluster of ten or more files has a file between others in it.")
         else:
             body = "no repo has a cluster of ten or more files, so no file is named as a bridge."
+        # The two graphs differ in their files (high churn set aside) and in their distance (Jaccard, or shared commits), so with
+        # no high-churn file the sentence names the distance, and it gives the hubs whenever they are not the same files.
+        differs = any((hubs.get(r) or {}).get("file") != (brid.get(r) or {}).get("file") for r in set(hubs) | set(brid))
         sig(
             "bridges_files", "bridges",
-            (f"With the {n_hc} high-churn files set aside, " + body if n_hc else body[0].upper() + body[1:])
-            + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first."
-               if hub_lead and n_hc else ""),
+            (f"With the {n_hc} high-churn files set aside, " if n_hc else "By Jaccard distance, ") + body
+            + ((" With them kept, hubs such as " if n_hc else " Counting shared commits instead, hubs such as ")
+               + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first." if hub_lead and (n_hc or differs) else ""),
             per_repo=brid, hubs=hubs, high_churn=n_hc, repos_with_a_cluster_of_ten=big, with_bridge=n_b, with_cluster=n_g,
             rows=len(rows[:BRIDGE_ROWS]), rows_max=BRIDGE_ROWS, rows_left_out=rows[BRIDGE_ROWS:],
             **({"lead_repo": lead[0][0], "lead_file": lead[0][1]["file"], "lead_share": lead[0][1]["share_pct"],

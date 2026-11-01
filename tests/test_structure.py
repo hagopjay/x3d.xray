@@ -635,9 +635,9 @@ class Signals(unittest.TestCase):
         self.assertEqual(problems, [])
         prof = profile.profile_family(ds, {"pairs": []}, None, con, bri)
         s = next(x for x in prof["signals"] if x["id"] == "bridges_files")
-        self.assertTrue(s["text"].startswith("1 of the 2 repos with a cluster of ten or more files has a file between others in it; in p,"), s["text"])
+        self.assertTrue(s["text"].startswith("By Jaccard distance, 1 of the 2 repos with a cluster of ten or more files has a file between others in it; in p,"), s["text"])
         self.assertNotIn("most others", s["text"])
-        self.assertNotIn("high-churn", s["text"])                    # none to set aside, so no "with them kept" either
+        self.assertNotIn("high-churn", s["text"])                    # none to set aside: the distance is named, and no "with them kept"
         self.assertNotIn("With them kept", s["text"])
         self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"]), (1, 2))
         self.assertEqual(s["values"]["repos_with_a_cluster_of_ten"], ["p", "q"])
@@ -655,6 +655,11 @@ class Signals(unittest.TestCase):
                 cs = [c(pre + "a%02d" % i, ["f%02d.py" % i, "f%02d.py" % (i + 1)], 100 * k + i) for i in range(11)]
             elif shape == "clique":                               # ten files, one commit: none lies between two others
                 cs = [c(pre + "b", ["g%d.py" % i for i in range(10)], 100 * k)]
+            elif shape == "hubonly":                              # a ten-file clique whose b.py shares three more commits with each
+                cs = [c(pre + "q0", ["b.py"] + ["x%d.py" % i for i in range(9)], 100 * k)]             # other file: b.py lies between
+                cs += [c(pre + "g%d%d" % (i, j), ["b.py", "x%d.py" % i], 100 * k + 10 * i + j) for i in range(9) for j in range(3)]
+                cs += [c(pre + "s%d" % j, ["b.py"], 100 * k + 95 + j) for j in range(3)]               # them counting shared commits,
+                cs += [c(pre + "p%03d" % j, ["pad/p%03d.txt" % j], 100 * k + 400 + j) for j in range(300)]   # none by Jaccard
             elif shape == "small":                                # three files in a line: a cluster under ten
                 cs = [c(pre + "c%d" % i, ["h%d.py" % i, "h%d.py" % (i + 1)], 100 * k + i) for i in range(2)]
             else:                                                 # six files, one commit each: the profile wants a repo of five commits
@@ -671,14 +676,21 @@ class Signals(unittest.TestCase):
 
     def test_bridge_files_are_reported_when_no_repo_has_one(self):
         s, _ = self._bridges_signal({"q": "clique"})
-        self.assertEqual(s["text"], "The one repo with a cluster of ten or more files has no file between others in it.")
+        self.assertEqual(s["text"], "By Jaccard distance, the one repo with a cluster of ten or more files has no file between others in it.")
         self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"], s["values"]["rows"]), (0, 1, 0))
         self.assertNotIn("lead_repo", s["values"])
         s, _ = self._bridges_signal({"q": "clique", "q2": "clique"})
-        self.assertEqual(s["text"], "None of the 2 repos with a cluster of ten or more files has a file between others in it.")
+        self.assertEqual(s["text"], "By Jaccard distance, none of the 2 repos with a cluster of ten or more files has a file between others in it.")
         s, _ = self._bridges_signal({"t": "small"})
-        self.assertEqual(s["text"], "No repo has a cluster of ten or more files, so no file is named as a bridge.")
+        self.assertEqual(s["text"], "By Jaccard distance, no repo has a cluster of ten or more files, so no file is named as a bridge.")
         self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"]), (0, 0))
+
+    def test_with_no_high_churn_the_sentence_names_the_distance_and_gives_hubs_that_differ(self):
+        s, bri = self._bridges_signal({"h": "hubonly"})
+        self.assertEqual(bri["files"]["high_churn"], [])
+        self.assertEqual(s["text"], "By Jaccard distance, the one repo with a cluster of ten or more files has no file between others in it. "
+                                    "Counting shared commits instead, hubs such as b.py in h rank first.")
+        self.assertEqual((s["values"]["with_bridge"], s["values"]["rows"]), (0, 1))
 
     def test_the_bridge_panel_draws_up_to_its_cap_and_names_the_rest(self):
         names = ["p%d" % i for i in range(profile.BRIDGE_ROWS + 2)]
