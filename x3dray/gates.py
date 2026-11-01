@@ -106,7 +106,7 @@ def gate_privacy(out_dir: str) -> dict:
     if any(f for r, fs in b["files"].items() if r in priv for f in fs):
         hits.append("bundle.json: a private repo's file list")
     from . import structure
-    nodes = structure.node_ids([r["name"] for r in b["repos"]], {c["w"] for c in b["commits"] if c.get("w")},
+    nodes = structure.node_ids({c["r"] for c in b["commits"]}, {c["w"] for c in b["commits"] if c.get("w")},
                                {s for c in b["commits"] for s in (c.get("s") or [])})       # the graphs' nodes, from the commits
     for sec in ("concepts", "bridges"):
         hits += [f"bundle.json: {t}" for t in _itemised(b.get(sec) or {}, priv, sec, nodes)][:10]

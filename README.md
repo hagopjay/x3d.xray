@@ -48,8 +48,9 @@ Around the scene the page carries dense readouts (signals, KPIs, per-repo table,
 - **Lookup or traverse.** Exact questions go to tables; multi-hop questions walk the tie graph. Claude says which route it used.
 - **Set aside, then counted.** The file lattice, the area rules and the file co-change graph leave out merges (git lists no paths
   for them), private commits and mass edits (more than 15 files: a regeneration or a vendored drop would tie every file it touched to
-  every other). The repo lattice and the author graph leave out only merges, and the session graph reads every commit with a trailer.
-  Every answer says what its part read and how many it left out, and a list cut for size says how many it dropped.
+  every other). The repo lattice and the author graph leave out only merges, and the session graph reads every commit with a
+  Claude-Session trailer. Every answer says what its part read and how many it left out, and a list cut for size says how many it
+  dropped.
 - **No recorded session link, not no link.** Only commits with a Claude-Session trailer can link two repos through a session. Two
   repos one session committed to are linked directly, two joined only through other repos are linked through others, and two that no
   chain of sessions joins have no recorded session link; the ties may still join them. Betweenness is compared only within one

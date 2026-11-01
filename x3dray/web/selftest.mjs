@@ -226,6 +226,22 @@ if (B.concepts && B.bridges) {
     check('concepts and bridges: path:line and repo:path:line are that file, the line dropped', pl.matched === 1 && pl.files[0].file === uniq && pl.line_dropped === '120'
       && rpl.matched === 1 && rpl.files[0].file === uniq && rpl.read_as === uniq && rpl.line_dropped === '12:3', `${uniq}: ${pl.matched} ${pl.read_as} / ${rpl.matched} ${rpl.read_as}`);
   }
+  if (uniq) {   // line ranges and lists, as the graded ties' evidence prints them
+    const forms = ['700-774', '2,16-17,23', '80, 162'].map(l => [l, tools.concepts.execute({ file: pathOf(uniq) + ':' + l })]);
+    check('concepts: a path with a line range or list is that file, the lines dropped', forms.every(([l, r]) => r.matched === 1 && r.files[0].file === uniq && r.line_dropped === l),
+      forms.map(([l, r]) => `${l}: ${r.matched} ${r.line_dropped}`).join(' | '));
+  }
+  const slashAlias = Object.entries(B.vocab || {}).find(([k, v]) => k.includes('/') && ids.some(id => id.startsWith(v + ':')));
+  if (slashAlias) {   // an alias may hold a '/' (owner/name): it still names the repo in a file
+    const [al, rn] = slashAlias, id = ids.find(x => x.startsWith(rn + ':')), sa = tools.concepts.execute({ file: al + ':' + pathOf(id) }), sb = tools.bridges.execute({ file: al + ':' + pathOf(id) });
+    check('concepts and bridges: a file named through an owner/name alias is that repo\'s file', sa.matched >= 1 && sa.files.some(f => f.file === id) && sb.matched >= 1, `${al}: ${sa.summary} / ${sb.summary}`);
+  }
+  const plain = B.repos.find(r => r.visibility !== 'private' && !Object.keys(B.vocab || {}).includes('nobody/' + r.name.toLowerCase()));
+  let own = ''; try { tools.concepts.execute({ file: `nobody/${plain.name}:README.md` }); } catch (e) { own = e.message; }
+  check('concepts: an owner/name that is not in the vocabulary is refused, its repo named first', own.startsWith(`not in vocabulary: "nobody/${plain.name}". Nearest: ${plain.name}`), own.slice(0, 120));
+  const flat = tools.bridges.execute({}).clusters_with_no_bridge_file || [], sig = B.signals.find(s => s.id === 'bridges_files');
+  check('bridges: a repo with a cluster of ten files and no file between others is named, in the tool and the digest', sig && flat.length === sig.values.with_cluster - sig.values.with_bridge
+    && flat.every(x => tools.overview.execute({}).digest.includes(`${x.repo} (${x.largest_cluster})`)), JSON.stringify(flat));
   const np = tools.concepts.execute({ file: 'no/such/dir:file.md' });
   check('concepts: a path with a folder before its ":" is a path, not an unknown repo', np.summary === 'not in the lattice', np.summary);
   const every = tools.concepts.execute({ who: 'every file' });

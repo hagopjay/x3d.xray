@@ -635,8 +635,11 @@ class Signals(unittest.TestCase):
         self.assertEqual(problems, [])
         prof = profile.profile_family(ds, {"pairs": []}, None, con, bri)
         s = next(x for x in prof["signals"] if x["id"] == "bridges_files")
-        self.assertIn("1 of the 2 repos with a cluster of at least ten files has a file that lies between others; in p,", s["text"])
+        self.assertTrue(s["text"].startswith("1 of the 2 repos with a cluster of ten or more files has a file between others in it; in p,"), s["text"])
         self.assertNotIn("most others", s["text"])
+        self.assertNotIn("high-churn", s["text"])                    # none to set aside, so no "with them kept" either
+        self.assertNotIn("With them kept", s["text"])
+        self.assertEqual((s["values"]["with_bridge"], s["values"]["with_cluster"]), (1, 2))
         self.assertEqual(s["values"]["repos_with_a_cluster_of_ten"], ["p", "q"])
         self.assertLessEqual(len(s["text"]), 320)
 

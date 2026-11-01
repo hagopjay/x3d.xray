@@ -379,17 +379,19 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
         big = sorted(r for r, n in fv["jaccard"].get("largest_cluster_by_repo", {}).items() if n >= 10) or sorted(brid)
         n_b, n_g = len(brid), len(big)                        # a repo can have a cluster of ten in which no file lies between two
         some = (("the one repo" if n_g == 1 else f"all {n_g} repos") if n_b == n_g else f"{n_b} of the {n_g} repos")
+        n_hc = len(bridges["files"]["high_churn"])
         if brid:
             lead = list(brid.items())[:1]                     # one example: the bridges tool lists every repo's
             hub_lead = list(hubs.items())[:1]
             sig(
                 "bridges_files", "bridges",
-                f"With the {len(bridges['files']['high_churn'])} high-churn files set aside, "
-                + some + f" with a cluster of at least ten files {'has' if n_b == 1 else 'have'} a file that lies between others; "
+                (f"With the {n_hc} high-churn files set aside, " + some if n_hc else some[0].upper() + some[1:])
+                + f" with a cluster of ten or more files {'has' if n_b == 1 else 'have'} a file between others in it; "
                 + "; ".join(f"in {r}, {_short(v['file'])} is on {v['share_pct']}% of the shortest paths between the other files of its cluster of "
                             f"{v['cluster']}" for r, v in lead)
-                + "." + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first." if hub_lead else ""),
-                per_repo=brid, hubs=hubs, high_churn=len(bridges["files"]["high_churn"]), repos_with_a_cluster_of_ten=big,
+                + "." + (" With them kept, hubs such as " + "; ".join(f"{_short(v['file'])} in {r}" for r, v in hub_lead) + " rank first."
+                         if hub_lead and n_hc else ""),
+                per_repo=brid, hubs=hubs, high_churn=n_hc, repos_with_a_cluster_of_ten=big, with_bridge=n_b, with_cluster=n_g,
                 lead_repo=lead[0][0], lead_file=lead[0][1]["file"], lead_share=lead[0][1]["share_pct"], lead_cluster=lead[0][1]["cluster"],
                 lead_cut=lead[0][1]["cut_vertex"], cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",
             )

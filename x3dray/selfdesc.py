@@ -45,7 +45,7 @@ PIPELINE = [
      "method": {"traps": ["Hub files (READMEs, build files) top raw betweenness because they change with everything; the Jaccard variant sets the high-churn files aside and normalises by how often each file changes. Both are kept.",
                           "Betweenness is not the same as a passage point: a passage point is a node every path between two groups must cross.",
                           "The session graph only sees commits that carry a Claude-Session trailer: two repos no chain of sessions joins have no recorded session link, not no link, and the ties may still join them.",
-                          "Each part says what it read: the file graph reads usable commits only, the session graph every commit with a trailer, the author graph every commit but merges."],
+                          "Each part says what it read: the file graph reads usable commits only, the session graph every commit with a Claude-Session trailer, the author graph every commit but merges."],
                 "reads": "how_built stage bridges; the bridges tool answers lookups"}},
     {"stage": "curated", "module": "x3dray/curated.py", "entry": "import_masterclass", "inputs": ["masterclass ecosystem.json and series.json"],
      "outputs": ["curated.json"], "model": None,
@@ -107,7 +107,7 @@ LIMITS = [
     "The masterclass ties were graded on the date their source records; some repos have moved since (see curated.notes).",
     "Commits made after the harvest are not in the data, including this tool's own later commits.",
     "Concepts and bridges read file paths from git numstat without following renames, so a renamed file counts as two files.",
-    "The file lattice, the area rules and the file co-change graph set aside merges, private commits and commits of more than 15 files; the repo lattice and the author graph leave out only merges, and the session graph reads every commit with a trailer. Each answer counts what its part set aside.",
+    "The file lattice, the area rules and the file co-change graph set aside merges, private commits and commits of more than 15 files; the repo lattice and the author graph leave out only merges, and the session graph reads every commit with a Claude-Session trailer. Each answer counts what its part set aside.",
 ]
 
 

@@ -68,8 +68,10 @@ export function resolveRepo(B, name) {
   const exact = B.repos.find(r => r.name.toLowerCase() === k);
   if (exact) return exact.name;
   const names = Object.keys(B.vocab || {}).concat(B.repos.map(r => r.name.toLowerCase()));
-  const near = [...new Set(names)].map(n => [lev(k, n), n]).sort((a, b) => a[0] - b[0]).slice(0, 3).map(x => (B.vocab || {})[x[1]] || x[1]);
-  throw new Error(`not in vocabulary: "${name}". Nearest: ${[...new Set(near)].join(', ')}. Known repos: ${B.repos.map(r => r.name).join(', ')}`);
+  const tail = k.includes('/') ? k.slice(k.lastIndexOf('/') + 1) : '';      // owner/name: the name part, when it is a repo, comes first
+  const viaTail = tail && ((B.vocab || {})[tail] || (B.repos.find(r => r.name.toLowerCase() === tail) || {}).name);
+  const near = (viaTail ? [viaTail] : []).concat([...new Set(names)].map(n => [lev(k, n), n]).sort((a, b) => a[0] - b[0]).slice(0, 3).map(x => (B.vocab || {})[x[1]] || x[1]));
+  throw new Error(`not in vocabulary: "${name}". Nearest: ${[...new Set(near)].slice(0, 3).join(', ')}. Known repos: ${B.repos.map(r => r.name).join(', ')}`);
 }
 const repoList = (B, v) => [...new Set(list(v).map(n => resolveRepo(B, n)))];   // two aliases of one repo name it once
 
@@ -137,6 +139,11 @@ export const kindsName = (xs, none = 'every file') => (xs && xs.length ? xs.map(
 const repoOf = id => id.slice(0, id.indexOf(':'));
 const pathOf = id => id.slice(id.indexOf(':') + 1);
 
+// Repos with a cluster of at least `min` files in which no file lies between two others (a clique, say): no bridge file, not unknown.
+export function noBridge(variant, best, min = 10) {
+  return Object.entries((variant && variant.largest_cluster_by_repo) || {}).filter(([r, n]) => n >= min && !best[r]).map(([repo, n]) => ({ repo, largest_cluster: n }));
+}
+
 // Per repo, the file with the most shortest paths through it, in a co-change cluster of at least `min` files. A repo's files
 // only share commits with files of the same repo, so a cluster never spans repos. Same rule as profile.top_bridges.
 export function bestBridges(variant, min = 10) {
@@ -150,22 +157,24 @@ export function bestBridges(variant, min = 10) {
 }
 
 const isRepoName = (B, s) => { try { return !!resolveRepo(B, s); } catch (e) { return false; } };
-// A file in any form the tools and the tie evidence print it: path, repo:path, path:line or repo:path:line. The repo part goes
-// through the vocabulary like any repo name, so an alias resolves and an unknown word is refused with the nearest names. A head
-// that holds a '/' is part of a path, since no repo name holds one, and a line number is dropped, since the lattice, the graphs
-// and the city hold whole files. holds(f) says whether some known path holds f, so a path with a ':' of its own stays a path.
+const LINES = /^(.+?):(\d+(?:[-:]\d+)?(?:\s*,\s*\d+(?:-\d+)?)*):?$/;   // :12, :12:3, :700-774, :2,16-17,23, ":80, 162", grep's "12:"
+// A file in any form the tools and the tie evidence print it: path, repo:path, and either with lines (path:12, path:700-774,
+// path:2,16-17,23). The head before the first ':' is a repo when the vocabulary knows it (an alias may hold a '/', such as
+// owner/name); the lines are dropped, since the lattice, the graphs and the city hold whole files. holds(p) says whether some
+// known path holds p, so a path with a ':' of its own stays whole. A head that is no repo is refused with the nearest names when
+// it is one word or owner/name with a known name; any other head (it holds a folder) starts a path.
 export function splitFile(B, v, holds = () => false) {
-  const raw = str(v).replace(/^\/+/, ''), ln = raw.match(/^(.+?):\d+(?::\d+)?$/);
-  const f = ln && !holds(raw) && !isRepoName(B, ln[1]) ? ln[1] : raw, line = raw.slice(f.length).replace(/^:/, '');
-  const i = f.indexOf(':');
-  if (i <= 0 || f.slice(0, i).includes('/')) return { repo: '', path: f, line };
-  try {
-    const repo = resolveRepo(B, f.slice(0, i));
-    return { repo, path: f.slice(i + 1), line };
-  } catch (e) {
-    if (holds(f)) return { repo: '', path: f, line };
-    throw e;
+  const raw = str(v).replace(/^\/+/, ''), i = raw.indexOf(':'), head = i > 0 ? raw.slice(0, i) : '';
+  const repo = head && isRepoName(B, head) ? resolveRepo(B, head) : '';
+  let path = repo ? raw.slice(i + 1) : raw, line = '';
+  const ln = path.match(LINES);
+  if (ln && !holds(path)) { path = ln[1]; line = ln[2]; }
+  const j = path.indexOf(':');
+  if (!repo && j > 0 && !holds(path)) {
+    const h = path.slice(0, j), parts = h.split('/');
+    if (parts.length === 1 || (parts.length === 2 && isRepoName(B, parts[1]))) resolveRepo(B, h);     // throws "not in vocabulary"
   }
+  return { repo, path, line };
 }
 function fileQuery(B, ids, q) {
   const s = splitFile(B, q, f => ids.some(id => pathOf(id).toLowerCase().includes(f.toLowerCase())));
@@ -257,7 +266,9 @@ export function digest(B) {
       (S.repos_without_session.length ? ` (no session reached ${S.repos_without_session.join(', ')})` : '') +
       `: ${S.commits_without_trailer} own commits carry no session trailer, so this is not evidence of no link, and ties may still join them.`);
     const hubList = Object.entries(hubs);
-    L.push('- Bridge file per repo with a cluster of at least ten files (usable commits, high-churn files set aside; share of the shortest paths between the other files of its cluster): ' + Object.entries(brs).map(([r, v]) => `${r} ${v.file} ${v.share_pct}% of ${v.component}${v.cut_vertex ? ' cut vertex' : ''}`).join('; ') +
+    const flat = noBridge(BR.files.variants.jaccard, brs);
+    L.push('- Bridge file per repo, in a cluster of at least ten files (usable commits, high-churn files set aside; share of the shortest paths between the other files of its cluster): ' + Object.entries(brs).map(([r, v]) => `${r} ${v.file} ${v.share_pct}% of ${v.component}${v.cut_vertex ? ' cut vertex' : ''}`).join('; ') +
+      (flat.length ? `. None in ${flat.map(x => `${x.repo} (${x.largest_cluster})`).join(', ')}: a cluster of ten or more with no file between two others` : '') +
       `. With every file kept, hubs rank first (${Math.min(5, hubList.length)} of ${hubList.length} repos): ` + hubList.slice(0, 5).map(([r, v]) => `${r} ${v.file}`).join('; ') + '.');
   }
   L.push('\nVIEWS IN THE SCENE (id: [who says it] claim, then how the caption opens; how_built topic spec has every caption in full):');
@@ -587,7 +598,9 @@ export function makeTools(B, scene) {
             authors: Au.edges.filter(e => e.repo === repo).map(e => ({ author: e.author, class: e.class, commits: e.commits, private: e.private || undefined })),
             bridge_files: isPriv(repo) ? { note: 'private: its files are never read, so its bridge files are unknown, not none' } : (() => {
               const tc = top('count'), tj = top('jaccard'), out = tc.tied_out + tj.tied_out;
-              return { every_file_kept: tc.rows, high_churn_set_aside: tj.rows,
+              const lc = { every_file_kept: (V.count.largest_cluster_by_repo || {})[repo] || 0, high_churn_set_aside: (V.jaccard.largest_cluster_by_repo || {})[repo] || 0 };
+              return { every_file_kept: tc.rows, high_churn_set_aside: tj.rows, largest_cluster: lc,
+                ...(!tc.rows.length && !tj.rows.length ? { note: 'no file of this repo lies on a shortest path between two others, nor splits its cluster' } : {}),
                 shown: `the five highest of the files with any betweenness or a cut, and any tied with the fifth: ${tc.rows.length} of ${tc.total} with every file kept, ${tj.rows.length} of ${tj.total} with high churn set aside` +
                   (out ? `; ${out} more tied with the last one shown are left out` : ''),
                 high_churn_files: BR.files.high_churn.filter(h => repoOf(h.id) === repo).map(h => pathOf(h.id)) };
@@ -606,6 +619,7 @@ export function makeTools(B, scene) {
           linked_only_through_others: S.linked_through_others || [],
           on_every_path: S.passage_points, no_recorded_session_link: `${S.no_recorded_link.length} of ${S.n_repo_pairs} repo pairs`,
           repos_no_session_reached: S.repos_without_session, note: S.note },
+        clusters_with_no_bridge_file: noBridge(V.jaccard, brs),
         bridge_files: [...new Set(Object.keys(brs).concat(Object.keys(hubs)))].map(r => ({ repo: r,
           hub_every_file_kept: hubs[r] ? `${hubs[r].file}: on ${hubs[r].share_pct}% of the shortest paths between the other files of its cluster of ${hubs[r].component}` : null,
           bridge_high_churn_set_aside: brs[r] ? `${brs[r].file}: on ${brs[r].share_pct}% of the shortest paths between the other files of its cluster of ${brs[r].component}${brs[r].cut_vertex ? ', cut vertex' : ''}` : null })),
