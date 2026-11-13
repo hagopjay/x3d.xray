@@ -2125,7 +2125,7 @@ export function makeTools(B, scene, opts) {
     concept: { type: 'string', description: 'kinds of author such as "you,ai": that concept in the file lattice' },
   };
   add('show',
-    'Move the camera. Give a view (overview, helix, burst, peak, rhythm, claude, ties, fork, city, hotspots, concepts, bridges, self) or a target to fly to (repo, sha, day, file, tie, session or concept). Returns what is now in view.',
+    'Move the camera. Give a view (overview, helix, burst, peak, rhythm, claude, ties, fork, city, hotspots, concepts, bridges, gallery, self) or a target to fly to (repo, sha, day, file, tie, session or concept). Returns what is now in view.',
     { type: 'object', properties: { view: { type: 'string' }, ...target, place: { type: 'string', enum: ['helix', 'ties', 'city', 'bridges'], description: 'for a repo: which view to find it in (default ties; bridges is the session graph)' } } },
     q => scene.show(q));
   add('highlight',

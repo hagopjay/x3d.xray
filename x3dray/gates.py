@@ -365,12 +365,43 @@ def gate_scene(out_dir: str) -> dict:
         if os.path.getsize(path) > MAX_XML_BYTES:
             return {"status": "fail", "summary": "Scene exceeds the bounded static verifier input size"}
         with open(path, encoding="utf-8") as fh:
-            result = verify_scene(fh.read(), plan, bundle)
+            xml = fh.read()
+        result = verify_scene(xml, plan, bundle)
+        gallery = _gallery_result(xml, layout, bundle)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         return {"status": "fail", "summary": "Static scene contract could not be read", "error_type": type(exc).__name__}
-    return {"status": "pass" if result["ok"] else "fail", "summary": "Static constellation geometry " + ("matches source plan" if result["ok"] else "failed correspondence checks"),
-            "scope": result["scope"], "checks": result.get("checks", {}), "findings": result.get("findings", []),
-            "counts": result.get("checks", {}), "findings_omitted": result.get("omitted_findings", 0)}
+    ok = result["ok"] and gallery["ok"]
+    out = {"status": "pass" if ok else "fail", "summary": "Static constellation geometry " + ("matches source plan" if result["ok"] else "failed correspondence checks"),
+           "scope": result["scope"], "checks": result.get("checks", {}), "findings": result.get("findings", []),
+           "counts": result.get("checks", {}), "findings_omitted": result.get("omitted_findings", 0)}
+    if gallery["state"] != "absent":      # a scene built before the gallery existed keeps its old summary and scope
+        out["summary"] += "; " + gallery["summary"]
+        out["scope"] += " " + gallery["scope"]
+        out["gallery_checks"] = gallery["checks"]
+        out["findings"] = out["findings"] + [dict(f, code="gallery:" + f["code"]) for f in gallery["findings"]]
+        out["findings_omitted"] += gallery["omitted"]
+    return out
+
+
+def _gallery_result(xml: str, layout: dict, bundle: dict) -> dict:
+    """The look gallery is read by gallerycheck.py from bundle.eda alone. No plan is legitimate only for a scene with no observed commits or no
+    stored looks (it says so); a plan that differs between the served bundle and the build-control layout, or a missing plan beside stored
+    looks and observed commits, fails."""
+    from .gallerycheck import SCOPE, verify_gallery
+    plan = layout.get("gallery_plan")
+    if (bundle.get("layout") or {}).get("gallery_plan") != plan:
+        return {"ok": False, "state": "fail", "summary": "served and build-control gallery plans differ", "scope": "", "checks": {}, "findings": [], "omitted": 0}
+    looks = (bundle.get("eda") or {}).get("looks") or {}
+    if plan is None:
+        if not looks.get("findings"):
+            return {"ok": True, "state": "absent", "summary": "", "scope": "", "checks": {}, "findings": [], "omitted": 0}
+        if not (layout.get("counts") or {}).get("commits"):
+            return {"ok": True, "state": "not_drawn", "summary": "look gallery not drawn (no observed commits)", "scope": "The look gallery was not drawn.", "checks": {},
+                    "findings": [], "omitted": 0}
+        return {"ok": False, "state": "fail", "summary": "look gallery missing although looks are stored", "scope": "", "checks": {}, "findings": [], "omitted": 0}
+    r = verify_gallery(xml, plan, bundle.get("eda"))
+    return {"ok": r["ok"], "state": "pass" if r["ok"] else "fail", "summary": "look gallery " + ("matches the stored looks" if r["ok"] else "failed correspondence checks"),
+            "scope": SCOPE, "checks": r["checks"], "findings": r["findings"], "omitted": r["omitted_findings"]}
 
 
 def gate_live(out_dir: str) -> dict:

@@ -68,7 +68,7 @@ PIPELINE = [
     {"stage": "page", "module": "x3dray/page.py + x3dray/relations.py", "entry": "build_page", "inputs": ["xray.x3d", "layout.json", "all JSON above", "x3dray/web/*"],
      "outputs": ["index.html", "bundle.json", "app.js", "tools.js", "notebook.js", "investigation.js", "page.css", "x_ite/", "fonts/", "publish.json"], "model": None,
      "does": "Projects witnessed ties into conservative typed relation records, then assembles the Artifact folder: vendored X_ITE, the label font, the scene, the data bundle and the page code."},
-    {"stage": "gates", "module": "x3dray/gates.py + x3dray/scenecheck.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
+    {"stage": "gates", "module": "x3dray/gates.py + x3dray/scenecheck.py + x3dray/gallerycheck.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
      "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts, bridges and eda sections recomputed and re-derived from the commits), the scene gate (independent static constellation geometry, source witnesses and grade encoding), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
     {"stage": "receipt", "module": "x3dray/receipt.py", "entry": "write", "inputs": ["everything above"], "outputs": ["receipt.json"], "model": None,
      "does": "sha256 of every input, module, output and gate result, and one digest over them."},
@@ -104,7 +104,7 @@ IDENTITY = {
 }
 
 LIMITS = [
-    "Static scene verification covers the declared constellation glyphs and polylines; other geometry, visibility, animation and rendered pixels require separate checks.",
+    "Static scene verification covers the declared constellation glyphs and polylines and the look gallery (each panel, bar, cube and text against the stored looks); other geometry, visibility, animation and rendered pixels require separate checks.",
     "Typed traversal follows the direction and grade of recorded predicates. Static references and configured use do not establish runtime execution or causation.",
     "A private repo shows only commit times, identity classes and sizes: no subjects, paths, branches or files.",
     "People appear as identity labels from the family config; an identity the config does not name counts as an upstream contributor.",

@@ -28,7 +28,15 @@ def _digest(value) -> str:
 def build_fixture() -> tuple[str, dict, dict]:
     """Use generic repository names to test the actual producer boundary."""
     with tempfile.TemporaryDirectory(prefix="xray-scene-audit-") as temporary:
-        root = Path(temporary)
+        out, bundle = build_fixture_dir(Path(temporary))
+        layout = json.loads((out / "layout.json").read_text())
+        return (out / "xray.x3d").read_text(), layout["scene_plan"], bundle
+
+
+def build_fixture_dir(root: Path, with_eda: bool = False) -> tuple[Path, dict]:
+    """Build the synthetic family under `root` and return the output directory (xray.x3d, layout.json) and the bundle. With `with_eda` the
+    eda stage runs and its section is in the data directory, so the scene carries the look gallery and the bundle carries bundle.eda."""
+    if True:
         sources, data, out = (root / n for n in ("sources", "data", "out"))
         for p in (sources, data, out):
             p.mkdir()
@@ -62,10 +70,14 @@ def build_fixture() -> tuple[str, dict, dict]:
                             ("concepts.json", con), ("bridges.json", bri), ("profile.json", prof),
                             ("self.json", description), ("spec.rendered.json", rendered)):
             write_json(data / name, value)
+        if with_eda:
+            from x3dray import eda
+            section, eda_problems = eda.run(dataset)
+            if eda_problems:
+                raise AssertionError("Synthetic eda fixture did not verify")
+            write_json(data / "eda.json", section)
         compiler.build(str(data), str(out))
-        bundle = page.make_bundle(str(data), str(out), cfg)
-        layout = json.loads((out / "layout.json").read_text())
-        return (out / "xray.x3d").read_text(), layout["scene_plan"], bundle
+        return out, page.make_bundle(str(data), str(out), cfg)
 
 
 

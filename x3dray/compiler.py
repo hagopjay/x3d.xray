@@ -660,7 +660,7 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
 
 
 def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: dict, selfd: dict,
-                con: dict | None = None, bri: dict | None = None) -> tuple[str, dict]:
+                con: dict | None = None, bri: dict | None = None, eda: dict | None = None) -> tuple[str, dict]:
     S = Scene()
     L: dict = {"views": {}, "commits": [], "days": [], "lanes": {}, "nodes": {}, "ties": {"machine": [], "curated": []},
                "city": {"districts": {}, "buildings": []}, "self": {"stages": {}}, "regions": {}}
@@ -955,6 +955,18 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         kinds = {n: ("private" if pr.get("visibility") == "private" else (repos[n].get("kind") or "own")) for n, pr in per_repo.items()}
         L["regions"]["bridges"] = bridges_region(S, L, bri, kinds, _tb(bri["files"]["variants"]["count"]), _tb(bri["files"]["variants"]["jaccard"]))
 
+    # ================= the look gallery (x3dray/gallery.py; checked by x3dray/gallerycheck.py from bundle.eda alone)
+    if eda and isinstance(eda.get("looks"), dict) and eda["looks"].get("findings"):
+        from . import gallery as _gallery
+        g_ = _gallery.region(eda["looks"], FONT)
+        for line in g_["xml"]:
+            S.w(line)
+        S.labels += len(g_["labels"])
+        S.label_texts.extend(g_["labels"])
+        L["gallery"] = {"panels": g_["records"]}
+        L["gallery_plan"] = g_["plan"]
+        L["regions"]["gallery"] = g_["region"]
+
     # ================= the tool's own pipeline
     S.w("<Group DEF='Self'>")
     S.w("<TouchSensor DEF='TS_self' description='pipeline stage'/>")
@@ -1046,7 +1058,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "city": (reg["city"]["x1"] - reg["city"]["x0"]) / 2 + 1.5,
         "self": 2.75 * (stage_n - 1) / 2 + 1.6,
     }
-    for rid in ("concepts", "bridges"):
+    for rid in ("concepts", "bridges", "gallery"):
         if rid in reg:
             halfw[rid] = (reg[rid]["x1"] - reg[rid]["x0"]) / 2 + 0.8
     views = {
@@ -1061,11 +1073,12 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "city": ((city_c[0], 19, city_c[2] + 25), (city_c[0], -4, city_c[2]), 0.85),
         "self": ((0, SELF_Y + 2.5, SELF_Z + 22), (0, SELF_Y, SELF_Z), 0.85),
     }
-    for rid in ("concepts", "bridges"):
+    for rid in ("concepts", "bridges", "gallery"):
         if rid in reg:
             c_ = reg[rid]["center"]
             mid = ((reg[rid]["x0"] + reg[rid]["x1"]) / 2, c_[1], c_[2])
-            views[rid] = ((mid[0], mid[1] + 1.2, mid[2] + 24), mid, 0.85)
+            lift, back = (34.0, 46.0) if rid == "gallery" else (1.2, 24.0)   # the gallery is two rows deep and 54 wide: look down from further back
+            views[rid] = ((mid[0], mid[1] + lift, mid[2] + back), mid, 0.85)
     if "x3d_mcp" in L["city"]["districts"]:
         dc = L["city"]["districts"]["x3d_mcp"]["center"]
         views["hotspots"] = ((dc[0] + 2, dc[1] + 7, dc[2] + 9), (dc[0], dc[1] + 1.5, dc[2]), 0.85)
@@ -1124,7 +1137,7 @@ def build(data_dir: str, out_dir: str) -> dict:
     ds, ti, prof, spec_r, selfd = j("dataset.json"), j("ties.json"), j("profile.json"), j("spec.rendered.json"), j("self.json")
     opt = lambda n: j(n) if os.path.exists(os.path.join(data_dir, n)) else None
     cur = opt("curated.json")
-    xml, layout = build_scene(ds, ti, cur, prof, spec_r, selfd, opt("concepts.json"), opt("bridges.json"))
+    xml, layout = build_scene(ds, ti, cur, prof, spec_r, selfd, opt("concepts.json"), opt("bridges.json"), opt("eda.json"))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "xray.x3d"), "w", encoding="utf-8") as fh:
         fh.write(xml)
