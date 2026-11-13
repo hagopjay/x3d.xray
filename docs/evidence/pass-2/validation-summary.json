@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "python_tests": 312,
+  "DOM_checks": 14,
+  "schema_cases": 2,
+  "HTTP_probes": 7,
+  "fixture_repos": 4,
+  "fixture_commits": 24,
+  "entities": 4,
+  "semantic_polylines": 6,
+  "typed_records": 7,
+  "XML_cases": 13,
+  "adversarial_rejections": 10,
+  "required_release_gates": 8,
+  "all_release_gates_executed": false,
+  "fixture_digest": "5207dd1280329b9bad36f6e7c13eab6f32ea4fa8f3a83ae8b08f2aa3f045320e",
+  "analysis_digest": "19d4424708f6d6e52641dbc3fa26ec5598547a4d43f4026cc23649726dc837f4",
+  "patch_application": {
+    "ok": true,
+    "upstream_base": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+    "pass1_tree": "e1d563c0927b1bb8a6960db3c4249245c21a5367",
+    "compared_files": 66,
+    "routes": [
+      "upstream+cumulative",
+      "upstream+pass1+pass2delta"
+    ],
+    "patches": [
+      {
+        "path": "X3D-Xray-Architecture-Pass-2.patch",
+        "bytes": 357471,
+        "sha256": "7c5911e11cc833924964b817cb3044663ed7ce42547dabf95788ae491cbeb113"
+      },
+      {
+        "path": "X3D-Xray-Architecture-Cumulative.patch",
+        "bytes": 728324,
+        "sha256": "3ca519cee24439dc3689eeb5b0c52e3a7450b55addfda983b01d952180e61b38"
+      }
+    ]
+  },
+  "limitations": [
+    "Browser layout, real WebGL pixels and GPU performance unverified.",
+    "DOM scene reuse uses a renderer stand-in.",
+    "Static scene contract excludes other regions and runtime behavior.",
+    "Hash chains and receipts are not publisher authentication or proof of execution.",
+    "Real-family full release gates still required."
+  ]
+}

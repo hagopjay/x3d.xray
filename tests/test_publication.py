@@ -114,7 +114,7 @@ class PublicationBoundary(unittest.TestCase):
         self.assertEqual(json.loads((self.out / "bundle.json").read_text())["meta"]["x_ite"], "16.7.0")
 
     def test_skipped_checks_are_development_ok_but_not_release_ready(self):
-        gate_names = ("gate_xsd", "gate_loom", "gate_fact", "gate_privacy", "gate_witness", "gate_tools", "gate_live")
+        gate_names = ("gate_xsd", "gate_loom", "gate_fact", "gate_privacy", "gate_witness", "gate_scene", "gate_tools", "gate_live")
         with ExitStack() as stack:
             for name in gate_names:
                 stack.enter_context(mock.patch.object(gates, name, return_value={"status": "pass", "summary": "synthetic check"}))

@@ -16,6 +16,7 @@ import re
 import shutil
 
 from . import __version__
+from .witness_contract import evidence_count, project_evidence, scene_sources
 from . import publication
 from .publication import TYPES
 
@@ -89,6 +90,8 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
                          "first": f.get("first"), "last": f.get("last"), "sh": f.get("share")})
         files[r["name"]] = keep
     machine = []
+    private_names = {r["name"] for r in ds["repos"] if r.get("visibility") == "private"}
+    source_ledger = scene_sources(ds, ti, cur)
     for p in ti.get("pairs", []):
         ev = [e for e in p.get("evidence", []) if e.get("path") or e.get("text")]
         if not ev:
@@ -96,12 +99,20 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
         machine.append({"from": p["from"], "to": p["to"], "grade": p["grade"], "reason": p["grade_reason"], "kinds": p["kinds"],
                         "pins": p["kinds"].get("pin", 0) or None, "pin_targets": dict(list((p.get("pin_targets") or {}).items())[:3]) or None,
                         "evidence_records": {**p.get("evidence_records", {}),
-                                             "total": p.get("evidence_records", {}).get("total", len(p.get("evidence", []))),
+                                             "total": evidence_count(p),
                                              "returned": min(4, len(ev)),
-                                             "omitted": max(0, p.get("evidence_records", {}).get("total", len(p.get("evidence", []))) - min(4, len(ev))),
+                                             "omitted": max(0, evidence_count(p) - min(4, len(ev))),
                                              "page_limit": 4},
-                        "evidence": [{k: (v[:160] if isinstance(v, str) else v) for k, v in e.items() if v is not None} for e in ev[:4]]})
+                        "evidence": project_evidence(p, "machine")})
+        if p["from"] in private_names or p["to"] in private_names:
+            from .witness_contract import source_payload
+            machine[-1].update(evidence=[{"path": "[private repo]"}], kinds=source_payload(p, "machine", private_names)["kinds"],
+                               pins=None, pin_targets=None, reason="Private relationship: recorded aggregate detector counts only.")
+            machine[-1]["evidence_records"].update(returned=1, omitted=max(0, evidence_count(p)-1))
     curated_ties = [t for t in cur.get("ties", []) if t.get("evidence")]
+    curated_ties = [({**{k: t[k] for k in ("id", "from", "to", "grade")}, "kind": "aggregate", "what": "Private relationship: aggregate observation only.",
+                     "evidence": ["[private repo]"], "evidence_records": {"total": evidence_count(t)}}
+                    if t["from"] in private_names or t["to"] in private_names else t) for t in curated_ties]
     vocab = {}
     for r in repos:
         for a in [r["name"]] + r.get("aliases", []):
@@ -132,6 +143,11 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
         "self": sd,
         "layout": layout,
     }
+    # This graph preserves detector predicates and direction. It is separate
+    # from the legacy association view; a mention is not an executable import.
+    from .relations import build_relations
+    bundle["relations"] = build_relations(ds, ti, cur)
+    bundle["scene_sources"] = source_ledger
     return bundle
 
 

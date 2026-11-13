@@ -1,0 +1,16 @@
+{
+  "schema": "Official Web3D X3D4.0 XSD and imports, cached locally",
+  "cases": [
+    {
+      "case": "baseline",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "equivalent_nested_transforms",
+      "valid": true,
+      "errors": []
+    }
+  ],
+  "scope": "Schema validity only; geometry correspondence is independently verified."
+}

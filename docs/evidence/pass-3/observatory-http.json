@@ -1,0 +1,67 @@
+{
+  "ok": true,
+  "bound_address": "loopback",
+  "requests": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 1280106,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/observatory-data.json",
+      "status": 200,
+      "bytes": 1583221,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/baseline.x3d",
+      "status": 200,
+      "bytes": 33850,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/scale/modular-1000.x3d",
+      "status": 200,
+      "bytes": 1323268,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/scale/modular-1000.json",
+      "status": 200,
+      "bytes": 8084810,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/x_ite/x_ite.min.js",
+      "status": 200,
+      "bytes": 1306961,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/fonts/LICENSE.txt",
+      "status": 200,
+      "bytes": 3859,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/start_lab.py",
+      "status": 404,
+      "bytes": 354,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/unknown.json",
+      "status": 404,
+      "bytes": 354,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/../synthetic-sources/dataset.json",
+      "status": 404,
+      "bytes": 354,
+      "nosniff": "nosniff"
+    }
+  ],
+  "scope": "Actual HTTP/asset manifest probes; no browser or GPU."
+}

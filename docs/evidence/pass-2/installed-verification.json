@@ -1,0 +1,77 @@
+{
+  "ok": true,
+  "assets_verified": 134,
+  "controls_verified": 1,
+  "fixture_digest": "5207dd1280329b9bad36f6e7c13eab6f32ea4fa8f3a83ae8b08f2aa3f045320e",
+  "analysis_digest": "19d4424708f6d6e52641dbc3fa26ec5598547a4d43f4026cc23649726dc837f4",
+  "source_inputs_unchanged": true,
+  "cases": [
+    {
+      "id": "baseline",
+      "ok": true,
+      "scope_probe": false
+    },
+    {
+      "id": "moved_entity",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "primitive_size",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "wrong_edge_endpoint",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "reversed_coord_index",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "wrong_grade_colour",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "metadata_wrong_endpoint",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "duplicate_def",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "unlabelled_semantic_edge",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "missing_coordinate_use",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "hidden_semantic_layer",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "id": "equivalent_nested_transforms",
+      "ok": true,
+      "scope_probe": false
+    },
+    {
+      "id": "unlabelled_outside_layer",
+      "ok": true,
+      "scope_probe": true
+    }
+  ],
+  "python_javascript_state_digest": "610bbe72519f465f5fd35642c9d8e9cf651411e6c2e06e0bc1fc8f1852bad074",
+  "scope": "Installed Python verifier, export content hashes, and replay parity. No WebGL or pixel claim."
+}

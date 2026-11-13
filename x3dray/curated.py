@@ -40,6 +40,13 @@ def import_masterclass(src_dir: str, exclude: tuple[str, ...] = (), notes: list[
             "what": _scrub(e.get("what", "")), "grade": e.get("grade"), "first_date": e.get("first_date"),
             "direction": _scrub(e.get("direction")), "evidence": [_scrub(x) for x in e.get("evidence", [])][:6],
         })
+        # Explicit temporal claims survive import; legacy first_date remains
+        # an annotation and never silently becomes a validity boundary.
+        from .temporal import normalize_instant, normalize_valid_time
+        if "observed_at" in e:
+            ties[-1]["observed_at"] = normalize_instant(e["observed_at"]) if e["observed_at"] is not None else None
+        if "valid_time" in e:
+            ties[-1]["valid_time"] = normalize_valid_time(e["valid_time"])
     nodes = []
     for n in eco.get("nodes", []):
         if n["id"] in exclude:

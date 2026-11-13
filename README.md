@@ -82,7 +82,7 @@ Around the scene the page carries dense readouts (signals, KPIs, per-repo table,
 
 - **One tool set, two consumers.** `x3dray/web/tools.js` is both the tool list the page hands to Claude (through the claude.ai
   Artifact `sample` capability) and the tool list of an MCP server (`x3dray/web/mcp.mjs`), so any agent can drive the same data.
-  Data tools: `query_commits`, `activity`, `top_files`, `ties`, `traverse`, `concepts`, `bridges`, `signals`, `how_built` (and
+  Data tools: `query_commits`, `activity`, `top_files`, `ties`, `traverse`, `architecture`, `concepts`, `bridges`, `signals`, `how_built` (and
   `overview` over MCP).
   Scene tools, page only: `show` (camera), `highlight` (light commits, x-ray the rest), `note` (pin a label in the scene), `color_by`.
 - **Prose by Claude, numbers by code.** A spec (`specs/*.json`) is written by Claude with every number as a `{slot}`;
@@ -165,10 +165,81 @@ python3 -m x3dray tools     # every tool with its schema: shared, MCP only, page
 | fact | no digit outside a slot, every slot resolves, every claim is backed |
 | privacy | no address, session URL or secret-shaped string in any file the build wrote, and no private repo itemised (no sha, subject, file, path or area) in the commits, concepts or bridges, or in the gate results themselves |
 | witness | no tie without evidence, and the scene draws no tie the data lacks; the concepts and bridges are recomputed from the dataset and must match, they pass the structure stage's own check again, and the scene draws no concept, session or bridge file they lack. That check re-derives from the commits, apart from the lattice and graph code: every cited hash is a commit that did what it is cited for (touched that file or both files, is that author's or that kind of author's, in that repo, carries that session, is the first of its kind there, is that mass edit); every count and each part's set-asides; every closed set of kinds and the lines between them; every area rule that meets the thresholds; the file graphs' sizes, clusters, degrees, cut vertices and which files lie on a shortest path between two others; and the session and author graphs' passage points, cut vertices and betweenness, by brute force. The size of each file's betweenness is checked against a brute-force oracle in the tests |
+| scene | independent XML reader compares the declared constellation Sphere/Box world geometry, used IndexedLineSet coordinates, endpoint attachment, identity, source witnesses and grade colours against the plan; missing legacy plans skip and block release readiness. Other regions, visibility, animation and rendered pixels are outside this contract |
 | tools | every tool runs within the 32 KB result limit, aliases resolve, unknown names are refused, the MCP server answers |
 | live | Chromium under a strict content policy: the scene loads and draws every label, the scene tools work, a click opens a card, and Ask runs end to end against a stand-in for the sample runtime |
 
 The receipt is one sha256 over every input, module and output, plus the gate verdicts. The page shows it; `how_built` returns it.
+
+## Architecture Observatory
+
+Build a tinkerable synthetic specimen from four temporary real Git repositories:
+
+```sh
+python3 -m x3dray observatory --out out/observatory
+python3 out/observatory/start_lab.py
+```
+
+The printed localhost URL opens the geometry overlay, typed path explorer and replayable investigation. The export includes 24 synthetic commits, four glyphs, six semantic polylines, seven typed relation records and 13 actual XML audit cases. The independent Python verifier runs during export; the browser displays its recorded results. It uses the production shared `architecture` query tool for live filtering. Browser event hashing needs a secure context, such as localhost. No real family or private history is bundled.
+
+For offline 3D, supply `--xite path/to/x_ite/dist --font path/to/font.ttf --font-license path/to/font-license.txt`. Without vendored assets, optional 3D attempts the pinned X_ITE CDN; the analytic overlay has no external dependencies. The supplied font's redistribution notice can be included in the same manifest. Static checks do not certify runtime pixels.
+
+Download a selected XML case, plan and witness bundle from the lab, then re-run:
+
+```sh
+python3 -m x3dray verify-scene --scene selected.x3d --plan scene-plan.json --bundle witness-bundle.json
+python3 experiments/scene_mutation_audit.py --output-json scene-mutations.json
+```
+
+Ten deliberate violations are rejected; inverse nested transforms preserve world geometry and pass. A line added outside the semantic layers is a visible scope probe: acceptance of the instrumented subset does not certify that extra geometry. DEF/USE expansion is limited by a shared 250,000-operation budget in addition to XML size, element and depth limits.
+
+`layout.json.scene_plan` separates identities and expected world geometry from the emitted XML. The checker does not import the compiler or reuse its transform code. This establishes correspondence to the supplied plan and observations; it does not authenticate those inputs. Receipts now include nested package templates and scripts.
+
+`bundle.json.relations` separates predicates before traversal:
+
+| source observation | projected predicate | traversal meaning |
+| --- | --- | --- |
+| configured use | `declares_use` | directed declaration |
+| static dependency reference | `dependency_reference` | directed reference; execution is unverified |
+| recorded revision pin | `pins_revision` | directed pin |
+| matching blobs / shared session | `shares_blob` / `shared_session` | symmetric association |
+| stated lineage | `claims_lineage_from` | successor to predecessor; assertion, not proven Git ancestry |
+| curated prose | `curated_association` | symmetric association; prose direction remains annotation |
+
+Use `architecture` with `from`, optional `to`, `predicates`, `direction`, `grades`, `max_hops` and `limit`. Directions are `outgoing`, `incoming` or explicitly undirected `association`. It counts shortest node paths exactly within the filter and hop bound; parallel records support a hop rather than multiply node paths. Every shortened response reports omissions. C/L/S are evidence grades, not probabilities. The legacy `traverse` tool remains an association query.
+
+Investigation logs bind query endpoints, filters, selections and requested mutations to source, analysis and implementation identities. Python and browser reducers validate the same bounded hash-chain contract. A chain is not actor authentication and does not prove an experiment ran; verifier output is separately recorded. Replaying a history from a different analysis is refused.
+
+DOM integration (requires `jsdom@31.0.0`) is exercised by `experiments/test_observatory_dom.cjs`; it includes a renderer stand-in for scene reuse. Actual WebGL, layout and full-family release gates still require their own environment and evidence.
+
+## Immutable witnesses, time and measured scale
+
+The Continuum Observatory extends the same lab with exact public Git file locators, independent observation/validity lenses and recorded scale experiments. Python 3.10+, Git with `--no-lazy-fetch` support, and Node are required for the complete workflow. Missing Git object/capability checks return `unavailable`; they never trigger a promisor fetch. Optional jsdom 31.0.0 adds explicitly labelled SVG DOM construction measurements.
+
+```sh
+python3 -m x3dray fixture-sources --out synthetic-sources
+python3 -m x3dray verify-witness --repo synthetic-sources/evidence --repo-id github:synthetic/evidence --locator synthetic-sources/witnesses/0000.json
+python3 -m x3dray scale --out scale-evidence --jsdom-modules path/to/node_modules
+python3 -m x3dray observatory --out out/continuum --benchmark scale-evidence/scale-benchmark.json
+python3 out/continuum/start_lab.py
+```
+
+Use an empty source output directory. The four fixture repositories are synthetic and local. Locators name a canonical caller-bound repository ID, full commit and blob IDs with object format, raw content SHA-256, exact byte/line span and span SHA-256, and detector/version. The local verifier rehashes the commit/tree/blob chain with replacement and lazy fetching disabled. Moving HEAD or modifying the worktree does not change the addressed evidence. Caller identity, remote ownership and the detector's interpretation remain separate trust questions. Non-file assertions state that no immutable file locator is available. Private-touching relations export aggregates, with no private content hashes or locators.
+
+The `architecture` query accepts paired `at` (timezone-qualified ISO timestamp) and `time_mode`, plus `unknown_time` (`exclude` default, or `include`):
+
+| time mode | meaning |
+| --- | --- |
+| `observed_by` | supplied observation time ≤ query instant; makes no lifetime claim |
+| `valid_at` | explicit claimed start ≤ instant < end; every hop uses the same instant |
+
+Unknown-time paths are labelled provisional when included. Public explicit `observed_at` and `{start,end}` `valid_time` fields survive curated import. Commit author dates and legacy `first_date` are never converted into lifetimes. A validity query can use later-recorded assertions about the past; combining validity with a historical knowledge cutoff is a separate future query mode. `set_time` investigation events save and replay these choices with strict UTC/microsecond normalization.
+
+The benchmark generates 10/100/1,000 entities for chain, modular and branching graphs, with long Unicode IDs, parallel typed observations and isolated nodes. These are generated source records, not thousands of harvested repositories. It runs the production constellation compiler, independent verifier, typed projection, Python queries and shared JavaScript tool against an independent path oracle. Seven measured repetitions follow two warmups by default; raw samples, nearest-rank p95, source fingerprints, environment, budget refusals and clearly scoped memory probes are retained. The packaged JavaScript harness works from an installed wheel.
+
+The fixed-radius layout produced 7,936 overlapping glyph pairs at 1,000 entities. Adaptive concentric rings reduce that fixture's glyph overlaps to zero and resize its region/viewpoint. This establishes world-space glyph separation; labels, edge crossings, screen readability and GPU performance need separate checks. All 1,000 glyphs are verified even though the independent observed-detail export is capped at 200 records. The lab's full plan preview discloses this distinction.
+
+Modern scene plans also bind a formal source digest: first four substantive public witnesses, display strings capped at 160 characters, complete normalized locators and aggregate counts. A complete `scene_sources` ledger explains omitted inputs. The independent checker detects altered source samples and coordinated removals from XML/plan; private hashes depend on aggregate counts only. A retained trusted receipt binds the entire exported bytes beyond this bounded sample. Neither mechanism authenticates the publisher. Legacy geometry plans remain inspectable with verify-scene, but cannot satisfy the current release gate until regenerated with source binding.
 
 ## Layout
 

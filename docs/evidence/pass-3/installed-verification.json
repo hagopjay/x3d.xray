@@ -1,0 +1,245 @@
+{
+  "ok": true,
+  "assets_verified": 152,
+  "controls_verified": 1,
+  "XML_cases": [
+    {
+      "case": "baseline",
+      "ok": true,
+      "scope_probe": false
+    },
+    {
+      "case": "moved_entity",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "primitive_size",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "wrong_edge_endpoint",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "reversed_coord_index",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "wrong_grade_colour",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "metadata_wrong_endpoint",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "duplicate_def",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "unlabelled_semantic_edge",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "missing_coordinate_use",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "hidden_semantic_layer",
+      "ok": false,
+      "scope_probe": false
+    },
+    {
+      "case": "equivalent_nested_transforms",
+      "ok": true,
+      "scope_probe": false
+    },
+    {
+      "case": "unlabelled_outside_layer",
+      "ok": true,
+      "scope_probe": true
+    }
+  ],
+  "immutable_source_checks": [
+    {
+      "repo_id": "github:synthetic/evidence",
+      "ok": true,
+      "checks": [
+        "caller_repository_binding",
+        "replacement_and_lazy_fetch_disabled",
+        "commit_and_tree_object_hashes",
+        "immutable_commit_path_read",
+        "git_object_format_and_blob_identity",
+        "raw_content_sha256",
+        "span_bounds_and_sha256"
+      ]
+    },
+    {
+      "repo_id": "github:synthetic/evidence",
+      "ok": true,
+      "checks": [
+        "caller_repository_binding",
+        "replacement_and_lazy_fetch_disabled",
+        "commit_and_tree_object_hashes",
+        "immutable_commit_path_read",
+        "git_object_format_and_blob_identity",
+        "raw_content_sha256",
+        "span_bounds_and_sha256"
+      ]
+    },
+    {
+      "repo_id": "github:synthetic/render",
+      "ok": true,
+      "checks": [
+        "caller_repository_binding",
+        "replacement_and_lazy_fetch_disabled",
+        "commit_and_tree_object_hashes",
+        "immutable_commit_path_read",
+        "git_object_format_and_blob_identity",
+        "raw_content_sha256",
+        "span_bounds_and_sha256"
+      ]
+    },
+    {
+      "repo_id": "github:synthetic/render",
+      "ok": true,
+      "checks": [
+        "caller_repository_binding",
+        "replacement_and_lazy_fetch_disabled",
+        "commit_and_tree_object_hashes",
+        "immutable_commit_path_read",
+        "git_object_format_and_blob_identity",
+        "raw_content_sha256",
+        "span_bounds_and_sha256"
+      ]
+    }
+  ],
+  "temporal_counterexample": {
+    "definite": 0,
+    "provisional": 1,
+    "observed": 2
+  },
+  "scale_checks": [
+    {
+      "size": 10,
+      "topology": "chain",
+      "checked": {
+        "entities": 10,
+        "relations": 9,
+        "source_relations": 9,
+        "expanded_visits": 397,
+        "eligible_source_relations": 9,
+        "eligible_source_entities": 10
+      }
+    },
+    {
+      "size": 100,
+      "topology": "chain",
+      "checked": {
+        "entities": 100,
+        "relations": 98,
+        "source_relations": 98,
+        "expanded_visits": 3927,
+        "eligible_source_relations": 98,
+        "eligible_source_entities": 100
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "chain",
+      "checked": {
+        "entities": 1000,
+        "relations": 989,
+        "source_relations": 989,
+        "expanded_visits": 39252,
+        "eligible_source_relations": 989,
+        "eligible_source_entities": 1000
+      }
+    },
+    {
+      "size": 10,
+      "topology": "modular",
+      "checked": {
+        "entities": 10,
+        "relations": 9,
+        "source_relations": 9,
+        "expanded_visits": 397,
+        "eligible_source_relations": 9,
+        "eligible_source_entities": 10
+      }
+    },
+    {
+      "size": 100,
+      "topology": "modular",
+      "checked": {
+        "entities": 100,
+        "relations": 98,
+        "source_relations": 98,
+        "expanded_visits": 3927,
+        "eligible_source_relations": 98,
+        "eligible_source_entities": 100
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "modular",
+      "checked": {
+        "entities": 1000,
+        "relations": 990,
+        "source_relations": 990,
+        "expanded_visits": 39262,
+        "eligible_source_relations": 990,
+        "eligible_source_entities": 1000
+      }
+    },
+    {
+      "size": 10,
+      "topology": "branching",
+      "checked": {
+        "entities": 10,
+        "relations": 9,
+        "source_relations": 9,
+        "expanded_visits": 397,
+        "eligible_source_relations": 9,
+        "eligible_source_entities": 10
+      }
+    },
+    {
+      "size": 100,
+      "topology": "branching",
+      "checked": {
+        "entities": 100,
+        "relations": 98,
+        "source_relations": 98,
+        "expanded_visits": 3927,
+        "eligible_source_relations": 98,
+        "eligible_source_entities": 100
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "branching",
+      "checked": {
+        "entities": 1000,
+        "relations": 989,
+        "source_relations": 989,
+        "expanded_visits": 39252,
+        "eligible_source_relations": 989,
+        "eligible_source_entities": 1000
+      }
+    }
+  ],
+  "python_javascript_state_digest": "afe78b4017dcaecf0efa3c48fc337552167f5259c7fbddacdc08c0ffe9d7953f",
+  "fixture_digest": "3c5287b1c72239587c6410072950d8eea4d78f56f7765fb0dee1fe75ff70e2c0",
+  "analysis_digest": "0e8404a34519d9f6919d496023d934fc6ae06b6499b6b333cd440bb8aa7d8256",
+  "scope": "Content, installed Python geometry/source checks and replay parity; no browser pixels, GPU performance or remote ownership claim."
+}

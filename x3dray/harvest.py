@@ -18,7 +18,7 @@ import json
 import os
 import re
 
-from . import gitio
+from . import gitio, locators
 
 X3D_EXT = {".x3d", ".x3dv", ".x3dj", ".x3dz", ".x3db", ".wrl"}
 MEDIA_EXT = {
@@ -157,13 +157,23 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
         "github": rcfg.get("github", {}),
         "present": gitio.is_repository(path),
     }
+    if not private:
+        configured_id = rcfg.get("repo_id", "repo:" + name)
+        if not locators.valid_repo_id(configured_id):
+            raise ValueError("invalid public repository identity")
+        rec["repo_id"] = configured_id
     if not rec["present"]:
         rec["note"] = "no clone found; listed from the family config only"
         return rec
 
     dref = gitio.default_ref(path)
+    # Capture one immutable revision before any tree/history read. A moving ref
+    # must not combine a new tree with an earlier source witness identity.
+    snapshot_oid = gitio.git(path, "rev-parse", "--verify", dref + "^{commit}").strip()
     rec["default_branch"] = None if private else dref.removeprefix("origin/")
-    rec["head"] = None if private else gitio.git(path, "rev-parse", dref).strip()
+    rec["head"] = None if private else snapshot_oid
+    if not private:
+        rec["object_format"] = gitio.git(path, "rev-parse", "--show-object-format").strip()
     rec["commits_all_refs"] = int(gitio.git(path, "rev-list", "--all", "--count").strip() or 0)
 
     upstream_shas: set[str] = set()
@@ -174,10 +184,11 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
             rec["upstream"] = {
                 "name": rcfg["upstream"]["name"],
                 "commits": len(upstream_shas),
-                "head": gitio.git(up, "rev-parse", gitio.default_ref(up)).strip(),
             }
+            if not private:
+                rec["upstream"]["head"] = gitio.git(up, "rev-parse", gitio.default_ref(up)).strip()
 
-    on_default = gitio.rev_set(path, dref)
+    on_default = gitio.rev_set(path, snapshot_oid)
     if kind == "fork-idle":
         rec["commits"] = []
         rec["family_commits"] = sum(book.matches(c["author_name"], c["author_email"])
@@ -223,6 +234,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
         }
         if not private:
             entry["sha"] = c["sha"][:12]
+            entry["oid"] = c["sha"]
             entry["_oid"] = c["sha"]  # tie validation uses full OIDs; stripped before any export
             entry["subject"] = c["subject"][:160]
             kinds = collections.Counter(classify_path(p) for _, _, p in c["numstat"])
@@ -275,8 +287,9 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
     kind_tot: dict[str, dict] = {}
     tests = 0
     blobs = []
+    blob_modes = {}
     rec["tree_measured"] = True
-    for blob, size, p in gitio.ls_tree(path, dref):
+    for mode, blob, size, p in gitio.ls_tree_entries(path, snapshot_oid):
         if fork_scope is not None and p not in fork_scope:
             continue
         k = classify_path(p)
@@ -287,6 +300,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
             lines = text_lines(data)
             tests += count_tests(p, data) if k == "tests" else 0
         blobs.append((blob, size, p))
+        blob_modes[p] = mode
         kt = kind_tot.setdefault(k, {"files": 0, "bytes": 0, "lines": 0})
         kt["files"] += 1
         kt["bytes"] += size
@@ -323,6 +337,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
     if not private:
         rec["files"] = files
     rec["_blobs"] = blobs  # internal: used by tie detection, stripped before writing
+    rec["_blob_modes"] = blob_modes
     rec["_path"] = path
     rec["_dref"] = dref
     return rec
@@ -341,7 +356,17 @@ def longest_streak(days: list[str]) -> int:
 
 def harvest_family(cfg: dict, root: str) -> dict:
     book = IdentityBook(cfg)
-    repos = [harvest_repo(r, root, book) for r in cfg["repos"]]
+    repos = []
+    for r in cfg["repos"]:
+        # Configured identities are logical names, not claims authenticated by
+        # a network remote. Prefer the configured GitHub owner + checkout name
+        # over display aliases (e.g. KeGG's longer actual repository name).
+        public_cfg = dict(r)
+        owner = cfg.get("owner", "")
+        actual_name = os.path.basename(os.path.normpath(r["dir"]))
+        if "repo_id" not in r and re.fullmatch(r"[A-Za-z0-9-]+", owner) and re.fullmatch(r"[A-Za-z0-9_.-]+", actual_name):
+            public_cfg["repo_id"] = "github:" + owner.lower() + "/" + actual_name.lower()
+        repos.append(harvest_repo(public_cfg, root, book))
     return {
         "family": cfg["family"],
         "title": cfg.get("title", cfg["family"]),
@@ -356,7 +381,7 @@ def harvest_family(cfg: dict, root: str) -> dict:
 
 
 def strip_internal(dataset: dict) -> dict:
-    """Remove internal fields at every level, including public full-OID witnesses."""
+    """Remove transient/internal fields; full public revision IDs remain public."""
     def clean(value):
         if isinstance(value, dict):
             return {k: clean(v) for k, v in value.items() if not k.startswith("_")}

@@ -48,7 +48,9 @@ function toolResult(id, value, isError = false) {
 }
 const INSTRUCTIONS = `x3d-ray: read-only tools over ${B.meta.title || 'a repo family'} (harvested ${B.meta.harvested_at}). ` +
   'Call overview first: it is the digest the page shows its own Claude. Lookup tools (query_commits, activity, top_files, ties, signals, concepts, ' +
-  'bridges) answer exact questions from tables; traverse walks the tie graph for multi-hop questions. Say which route you used. concepts and bridges ' +
+  'bridges) answer exact questions from tables; traverse walks undirected recorded associations, while architecture walks typed relations under explicit predicates and direction. ' +
+  'Architecture at+time_mode separates observed_by (recorded visibility, not historical validity) from valid_at (claimed half-open validity at the same instant on all hops, without an observation cutoff); unknown_time defaults to exclude and include is provisional. ' +
+  'Static references and curated associations do not prove executable dependencies. Say which route and direction you used. concepts and bridges ' +
   'say what each part read and set aside (excluded); a private repo answers with counts only. Two repos that no chain of Claude sessions joins have ' +
   'no recorded session link, never "no link", and the ties may still join them. Repo names resolve through the family\'s ' +
   'vocabulary (x3d.ai is x3d_ai; .prov is a stage inside x3d.ML); an unknown name is refused with the nearest names, so never guess. A value marked ' +

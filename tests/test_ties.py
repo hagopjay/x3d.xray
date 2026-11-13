@@ -2,11 +2,12 @@
 
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from x3dray import curated, ties
+from x3dray import curated, gitio, harvest, locators, ties
 
 
 class TieWitnessTests(unittest.TestCase):
@@ -100,6 +101,129 @@ class TieWitnessTests(unittest.TestCase):
         oid = "abcdef123456" + "a" * 52
         result = self.ab(self.detected([("doc", "README.md", "pin " + oid.upper())], [{"sha": oid[:12], "_oid": oid}]))
         self.assertEqual(result["pin_targets"], {oid: 1})
+
+    def test_legacy_witness_has_explicit_unknown_locator_and_observation_time(self):
+        result = self.ab(self.detected([("doc", "README.md", "targetlib")]))
+        witness = result["evidence"][0]
+        self.assertEqual(witness["locator_status"], "unavailable")
+        self.assertEqual(witness["locator_unavailable_reason"], "no_public_pinned_revision")
+        self.assertIsNone(witness["observed_at"])
+        self.assertIsNone(witness["valid_time"])
+
+
+class ImmutableTieTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.cfg = {"family": "fixture", "owner": "fixture", "repos": [
+            {"name": "a", "dir": "a", "kind": "own", "aliases": ["sourcelib"]},
+            {"name": "b", "dir": "b", "kind": "own", "aliases": ["targetlib"]}]}
+        for name in ("a", "b"):
+            (self.root / name).mkdir()
+            self.git(name, "init", "-q")
+            self.git(name, "config", "user.name", "Fixture")
+            self.git(name, "config", "user.email", "fixture@example.invalid")
+
+    def git(self, name, *args):
+        return subprocess.check_output(["git", "-C", str(self.root / name), *args],
+                                       env=gitio.read_environment()).decode().strip()
+
+    def commit(self, name, files, message="fixture"):
+        for path, data in files.items():
+            dest = self.root / name / path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+        self.git(name, "add", "--all")
+        self.git(name, "commit", "-qm", message)
+        return self.git(name, "rev-parse", "HEAD")
+
+    def harvested(self):
+        data = harvest.harvest_family(self.cfg, str(self.root))
+        data["harvested_at"] = "2026-11-12T11:30:00+01:00"
+        return data
+
+    def populate(self):
+        shared = b"\x00\xff" + bytes(range(256)) * 5
+        target_oid = self.commit("b", {"target.py": b"target fixture\n", "same.bin": shared})
+        self.commit("a", {"src/main.py": "α\r\nimport targetlib\r\n".encode() + b"pin " + target_oid.encode() + b"\r\n",
+                          "same.bin": shared})
+
+    def test_public_file_and_shared_witnesses_verify_against_full_pinned_revisions(self):
+        self.populate()
+        dataset = self.harvested()
+        result = ties.find_ties(self.cfg, dataset)
+        pair = TieWitnessTests.ab(result)
+        witnesses = {e["kind"]: e for e in pair["evidence"]}
+        self.assertTrue({"mention:dependency", "pin", "shared_file"} <= witnesses.keys())
+        by_id = {r["repo_id"]: r for r in dataset["repos"]}
+        for evidence in witnesses.values():
+            self.assertEqual(evidence["locator_status"], "recorded")
+            self.assertEqual(evidence["observed_at"], "2026-11-12T10:30:00Z")
+            self.assertIsNone(evidence["valid_time"])
+            sources = evidence.get("locators", [evidence.get("locator")])
+            for source in sources:
+                record = by_id[source["repo_id"]]
+                self.assertEqual(source["revision"]["oid"], record["head"])
+                self.assertEqual(source["detector"], {"id": evidence["kind"], "version": "1"})
+                self.assertTrue(locators.verify_locator(record["_path"], source, repo_id=record["repo_id"])["ok"])
+        self.assertEqual(witnesses["mention:dependency"]["locator"]["span"]["start"], 2)
+        self.assertEqual(len(witnesses["shared_file"]["locators"]), 2)
+        self.assertTrue(all(s["span"]["kind"] == "bytes" for s in witnesses["shared_file"]["locators"]))
+
+    def test_later_head_and_worktree_changes_do_not_retarget_source(self):
+        self.populate()
+        dataset = self.harvested()
+        original = dataset["repos"][0]["head"]
+        self.commit("a", {"src/main.py": b"unrelated changed tip\n"}, "new tip")
+        result = ties.find_ties(self.cfg, dataset)
+        witness = next(e for e in TieWitnessTests.ab(result)["evidence"] if e["kind"] == "mention:dependency")
+        self.assertEqual(witness["locator"]["revision"]["oid"], original)
+        self.assertTrue(locators.verify_locator(str(self.root / "a"), witness["locator"], repo_id="github:fixture/a")["ok"])
+
+    def test_private_endpoint_withholds_both_shared_content_locators_and_hashes(self):
+        self.populate()
+        self.cfg["repos"][1]["visibility"] = "private"
+        dataset = self.harvested()
+        private_oid = self.git("b", "rev-parse", "HEAD")
+        shared_oid = self.git("b", "rev-parse", "HEAD:same.bin")
+        result = ties.find_ties(self.cfg, dataset)
+        for pair in result["pairs"]:
+            if "b" not in (pair["from"], pair["to"]):
+                continue
+            for witness in pair["evidence"]:
+                self.assertEqual(witness["locator_status"], "withheld_private")
+                self.assertNotIn("locator", witness)
+                self.assertNotIn("locators", witness)
+        self.assertNotIn(shared_oid, json.dumps(result))
+        exported = harvest.strip_internal(dataset)
+        self.assertNotIn(private_oid, json.dumps(exported))
+        self.assertNotIn("repo_id", exported["repos"][1])
+        self.assertNotIn("oid", json.dumps(exported["repos"][1]["commits"]))
+
+    def test_configuration_assertions_have_no_invented_git_source_or_lifetime(self):
+        self.populate()
+        self.cfg["repos"][0].update(observer=True, uses={"b": "configured declaration"})
+        self.cfg.update(lineage=["a", "b"], lineage_source="owner statement")
+        dataset = self.harvested()
+        result = ties.find_ties(self.cfg, dataset)
+        for witness in TieWitnessTests.ab(result)["evidence"]:
+            if witness["kind"] in {"uses", "lineage"}:
+                self.assertEqual(witness["locator_status"], "unavailable")
+                self.assertEqual(witness["locator_unavailable_reason"], "non_file_provenance")
+                self.assertNotIn("locator", witness)
+                self.assertIsNone(witness["valid_time"])
+                self.assertEqual(witness["observed_at"], "2026-11-12T10:30:00Z")
+
+    def test_invalid_utf8_source_uses_exact_raw_line_bytes(self):
+        self.commit("b", {"a.py": b"target\n"})
+        self.commit("a", {"src/main.py": b"\xff\nimport targetlib\n"})
+        dataset = self.harvested()
+        witness = TieWitnessTests.ab(ties.find_ties(self.cfg, dataset))["evidence"][0]
+        self.assertEqual(witness["line"], 2)
+        self.assertEqual(witness["locator"]["span"]["kind"], "bytes")
+        self.assertEqual(witness["locator"]["span"]["byte_start"], 2)
+        self.assertTrue(locators.verify_locator(str(self.root / "a"), witness["locator"], repo_id="github:fixture/a")["ok"])
 
 
 class CuratedExclusionTests(unittest.TestCase):

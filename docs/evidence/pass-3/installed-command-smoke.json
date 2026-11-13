@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "wheel": "x3dray-0.4.0.dev1-py3-none-any.whl",
+  "commands": [
+    "scale --sizes10 --topologiesmodular --repeats5 --warmups1",
+    "observatory --benchmark <installed scale report>"
+  ],
+  "scale_rows": 1,
+  "scope": "Actual commands outside checkout with installed package on PYTHONPATH; no experiments directory required."
+}

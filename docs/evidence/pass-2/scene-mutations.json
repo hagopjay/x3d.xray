@@ -1,0 +1,474 @@
+{
+ "synthetic_only": true,
+ "ok": true,
+ "scope": "Independent static constellation geometry/witness checks. No browser, occlusion, runtime-event or GPU claim.",
+ "fixture": {
+  "repos": [
+   "alpha",
+   "beta"
+  ],
+  "commits": 16,
+  "planned_entities": 2,
+  "planned_relations": 2,
+  "plan_sha256": "88eb7dbcdb3064a728bd359a73f38f221df55647ceda3a5c389d58b52d3a5412",
+  "bundle_sha256": "16e08285330e9144890689e0790987cea32eba87769ee2385268b5fc0a8ef31d",
+  "scene_sha256": "95f6825c90d0425b0ac4c82ce00ab7497e8bfd14c68c97cdad34d740320aac2d"
+ },
+ "baseline": {
+  "ok": true,
+  "scope": "Static constellation entity glyphs and relation polylines in declared semantic layers; world transforms, source witnesses and grade colour checked. Decorations, arrowheads, other regions, runtime events, pixels and source authenticity are not verified.",
+  "checks": {
+   "entities": 2,
+   "relations": 2,
+   "source_relations": 2,
+   "expanded_visits": 1700
+  },
+  "findings": [],
+  "finding_count": 0,
+  "omitted_findings": 0,
+  "limits": {
+   "expanded_visits": 250000
+  },
+  "observed": {
+   "entities": [
+    {
+     "id": "node:alpha",
+     "position": [
+      -47.0,
+      7.2,
+      0.0
+     ],
+     "geometry": {
+      "type": "Sphere",
+      "radius": 0.859
+     }
+    },
+    {
+     "id": "node:beta",
+     "position": [
+      -47.0,
+      -7.2,
+      0.0
+     ],
+     "geometry": {
+      "type": "Sphere",
+      "radius": 0.859
+     }
+    }
+   ],
+   "relations": [
+    {
+     "id": "curated:AUDIT",
+     "points": [
+      [
+       -47.0,
+       -6.264,
+       0.208
+      ],
+      [
+       -47.0,
+       -5.638,
+       0.34
+      ],
+      [
+       -47.0,
+       -5.011,
+       0.459
+      ],
+      [
+       -47.0,
+       -4.385,
+       0.563
+      ],
+      [
+       -47.0,
+       -3.758,
+       0.653
+      ],
+      [
+       -47.0,
+       -3.132,
+       0.73
+      ],
+      [
+       -47.0,
+       -2.506,
+       0.793
+      ],
+      [
+       -47.0,
+       -1.879,
+       0.841
+      ],
+      [
+       -47.0,
+       -1.253,
+       0.876
+      ],
+      [
+       -47.0,
+       -0.626,
+       0.897
+      ],
+      [
+       -47.0,
+       0.0,
+       0.904
+      ],
+      [
+       -47.0,
+       0.626,
+       0.897
+      ],
+      [
+       -47.0,
+       1.253,
+       0.876
+      ],
+      [
+       -47.0,
+       1.879,
+       0.841
+      ],
+      [
+       -47.0,
+       2.506,
+       0.793
+      ],
+      [
+       -47.0,
+       3.132,
+       0.73
+      ],
+      [
+       -47.0,
+       3.758,
+       0.653
+      ],
+      [
+       -47.0,
+       4.385,
+       0.563
+      ],
+      [
+       -47.0,
+       5.011,
+       0.459
+      ],
+      [
+       -47.0,
+       5.638,
+       0.34
+      ],
+      [
+       -47.0,
+       6.264,
+       0.208
+      ]
+     ],
+     "points_omitted": 0,
+     "color": [
+      0.902,
+      0.78,
+      0.353
+     ]
+    },
+    {
+     "id": "machine:4163834372780d81f2af",
+     "points": [
+      [
+       -47.0,
+       6.221,
+       0.0
+      ],
+      [
+       -47.0,
+       -6.221,
+       0.0
+      ]
+     ],
+     "points_omitted": 0,
+     "color": [
+      0.361,
+      0.761,
+      0.541
+     ]
+    }
+   ],
+   "entities_omitted": 0,
+   "relations_omitted": 0
+  }
+ },
+ "source_inputs_unchanged": true,
+ "mutations": [
+  {
+   "id": "moved_entity",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "entity_position_mismatch",
+    "relation_attachment_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "entity_position_mismatch",
+     "message": "entity position mismatch",
+     "record": 0
+    },
+    {
+     "code": "relation_attachment_mismatch",
+     "message": "relation attachment mismatch",
+     "record": 0
+    },
+    {
+     "code": "relation_attachment_mismatch",
+     "message": "relation attachment mismatch",
+     "record": 1
+    }
+   ],
+   "seconds": 0.014413,
+   "scene_sha256": "85a3a89f6750adb85744a1f394e19cd8efec234df2edec3a15c51bf2e34dd6f4",
+   "note": "Glyph translation changed while its source record and plan remain unchanged."
+  },
+  {
+   "id": "primitive_size",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "entity_size_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "entity_size_mismatch",
+     "message": "entity size mismatch",
+     "record": 0
+    }
+   ],
+   "seconds": 0.014219,
+   "scene_sha256": "ed4a470f67ce91b7d3c9c9691bdcc56dcb666b660a45455c4f8403856abf1d8f",
+   "note": "Glyph radius/size changed."
+  },
+  {
+   "id": "wrong_edge_endpoint",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "relation_attachment_mismatch",
+    "relation_geometry_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "relation_geometry_mismatch",
+     "message": "relation geometry mismatch",
+     "record": 0
+    },
+    {
+     "code": "relation_attachment_mismatch",
+     "message": "relation attachment mismatch",
+     "record": 0
+    }
+   ],
+   "seconds": 0.014645,
+   "scene_sha256": "7294c3046a4d7e680464cb06b626d51bf39067b9c2899a83a42401ea0b62b5ff",
+   "note": "Actual used polyline endpoint changed."
+  },
+  {
+   "id": "reversed_coord_index",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "relation_attachment_mismatch",
+    "relation_geometry_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "relation_geometry_mismatch",
+     "message": "relation geometry mismatch",
+     "record": 0
+    },
+    {
+     "code": "relation_attachment_mismatch",
+     "message": "relation attachment mismatch",
+     "record": 0
+    },
+    {
+     "code": "relation_attachment_mismatch",
+     "message": "relation attachment mismatch",
+     "record": 0
+    }
+   ],
+   "seconds": 0.017484,
+   "scene_sha256": "5b8e5cf18a297cd5c50346eaf85c36421989ef65d5fd227233b2309fa406590e",
+   "note": "Coordinate-index traversal changed without editing coordinates."
+  },
+  {
+   "id": "wrong_grade_colour",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "relation_color_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "relation_color_mismatch",
+     "message": "relation color mismatch",
+     "record": 0
+    }
+   ],
+   "seconds": 0.017099,
+   "scene_sha256": "cb50e88c65a4ed74b80abd03d6ff2d338cc64049b4c7e596086bd8e4aeadaa95",
+   "note": "Actual material colour no longer encodes the source grade."
+  },
+  {
+   "id": "metadata_wrong_endpoint",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "relation_metadata_mismatch"
+   ],
+   "findings": [
+    {
+     "code": "relation_metadata_mismatch",
+     "message": "relation metadata mismatch",
+     "record": 0
+    }
+   ],
+   "seconds": 0.01644,
+   "scene_sha256": "81a5204eb36741e13a44009ad07038144bfcfb5f2c8d1364a1dbff54a44e91ff",
+   "note": "Relation metadata names a nonexistent endpoint."
+  },
+  {
+   "id": "duplicate_def",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "duplicate_def",
+    "duplicate_scene_entity"
+   ],
+   "findings": [
+    {
+     "code": "duplicate_def",
+     "message": "duplicate def"
+    },
+    {
+     "code": "duplicate_def",
+     "message": "duplicate def"
+    },
+    {
+     "code": "duplicate_scene_entity",
+     "message": "duplicate scene entity"
+    }
+   ],
+   "seconds": 0.016586,
+   "scene_sha256": "10676937791f368eed5a85656383f7dcd5d218df85a1b325357750870e08dace",
+   "note": "Cloned glyph duplicates XML and semantic identities."
+  },
+  {
+   "id": "unlabelled_semantic_edge",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "unregistered_relation_geometry"
+   ],
+   "findings": [
+    {
+     "code": "unregistered_relation_geometry",
+     "message": "unregistered relation geometry"
+    }
+   ],
+   "seconds": 0.016549,
+   "scene_sha256": "7b21ba2047a9215404708dbc72a6cb99cc863d0e330d957cd5588f7cf86c9187",
+   "note": "An unregistered edge is added inside the declared relation layer."
+  },
+  {
+   "id": "missing_coordinate_use",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "missing_scene_relations",
+    "unresolved_or_cyclic_use"
+   ],
+   "findings": [
+    {
+     "code": "unresolved_or_cyclic_use",
+     "message": "unresolved or cyclic use"
+    },
+    {
+     "code": "unresolved_or_cyclic_use",
+     "message": "unresolved or cyclic use"
+    },
+    {
+     "code": "missing_scene_relations",
+     "message": "missing scene relations"
+    }
+   ],
+   "seconds": 0.016139,
+   "scene_sha256": "251c2782de1a0ad7adf00773e40ae6b7fdd7f31b742186e7fc4e99edd430d5e5",
+   "note": "Coordinate USE cannot resolve."
+  },
+  {
+   "id": "hidden_semantic_layer",
+   "expected": "reject",
+   "accepted": false,
+   "expectation_met": true,
+   "finding_codes": [
+    "missing_scene_relations",
+    "unsupported_semantic_ancestor"
+   ],
+   "findings": [
+    {
+     "code": "unsupported_semantic_ancestor",
+     "message": "unsupported semantic ancestor"
+    },
+    {
+     "code": "unsupported_semantic_ancestor",
+     "message": "unsupported semantic ancestor"
+    },
+    {
+     "code": "missing_scene_relations",
+     "message": "missing scene relations"
+    }
+   ],
+   "seconds": 0.016936,
+   "scene_sha256": "cddfe694a9dc76cecf7a0a1a02d5d42b110c0187f1cadd41fa008d8ee3b48b91",
+   "note": "The relation layer is hidden under a static Switch."
+  },
+  {
+   "id": "equivalent_nested_transforms",
+   "expected": "accept",
+   "accepted": true,
+   "expectation_met": true,
+   "finding_codes": [],
+   "findings": [],
+   "seconds": 0.016673,
+   "scene_sha256": "8222bceb6d507736170de103c935c19f1aa80ff1e7d5d0871e5891a1744f00db",
+   "note": "Nested translation/rotation/scale compose to the unchanged world geometry."
+  },
+  {
+   "id": "unlabelled_outside_layer",
+   "expected": "scope_probe",
+   "accepted": true,
+   "expectation_met": null,
+   "finding_codes": [],
+   "findings": [],
+   "seconds": 0.015019,
+   "scene_sha256": "bc32001e1e4e5188312b93c78b2a991f10077ccb1f3ed1caebba951da0295a41",
+   "note": "Geometry outside the declared semantic scope is observed, not counted as a rejection guarantee."
+  }
+ ],
+ "rejections_tested": 10,
+ "rejections_observed": 10,
+ "benign_equivalences_accepted": 1,
+ "scope_probes": [
+  "unlabelled_outside_layer"
+ ]
+}
