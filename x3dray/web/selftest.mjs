@@ -357,6 +357,20 @@ if (B.eda) {
     return rows.filter(r => privSet.has(r.repo)).every(r => r.n_with_paths === undefined && r.n_usable === undefined);
   });
   guarded('eda: the digest carries the exploration block', () => /\nEXPLORATION /.test(digest(B)));
+  guarded('eda: the twelve declared looks recompute in this runtime to the stored section, byte for byte', () => {
+    const r = tools.eda.execute({ topic: 'recompute' });
+    return { ok: r.match === true && r.differences_total === 0 && r.stored_sha256 === r.recomputed_sha256, detail: r.summary };
+  });
+  guarded('eda: a declared contrast asked by hand has its stored effect, and an ad hoc stream of its own', () => {
+    const pair = (E.classes || {}).pair, bad = [];
+    if (!pair) return true;
+    for (const f of finds.filter(x => x.kind === 'contrast' && x.status === 'evaluated')) {
+      const v = tools.eda.execute({ topic: 'compare', a: { who: pair[0] }, b: { who: pair[1] }, fork: 'all', measure: f.measure });
+      const keys = Object.keys(f.effect).filter(k => !(k === 'dominant_bin' && v.effect.dominant_bin_private));    // a private repo's name never leaves compare
+      if (keys.some(k => JSON.stringify(v.effect[k]) !== JSON.stringify(f.effect[k])) || v.null_model.seed === f.null_model.seed || v.grade !== null) bad.push(f.id);
+    }
+    return { ok: !bad.length, detail: bad.length ? 'differ: ' + bad.join(', ') : 'six contrasts reproduced' };
+  });
   guarded('eda: the flag filter counts every flagged commit, or refuses when the stored lists are capped', () => {
     const rule = Object.keys(((E.flags || {}).rules) || {})[0];
     if (!rule) return true;

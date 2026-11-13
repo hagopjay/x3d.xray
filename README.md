@@ -146,6 +146,21 @@ declared before the data is read, and what is found is graded by how well it sur
   declared (distinct slices, plus `query_commits`, `activity` and `highlight` calls that carry an hour, weekday, size or flag filter; the
   `ledger` topic shows the count too). A `from`, `to` or `day` that is not a real YYYY-MM-DD date is refused, not read as an empty slice. It never grades. Each `eda` topic refuses an argument it does not read (for example `from` on `profile`), so an answer
   is never for a different question than the one asked.
+- **Recompute in your browser.** `eda` topic `recompute` runs the 12 declared looks again from the bundle's commit rows with a JavaScript twin
+  of `stats.py` and `looks.py` (a synchronous SHA-256, SplitMix64 on two 32-bit halves, exact integer Cliff and total-variation counts, the
+  add-one permutation null, Benjamini-Hochberg q and the grade rule) and compares the canonical text with the stored section byte for byte.
+  It answers `match: true` with both digests, or names the differing paths (never their text). It checks known answers first (SHA-256 of
+  "abc", the published SplitMix64 words, the manifest hash) and refuses the call before drawing anything if the permutations would exceed
+  25 million draws or the rows break the `stats.py` row contract. Python stays the specification; `tests/test_eda_infer.py` proves the two agree on
+  ties, huge values, no author pair and a 24,000-commit bundle.
+- **Ask whether slice A differs from slice B (`compare`).** `eda` topic `compare` takes two disjoint commit filters (`a`, `b`, the `slice` vocabulary), a
+  `measure` (lines, files, gap_s, hour4, weekday, repo) and a `fork`, and returns the effect, an exact add-one label-permutation count, and a
+  Benjamini-Hochberg q over every look asked in this tool set plus the 12 declared, with that denominator printed in the answer. The seed comes from the
+  two groups' value lists in digest order, so asking B against A, or spelling a filter another way, is the same question with the same stream: a
+  question cannot be re-rolled. It is always **ungraded** (`grade: null`): the robustness grades need the declared checks, which only the 12
+  declared looks have. It refuses a group under 20 commits or a bill above 4 million draws instead of thinning the permutations (at most 30
+  distinct comparisons per tool set). The count of looks restarts from 12 on a page reload, and the answer says so (`counted_in`). `looks.compare`
+  is the Python reference.
 - **Flags.** Two rules mark commits for a second look, graded by how many distinct forks agree: `size_high` (unusually many lines for the
   commit's kind of author) and `gap_long` (after an unusually long quiet spell in its repo). Light them with
   `highlight {flag, flag_grade, min_lines, max_lines, hour, weekday}`; the same filters work in `query_commits` and `activity`. The filter reads the stored flag lists, which stop at 200 per

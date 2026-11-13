@@ -57,6 +57,7 @@ const INSTRUCTIONS = `x3d-ray: read-only tools over ${B.meta.title || 'a repo fa
   'unknown was not measured: never read it as zero. how_built explains how the data and every signal were computed, down to the source lines. ' +
   'The eda tool reads the exploration layer (data audit, distributions, rhythm, concentration, flags, 12 declared looks with grades) and computes ungraded slices: ' +
   'a grade here is robustness over declared checks, never a probability; slices asked through eda are descriptive and ungraded. ' +
+  'eda recompute checks the stored looks against the rows in this runtime; eda compare asks whether one slice differs from another, always ungraded, with q counted over every look taken. ' +
   'Every number comes from git history, computed with no model.';
 
 function handleLine(line) {
