@@ -88,7 +88,7 @@ def _semantic_metadata(name: str, record: dict) -> str:
     """One MFString containing canonical JSON; positions stay in geometry/plan."""
     payload = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     value = esc_attr(json.dumps(payload, ensure_ascii=True))
-    return f"<MetadataString name='{name}' value='{value}'/>"
+    return f"<MetadataString containerField='metadata' name='{name}' value='{value}'/>"
 
 
 def _stable_def(prefix: str, *parts: str) -> str:

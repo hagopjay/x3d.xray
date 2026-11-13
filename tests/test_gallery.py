@@ -48,6 +48,14 @@ class Baseline(unittest.TestCase):
             r = gallerycheck.verify_gallery(xml, g["plan"], e)
             self.assertTrue(r["ok"], (seed, r["findings"][:3]))
 
+    def test_every_metadata_string_names_its_container_field(self):
+        # X3D 4.0 gives MetadataString containerField 'value' by default; inside a Transform or Shape a validator then
+        # reports containerfield-unknown. Found by the validator pass over the Castle x-ray (x3d_mcp fork 13121b6).
+        e, g, xml = build()
+        marks = re.findall(r"<MetadataString\b[^>]*>", xml)
+        self.assertTrue(marks)
+        self.assertTrue(all("containerField='metadata'" in m for m in marks), [m for m in marks if "containerField" not in m][:2])
+
     def test_the_producer_is_deterministic_and_pure(self):
         e, g1, _ = build()
         g2 = gallery.region(copy.deepcopy(e["looks"]), FONT)
@@ -160,7 +168,7 @@ class Mutations(unittest.TestCase):
 
     def test_an_extra_registered_glyph_is_refused(self):
         def add(x):
-            m = re.search(r"(<MetadataString name='xray.glyph' value='\"\{\\\"panel\\\":\\\"contrast:lines\\\",\\\"role\\\":\\\"slab\\\"\}\"'/>)", x)
+            m = re.search(r"(<MetadataString containerField='metadata' name='xray.glyph' value='\"\{\\\"panel\\\":\\\"contrast:lines\\\",\\\"role\\\":\\\"slab\\\"\}\"'/>)", x)
             dup = "<Transform translation='0 0 0'>" + m.group(1).replace("slab", "bar9") + "<Shape><Appearance><Material/></Appearance><Box size='1 1 1'/></Shape></Transform>"
             return x.replace("</Transform>\n<Transform translation='-2.6", dup + "</Transform>\n<Transform translation='-2.6", 1) if False else x.replace("<Transform translation='-2.6", dup + "<Transform translation='-2.6", 1)
         self.reject(tamper(self.xml, add), "glyph_extra")
