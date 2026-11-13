@@ -26,7 +26,7 @@ TOOLS_URI = (WEB / "tools.js").as_uri()
 HAS_NODE = shutil.which("node")
 SCENE = "{ show() {}, highlight(q) { return { lit: 0 }; }, note() {}, colorBy() {} }"
 ROUTES = ("lookup", "compute")
-TOPICS = ["ledger", "finding", "audit", "profile", "flags", "rhythm", "concentration", "slice", "method"]
+TOPICS = ["ledger", "finding", "audit", "profile", "flags", "rhythm", "concentration", "slice", "method", "recompute", "compare"]
 
 
 def run_tools(bundle, calls, scene=False, timeout=60):
@@ -110,7 +110,8 @@ class Topics(Fixtures):
                  ["eda", {"topic": "profile", "who": "ai", "fork": "all"}], ["eda", {"topic": "flags"}],
                  ["eda", {"topic": "flags", "rule": "size_high", "grade": "S"}], ["eda", {"topic": "rhythm"}], ["eda", {"topic": "rhythm", "repo": "r1"}],
                  ["eda", {"topic": "concentration"}], ["eda", {"topic": "concentration", "repo": "r2"}], ["eda", {"topic": "method"}],
-                 ["eda", {"topic": "slice"}], ["eda", {"topic": "slice", "who": "you", "measure": "gap_s", "fork": "all"}]]
+                 ["eda", {"topic": "slice"}], ["eda", {"topic": "slice", "who": "you", "measure": "gap_s", "fork": "all"}],
+                 ["eda", {"topic": "recompute"}], ["eda", {"topic": "compare", "a": {"who": "ai"}, "b": {"who": "you"}}]]
         res, unchanged = run_tools(b, calls)
         self.assertTrue(unchanged, "a tool changed the bundle")
         for call, r in zip(calls, res):
@@ -688,7 +689,7 @@ class Surface(Fixtures):
         self.assertEqual([x for x in source.splitlines() if re.match(r"export (default|\{|class)", x)], [])
         self.assertEqual([x for x in source.splitlines() if x.startswith("import ")], [])
         exported = set(re.findall(r"^export (?:const|function) (eda\w+|EDA_\w+)", source, flags=re.M))
-        self.assertEqual(exported, {"EDA_FORKS", "edaBin", "edaQuantile", "edaSummarize", "edaHourOf", "edaWeekdayOf", "edaInFork", "edaSliceValues"})
+        self.assertEqual(exported, {"EDA_FORKS", "edaBin", "edaQuantile", "edaSummarize", "edaHourOf", "edaWeekdayOf", "edaInFork", "edaSliceValues", "EDA_INFER"})
         events = re.sub(r"^export (?=(?:const|class|function|async function)\b)", "", (ROOT / "x3dray" / "proof_web" / "investigation.js").read_text(), flags=re.M)
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "tools.js.txt").write_text(stripped)

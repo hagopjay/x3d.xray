@@ -627,6 +627,497 @@ export function edaSliceValues(B, spec) {
   return { members: members.length, values: edaMeasureValues(members, spec.measure) };
 }
 
+// ---------------------------------------------------------------- the inference of x3dray/stats.py and x3dray/looks.py, in exact integers
+// Rows in, numbers out. The block between BEGIN and END reads no clock, no random source and no float: a test lints its text and runs it
+// with Date and Math.random removed. Python is the specification (stats.py, looks.py, looks.verify); this is its twin, and a stored
+// looks section must come back byte for byte. Names stay inside the closure: only EDA_INFER is a top-level name (tools.js is inlined
+// as a classic script into the Observatory, where a second top-level name could collide).
+// BEGIN EDA INFERENCE KERNEL
+export const EDA_INFER = (() => {
+  const freeze = o => { Object.values(o).forEach(v => { if (v !== null && typeof v === 'object') freeze(v); }); return Object.freeze(o); };     // the constants below are the manifest: nothing may edit them
+  const T = freeze({ MIN_SIDE: 20, MIN_HALF: 8, FLOOR_CLIFF: [147, 1000], FLOOR_TV: [1, 10], ALPHA: [1, 20], Q_BH: [1, 10], Q_CONFIRM: [1, 20],
+    WORK_CAP: 10000000, M_MIN: 199, M_MAX: 999, MIN_STRATUM_SIDE: 20 });                          // looks.THRESHOLDS; the manifest hash below proves it
+  const ORDINAL = ['lines', 'files', 'gap_s'], PAIR_ORDER = ['you', 'ai', 'bot'];
+  const DECLARED = freeze([...['lines', 'files', 'gap_s', 'hour4', 'weekday', 'repo'].map(m => ['contrast:' + m, 'contrast', m]),
+    ...['first', 'second'].flatMap(w => ['lines', 'hour4', 'weekday'].map(m => [`drift:${w}:${m}`, 'drift', m]))]);
+  const SEED_PREFIX = 'x3dray.eda.v1|', ADHOC_PREFIX = 'x3dray.eda.adhoc.v1|', NULL_NAME = 'label permutation with an add-one count';
+  const LIMITS = freeze({ MAX_ROWS: 200000, T_LIMIT: 8640000000000, MAX_EXACT: 2 ** 53, BELOW_K: 2 ** 21, MAX_BINS: 65536,
+    RECOMPUTE_DRAWS: 25000000, ADHOC_CAP: 4000000, ADHOC_LOOKS: 30 });
+  const SCOPE = 'the recorded commits of this family; commits are treated as exchangeable under the null; not a population and not a cause';
+  const BH_NOTE = 'BH assumes independent or positively dependent looks; looks here share commits, so q is indicative';
+  const SAY_AT_MOST = { C: 'a pattern that survived every declared check in this history; not causal, not predictive',
+    L: 'a likely pattern in this history; at least one robustness check failed or could not be run', S: 'worth a second look; do not call it real' };
+  const GRADE_WORD = { C: 'Confirmed', L: 'Likely', S: 'Suspected' };
+  const MEASURE_PHRASE = { lines: 'lines changed per commit', files: 'files changed per commit', gap_s: 'quiet time before a commit',
+    hour4: 'UTC four-hour block', weekday: 'UTC weekday', repo: 'which repo the commit is in' };
+  const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const gradeRule = () => 'A look is graded by the first rule that matches: not run or effect below the floor ' +
+    `(|Cliff's delta| ${T.FLOOR_CLIFF[0]}/${T.FLOOR_CLIFF[1]}, total variation ${T.FLOOR_TV[0]}/${T.FLOOR_TV[1]}) ` +
+    `or add-one count above ${T.ALPHA[0]}/${T.ALPHA[1]} gives no grade; q above ${T.Q_BH[0]}/${T.Q_BH[1]} ` +
+    'or an opposite effect in a repo gives Suspected; otherwise Likely unless q is at most ' +
+    `${T.Q_CONFIRM[0]}/${T.Q_CONFIRM[1]}, at least one repo holds ` +
+    `${T.MIN_STRATUM_SIDE} commits of each group, the interleaved-week halves replicate and at least 3 distinct forks ` +
+    '(forks holding exactly the same commits count once) and ' +
+    '3 leave-one-repo-out runs are evaluable and all agree, which gives Confirmed. ' +
+    'A robustness grade over declared checks, not a likelihood or a chance estimate; Confirmed does not mean causal or predictive.';
+
+  // ---- order, canonical JSON, SHA-256 (synchronous: crypto.subtle is async and tools.js imports nothing)
+  function cmpStr(a, b) {                       // by code point, as Python orders str; < would order by UTF-16 unit
+    let i = 0, j = 0;
+    while (i < a.length && j < b.length) {
+      const x = a.codePointAt(i), y = b.codePointAt(j);
+      if (x !== y) return x < y ? -1 : 1;
+      i += x > 0xFFFF ? 2 : 1; j += y > 0xFFFF ? 2 : 1;
+    }
+    return i < a.length ? 1 : j < b.length ? -1 : 0;
+  }
+  const cmpKey = (a, b) => (typeof a === 'string' ? cmpStr(a, b) : a < b ? -1 : a > b ? 1 : 0);
+  // eda.canonical_json: sorted keys, no spaces, printable ASCII only (DEL and everything above it as lower-case \uXXXX); a float or an integer beyond 2**53 is refused.
+  function canon(x) {
+    if (x === null) return 'null';
+    if (typeof x === 'boolean') return x ? 'true' : 'false';
+    if (typeof x === 'number') {
+      if (!Number.isSafeInteger(x)) throw new RangeError('canonical JSON takes safe integers only');
+      return String(x);
+    }
+    if (typeof x === 'string') return JSON.stringify(x).replace(/[\u007f-\uffff]/g, ch => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'));
+    if (Array.isArray(x)) return '[' + x.map(canon).join(',') + ']';
+    if (typeof x === 'object') return '{' + Object.keys(x).sort(cmpStr).map(k => canon(k) + ':' + canon(x[k])).join(',') + '}';
+    throw new TypeError('canonical JSON cannot hold a ' + typeof x);
+  }
+  const SHA_K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2]);
+  function sha256(bytes) {                      // Uint8Array -> 32 bytes
+    const n = bytes.length, padded = new Uint8Array(((n + 9 + 63) >> 6) << 6);
+    padded.set(bytes); padded[n] = 0x80;
+    const dv = new DataView(padded.buffer), bits = n * 8;
+    dv.setUint32(padded.length - 8, Math.floor(bits / 4294967296)); dv.setUint32(padded.length - 4, bits >>> 0);
+    const h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]), w = new Uint32Array(64);
+    const rr = (x, k) => (x >>> k) | (x << (32 - k));
+    for (let off = 0; off < padded.length; off += 64) {
+      for (let t = 0; t < 16; t++) w[t] = dv.getUint32(off + 4 * t);
+      for (let t = 16; t < 64; t++) {
+        const s0 = rr(w[t - 15], 7) ^ rr(w[t - 15], 18) ^ (w[t - 15] >>> 3), s1 = rr(w[t - 2], 17) ^ rr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let t = 0; t < 64; t++) {
+        const t1 = (hh + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & f) ^ (~e & g)) + SHA_K[t] + w[t]) >>> 0;
+        const t2 = ((rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    }
+    const out = new Uint8Array(32), o = new DataView(out.buffer);
+    h.forEach((v, k) => o.setUint32(4 * k, v));
+    return out;
+  }
+  const hex = u8 => Array.from(u8, b => b.toString(16).padStart(2, '0')).join('');
+  function sha256Text(s) {                      // seed and manifest labels are ASCII by construction; anything else is refused, never re-encoded
+    if (/[^ -~]/.test(s)) throw new RangeError('a seed label is printable ASCII');
+    return hex(sha256(Uint8Array.from(s, ch => ch.charCodeAt(0))));
+  }
+  const manifestSha256 = () => sha256Text(canon([...DECLARED.map(d => d.slice()), T]));
+  const seedHiLo = label => { const h = sha256Text(label); return [parseInt(h.slice(0, 8), 16), parseInt(h.slice(8, 16), 16)]; };
+  const seedText = ([hi, lo]) => ((BigInt(hi) << 32n) | BigInt(lo)).toString();
+
+  // ---- SplitMix64 on two uint32 halves (no BigInt in the hot loop); below(k) = (u64 * k) >> 64, exact for k <= 2**21
+  const mulHi = (a, b) => {
+    const a0 = a & 0xFFFF, a1 = a >>> 16, b0 = b & 0xFFFF, b1 = b >>> 16;
+    const mid = a0 * b1 + a1 * b0 + ((a0 * b0) >>> 16);
+    return (a1 * b1 + Math.floor(mid / 65536)) >>> 0;
+  };
+  function splitMix(seedHi, seedLo) {
+    let hi = seedHi >>> 0, lo = seedLo >>> 0, zh = 0, zl = 0;
+    function next() {
+      const l = lo + 0x7F4A7C15;
+      hi = (hi + 0x9E3779B9 + (l > 0xFFFFFFFF ? 1 : 0)) >>> 0; lo = l >>> 0;
+      let h = hi, k = lo;
+      k = (k ^ ((h << 2) | (k >>> 30))) >>> 0; h = (h ^ (h >>> 30)) >>> 0;                                         // z ^= z >> 30
+      let nh = (mulHi(k, 0x1CE4E5B9) + Math.imul(k, 0xBF58476D) + Math.imul(h, 0x1CE4E5B9)) >>> 0;                    // z *= 0xBF58476D1CE4E5B9
+      k = Math.imul(k, 0x1CE4E5B9) >>> 0; h = nh;
+      k = (k ^ ((h << 5) | (k >>> 27))) >>> 0; h = (h ^ (h >>> 27)) >>> 0;                                         // z ^= z >> 27
+      nh = (mulHi(k, 0x133111EB) + Math.imul(k, 0x94D049BB) + Math.imul(h, 0x133111EB)) >>> 0;                        // z *= 0x94D049BB133111EB
+      k = Math.imul(k, 0x133111EB) >>> 0; h = nh;
+      zl = (k ^ ((h << 1) | (k >>> 31))) >>> 0; zh = (h ^ (h >>> 31)) >>> 0;                                       // z ^ (z >> 31)
+    }
+    return {
+      next, word: () => (next(), [zh, zl]),
+      below(k) {
+        if (!(Number.isInteger(k) && k >= 1 && k <= LIMITS.BELOW_K)) throw new RangeError('below needs an integer 1 <= k <= 2**21');
+        next();
+        return Math.floor((zh * k + Math.floor(zl * k / 4294967296)) / 4294967296);
+      },
+    };
+  }
+  // Known answers, checked before any recomputation is trusted: SHA-256 of "abc", the first words of SplitMix64 from seed 0 (the
+  // published reference stream), the manifest of the declared battery. A runtime that fails one of them computes nothing.
+  function selfCheck() {
+    const bad = [];
+    if (sha256Text('abc') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') bad.push('sha256');
+    const r = splitMix(0, 0), want = ['e220a8397b1dcdaf', '6e789e6aa1b965f4', '06c45d188009454f'];
+    for (const w of want) { const [h, l] = r.word(); if (hex(Uint8Array.of(h >>> 24, h >>> 16, h >>> 8, h, l >>> 24, l >>> 16, l >>> 8, l)) !== w) bad.push('splitmix64'); }
+    if (seedText(seedHiLo('x3dray.eda.v1|contrast:lines')) !== '15220541219178821952') bad.push('seed_from');
+    return bad;
+  }
+
+  // ---- exact helpers
+  const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+  const frac = (n, d) => { const g = gcd(n, d) || 1; return [n / g, d / g]; };
+  const fracLt = (x, y) => x[0] * y[1] < y[0] * x[1];
+  function decimalStr(num, den, places) {       // stats.decimal_str, half away from zero
+    const n = BigInt(num), d = BigInt(den), neg = n < 0n, v = (2n * 10n ** BigInt(places) * (neg ? -n : n) + d) / (2n * d);
+    const digits = v.toString().padStart(places + 1, '0'), text = places > 0 ? digits.slice(0, -places) + '.' + digits.slice(-places) : digits;
+    return neg && v > 0n ? '-' + text : text;
+  }
+  const permilleOf = (num, den) => edaPermille(BigInt(num), BigInt(den));
+  const sign = x => (x > 0) - (x < 0);
+  const weekOf = t => edaFloorDiv(edaFloorDiv(t, 86400) + 3, 7);
+
+  // ---- rows: the contract of stats.py, checked on every row, with a message that names the place and the field and never the value
+  function checkRows(commits) {
+    if (!Array.isArray(commits)) throw new TypeError('the bundle has no commit list');
+    if (commits.length > LIMITS.MAX_ROWS) throw new RangeError(`the bundle has ${commits.length} commits; the in-browser check takes at most ${LIMITS.MAX_ROWS}`);
+    const whole = v => Number.isInteger(v) && v >= 0 && v < LIMITS.MAX_EXACT;
+    return commits.map((c, k) => {
+      const where = `commit row #${k}`;
+      if (!c || typeof c !== 'object') throw new TypeError(`${where} is not an object`);
+      if (c.i !== k) throw new TypeError(`${where}: i must equal its position`);
+      if (!Number.isInteger(c.t) || Math.abs(c.t) > LIMITS.T_LIMIT) throw new TypeError(`${where}: t must be an integer within plus or minus ${LIMITS.T_LIMIT}`);
+      for (const f of ['a', 'd', 'f']) if (!whole(c[f])) throw new TypeError(`${where}: ${f} must be an integer from 0 to 2**53 - 1`);
+      if (!whole(c.a + c.d)) throw new TypeError(`${where}: a + d reaches 2**53`);
+      if ((c.m !== 0 && c.m !== 1) || (c.b !== 0 && c.b !== 1)) throw new TypeError(`${where}: m and b must be 0 or 1`);
+      if (typeof c.r !== 'string' || !c.r || typeof c.c !== 'string') throw new TypeError(`${where}: r and c must be strings`);
+      return { i: k, r: c.r, t: c.t, c: c.c, a: c.a, d: c.d, f: c.f, m: c.m, b: c.b };
+    });
+  }
+
+  // ---- looks._Sets: restricted, (t, i)-ordered views of all rows, cached; a gap is measured inside the restricted set, before any class is cut
+  const sortRows = rows => rows.slice().sort((x, y) => (x.t - y.t) || (x.i - y.i));
+  function makeSets(rows) {
+    const all = sortRows(rows), cache = new Map(), repos = [...new Set(all.map(r => r.r))].sort(cmpStr);
+    const first = new Map(), aliases = {};
+    for (const fork of EDA_FORKS) {
+      const key = all.filter(r => edaInFork(r, fork)).map(r => r.i).join(',');
+      if (!first.has(key)) first.set(key, fork);
+      aliases[fork] = first.get(key);
+    }
+    return { all, repos, aliases, get(kind, arg) {
+      const key = kind + '\0' + arg;
+      let hit = cache.get(key);
+      if (!hit) {
+        const rs = kind === 'fork' ? all.filter(r => edaInFork(r, arg)) : kind === 'drop' ? all.filter(r => r.r !== arg)
+          : kind === 'only' ? all.filter(r => r.r === arg) : all.filter(r => edaMod(weekOf(r.t), 2) === arg);
+        hit = { rs, gaps: rs.map((r, k) => (k === 0 ? null : r.t - rs[k - 1].t)) };
+        cache.set(key, hit);
+      }
+      return hit;
+    } };
+  }
+  const valueOf = (measure, r) => measure === 'lines' ? r.a + r.d : measure === 'files' ? r.f : measure === 'hour4' ? edaFloorDiv(edaHourOf(r.t), 4)
+    : measure === 'weekday' ? edaWeekdayOf(r.t) : r.r;
+  // looks._cut: group a and group b as parallel value and repo lists in (t, i) order
+  function cut(kind, measure, classes, rs, gaps) {
+    const g = { av: [], ar: [], bv: [], br: [] };
+    if (kind === 'contrast') {
+      for (let k = 0; k < rs.length; k++) {
+        const r = rs[k];
+        if (r.c !== classes[0] && r.c !== classes[1]) continue;
+        if (measure === 'gap_s' && gaps[k] === null) continue;
+        const v = measure === 'gap_s' ? gaps[k] : valueOf(measure, r), first = r.c === classes[0];
+        (first ? g.av : g.bv).push(v); (first ? g.ar : g.br).push(r.r);
+      }
+      return g;
+    }
+    const mine = rs.filter(r => r.c === classes), kk = mine.length >> 1;
+    mine.forEach((r, k) => { const later = k >= kk; (later ? g.av : g.bv).push(valueOf(measure, r)); (later ? g.ar : g.br).push(r.r); });
+    return g;
+  }
+
+  // ---- stats.cliff_counts, doubled_midranks, tv_parts and the two permutation counts
+  const lowerBound = (s, x) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >>> 1; if (s[m] < x) lo = m + 1; else hi = m; } return lo; };
+  const upperBound = (s, x) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >>> 1; if (s[m] <= x) lo = m + 1; else hi = m; } return lo; };
+  function cliffCounts(av, bv) {
+    const bs = Float64Array.from(bv).sort();
+    let gt = 0, lt = 0;
+    for (const x of av) { gt += lowerBound(bs, x); lt += bs.length - upperBound(bs, x); }
+    return [gt, lt];
+  }
+  function doubledMidranks(values) {            // twice the average rank; a tie group at positions p..q gets p + q
+    const n = values.length, order = Array.from({ length: n }, (_, k) => k).sort((x, y) => (values[x] < values[y] ? -1 : values[x] > values[y] ? 1 : x - y));
+    const out = new Int32Array(n);
+    for (let pos = 0; pos < n;) {
+      let end = pos;
+      while (end + 1 < n && values[order[end + 1]] === values[order[pos]]) end++;
+      for (let q = pos; q <= end; q++) out[order[q]] = (pos + 1) + (end + 1);
+      pos = end + 1;
+    }
+    return out;
+  }
+  const tally = vs => { const m = new Map(); for (const v of vs) m.set(v, (m.get(v) || 0) + 1); return m; };
+  function tvParts(ca, cb, na, nb, ref) {       // (T, bin, signed difference at the bin); the bin is the first of the largest gaps unless ref is given
+    const keys = [...new Set([...ca.keys(), ...cb.keys()])].sort(cmpKey), diffs = new Map();
+    let total = 0, best = null;
+    for (const k of keys) {
+      const d = (ca.get(k) || 0) * nb - (cb.get(k) || 0) * na;
+      diffs.set(k, d); total += Math.abs(d);
+      if (best === null || Math.abs(d) > Math.abs(diffs.get(best))) best = k;
+    }
+    const bin = ref === null ? best : ref;
+    return [total, bin, diffs.get(bin) || 0];
+  }
+  function stat(measure, av, bv, ref) {         // looks._stat
+    const na = av.length, nb = bv.length;
+    if (ORDINAL.includes(measure)) {
+      const [gt, lt] = cliffCounts(av, bv), s = gt - lt;
+      return { n_a: na, n_b: nb, num: s, den: na * nb, direction: sign(s), k: null };
+    }
+    const [t, k, diff] = tvParts(tally(av), tally(bv), na, nb, ref === undefined ? null : ref);
+    return { n_a: na, n_b: nb, num: t, den: 2 * na * nb, direction: sign(diff), k };
+  }
+  function floorMet(measure, st, half) {
+    if (st.den <= 0) return false;
+    const [fn, fd] = ORDINAL.includes(measure) ? T.FLOOR_CLIFF : T.FLOOR_TV;
+    return (half ? 2 : 1) * fd * Math.abs(st.num) >= fn * st.den;
+  }
+  function permCountCliff(r2, nDraw, sAbsObs, M, rng) {   // |S| >= observed in how many of M permutations; the array carries over between them
+    const arr = Int32Array.from(r2), n = arr.length, off = nDraw * (n + 1);
+    if (!(nDraw >= 0 && nDraw <= n)) throw new RangeError('n_draw out of range');
+    let count = 0;
+    for (let m = 0; m < M; m++) {
+      let sum = 0;
+      for (let j = 0; j < nDraw; j++) { const r = j + rng.below(n - j), x = arr[r]; arr[r] = arr[j]; arr[j] = x; sum += x; }
+      if (Math.abs(sum - off) >= sAbsObs) count++;
+    }
+    return count;
+  }
+  function permCountTv(bins, nDraw, tObs, M, rng) {       // T >= observed in how many of M permutations; bins are dense ids, drawn group first
+    const arr = Int32Array.from(bins), n = arr.length;
+    if (!(nDraw >= 0 && nDraw <= n)) throw new RangeError('n_draw out of range');
+    let kBins = 0;
+    for (const v of arr) if (v + 1 > kBins) kBins = v + 1;
+    if (kBins > LIMITS.MAX_BINS) throw new RangeError('too many distinct values for a permutation count');
+    const tot = new Int32Array(kBins), d = new Int32Array(kBins), nOther = n - nDraw;
+    for (const v of arr) tot[v]++;
+    let count = 0;
+    for (let m = 0; m < M; m++) {
+      d.fill(0);
+      for (let j = 0; j < nDraw; j++) { const r = j + rng.below(n - j), x = arr[r]; arr[r] = arr[j]; arr[j] = x; d[x]++; }
+      let t = 0;
+      for (let k = 0; k < kBins; k++) t += Math.abs(d[k] * nOther - (tot[k] - d[k]) * nDraw);
+      if (t >= tObs) count++;
+    }
+    return count;
+  }
+  // looks._null_count: draw the smaller group (ties: a); both stay in (t, i) order, the drawn group first
+  function nullCount(measure, av, bv, head, M, label) {
+    const [drawn, other] = av.length <= bv.length ? [av, bv] : [bv, av], arranged = drawn.concat(other);
+    const [hi, lo] = seedHiLo(label), rng = splitMix(hi, lo);
+    if (ORDINAL.includes(measure)) return permCountCliff(doubledMidranks(arranged), drawn.length, Math.abs(head.num), M, rng);
+    const dense = new Map([...new Set(arranged)].sort(cmpKey).map((k, n) => [k, n]));
+    return permCountTv(arranged.map(v => dense.get(v)), drawn.length, head.num, M, rng);
+  }
+
+  // ---- stats.bh_q: Benjamini-Hochberg over a family of size m; items are [name, [num, den]] and the rest of the family counts through m
+  function bhQ(items, m) {
+    if (m < items.length) throw new RangeError('family size m is smaller than the number of items');
+    const ordered = items.slice().sort((x, y) => (fracLt(x[1], y[1]) ? -1 : fracLt(y[1], x[1]) ? 1 : cmpStr(x[0], y[0]))), out = new Map();
+    let running = [1, 1];
+    for (let rank = ordered.length; rank >= 1; rank--) {
+      const [name, p] = ordered[rank - 1];
+      if (!(p[0] > 0 && p[0] <= p[1])) throw new RangeError('p must lie in (0, 1]');
+      const cand = frac(m * p[0], p[1] * rank);
+      if (fracLt(cand, running)) running = cand;
+      out.set(name, running);
+    }
+    return out;
+  }
+
+  // ---- looks: checks, grade, text
+  const effectOf = (measure, st) => ({ kind: ORDINAL.includes(measure) ? 'cliff_delta' : 'tv', num: st.num, den: st.den,
+    permille: st.den > 0 ? permilleOf(st.num, st.den) : 0, direction: st.direction, dominant_bin: st.k, floor_met: floorMet(measure, st, false) });
+  const agrees = (measure, head, st, minimum, half) => st.n_a >= minimum && st.n_b >= minimum && floorMet(measure, st, half) &&
+    head.direction !== 0 && st.direction === head.direction;
+  function checks(kind, measure, classes, sets, head, hg) {
+    const run = (kind2, arg) => { const { rs, gaps } = sets.get(kind2, arg), g = cut(kind, measure, classes, rs, gaps); return stat(measure, g.av, g.bv, head.k); };
+    const pm = st => (st.den > 0 ? permilleOf(st.num, st.den) : 0);
+    const perFork = {};
+    let evaluable = 0, agree = 0;
+    for (const fork of EDA_FORKS) {
+      const st = run('fork', fork), ok = st.n_a >= T.MIN_SIDE && st.n_b >= T.MIN_SIDE, yes = agrees(measure, head, st, T.MIN_SIDE, false);
+      const same = sets.aliases[fork] !== fork ? sets.aliases[fork] : null;
+      if (same === null) { evaluable += ok ? 1 : 0; agree += yes ? 1 : 0; }
+      perFork[fork] = { n_a: st.n_a, n_b: st.n_b, evaluable: ok, permille: pm(st), agrees: yes, same_as: same };
+    }
+    const loro = { total: 0, agree: 0 };
+    let strata = null;
+    if (measure !== 'repo') {
+      for (const repo of [...new Set(hg.ar.concat(hg.br))].sort(cmpStr)) {
+        const st = run('drop', repo);
+        if (st.n_a >= T.MIN_SIDE && st.n_b >= T.MIN_SIDE) { loro.total++; loro.agree += agrees(measure, head, st, T.MIN_SIDE, false) ? 1 : 0; }
+      }
+      strata = { n: 0, same: 0, opposite: 0 };
+      for (const repo of sets.repos) {
+        const st = run('only', repo);
+        if (st.n_a < T.MIN_STRATUM_SIDE || st.n_b < T.MIN_STRATUM_SIDE) continue;
+        strata.n++;
+        if (head.direction !== 0 && st.direction === head.direction) strata.same++;
+        else if (head.direction !== 0 && st.direction === -head.direction && floorMet(measure, st, false)) strata.opposite++;
+      }
+    }
+    const perHalf = {};
+    let halfOk = true, halfAgree = true;
+    for (const parity of [0, 1]) {
+      const st = run('parity', parity), yes = agrees(measure, head, st, T.MIN_HALF, true);
+      halfOk = halfOk && st.n_a >= T.MIN_HALF && st.n_b >= T.MIN_HALF; halfAgree = halfAgree && yes;
+      perHalf[String(parity)] = { n_a: st.n_a, n_b: st.n_b, permille: pm(st), agrees: yes };
+    }
+    return { forks: { distinct: new Set(Object.values(sets.aliases)).size, evaluable, agree, per_fork: perFork }, loro, strata,
+      halves: { evaluable: halfOk, replicates: halfOk ? halfAgree : null, per_half: perHalf } };
+  }
+  function grade(look) {                        // looks.grade: the first rule that matches wins
+    if (look.status !== 'evaluated') return [null, 'not_run'];
+    if (!look.effect.floor_met) return [null, 'effect_below_floor'];
+    const nm = look.null_model, [an, ad] = T.ALPHA;
+    if (ad * (nm.k_ge + 1) > an * (nm.M + 1)) return [null, 'not_surprising'];
+    const [qn, qd] = look.q, [tn, td] = T.Q_BH, ck = look.checks;
+    if (td * qn > tn * qd) return ['S', 'not_surviving_BH'];
+    if (ck.strata && ck.strata.opposite >= 1) return ['S', 'contrary_effect_in_a_repo'];
+    const [cn, cd] = T.Q_CONFIRM;
+    if (cd * qn > cn * qd) return ['L', 'q_above_confirm_level'];
+    if (ck.strata !== null && ck.strata.n === 0) return ['L', 'no_stratum_with_both_groups'];
+    const h = ck.halves;
+    if (!h.evaluable) return ['L', 'halves_not_evaluable'];
+    if (h.replicates === false) return ['L', 'not_replicated_in_halves'];
+    const f = ck.forks;
+    if (f.evaluable < 3) return ['L', 'fewer_than_3_distinct_forks_evaluable'];
+    if (f.agree < f.evaluable) return ['L', 'fork_disagreement'];
+    const lo = ck.loro;
+    if (lo.total < 3) return ['L', 'leave_one_repo_out_unavailable'];
+    if (lo.agree < lo.total) return ['L', 'leave_one_repo_out_disagreement'];
+    return ['C', 'all_checks_pass'];
+  }
+  const binLabel = (measure, k) => measure === 'hour4' ? String(4 * k).padStart(2, '0') + '-' + String(4 * k + 3).padStart(2, '0') : measure === 'weekday' ? WEEKDAYS[k] : String(k);
+  function renderText(look) {
+    if (look.status !== 'evaluated') return `${look.id}: not run (${look.reason})`;
+    const e = look.effect, nm = look.null_model, word = GRADE_WORD[look.grade];
+    const effect = e.kind === 'cliff_delta' ? "Cliff's delta " + decimalStr(e.permille, 1000, 3) + ' (positive means the first group is larger)'
+      : 'distribution distance ' + decimalStr(e.permille, 1000, 3) + ' (largest gap in ' + binLabel(look.measure, e.dominant_bin) + ')';
+    return `${look.groups.a.label} vs ${look.groups.b.label}, ${MEASURE_PHRASE[look.measure]}: ${effect}; ${nm.k_ge} of ${nm.M} label shuffles ` +
+      `were at least as extreme (q ${look.q_text}); ${word ? word : `no grade (${look.grade_reason})`}.`;
+  }
+  const choosePair = rows => {
+    const counts = new Map(PAIR_ORDER.map(c => [c, 0]));
+    for (const r of rows) if (!r.m && counts.has(r.c)) counts.set(r.c, counts.get(r.c) + 1);
+    const ok = PAIR_ORDER.filter(c => counts.get(c) >= T.MIN_SIDE).sort((x, y) => (counts.get(y) - counts.get(x)) || (PAIR_ORDER.indexOf(x) - PAIR_ORDER.indexOf(y)));
+    return ok.length < 2 ? null : [ok[0], ok[1]];
+  };
+  const label = (labels, c) => (Object.hasOwn(labels, c) ? labels[c] : c);
+  const clampM = w => Math.max(T.M_MIN, Math.min(T.M_MAX, Math.floor(T.WORK_CAP / Math.max(1, w))));
+
+  // looks.run: the twelve declared looks from the rows and the class labels. maxDraws refuses before any permutation is drawn.
+  function runLooks(rows, labels, maxDraws) {
+    const sets = makeSets(rows), pair = choosePair(rows), looks = {}, heads = {};
+    const pairReason = pair ? null : `fewer than two author classes have ${T.MIN_SIDE} or more commits outside merges`;
+    const blank = (id, kind, measure, status, reason, groups) => ({ id, kind, measure, status, reason, grade_kind: 'robustness', groups, effect: null,
+      null_model: null, q: null, q_text: null, checks: null, grade: null, grade_reason: 'not_run', say_at_most: null, text: '', highlight: null, scope: SCOPE });
+    let W = 0;
+    for (const [id, kind, measure] of DECLARED) {
+      if (!pair) { looks[id] = blank(id, kind, measure, 'not_run', pairReason, null); continue; }
+      const classes = kind === 'contrast' ? pair : id.split(':')[1] === 'first' ? pair[0] : pair[1], { rs, gaps } = sets.get('fork', 'all');
+      const g = cut(kind, measure, classes, rs, gaps);
+      const lab = kind === 'contrast' ? [label(labels, pair[0]), label(labels, pair[1])] : ['later commits of ' + label(labels, classes), 'earlier commits of ' + label(labels, classes)];
+      const groups = { a: { label: lab[0], n: g.av.length }, b: { label: lab[1], n: g.bv.length } };
+      if (Math.min(g.av.length, g.bv.length) < T.MIN_SIDE) {
+        looks[id] = blank(id, kind, measure, 'not_run', `a group has fewer than ${T.MIN_SIDE} commits (n_a=${g.av.length}, n_b=${g.bv.length})`, groups);
+      } else {
+        looks[id] = blank(id, kind, measure, 'evaluated', null, groups); heads[id] = { classes, g }; W += Math.min(g.av.length, g.bv.length);
+      }
+    }
+    const M = clampM(W);
+    if (maxDraws !== undefined && W * M > maxDraws) throw new RangeError(`recomputing needs ${W * M} permutation draws; this check takes at most ${maxDraws}`);
+    for (const [id, kind, measure] of DECLARED) {
+      if (!heads[id]) continue;
+      const { classes, g } = heads[id], head = stat(measure, g.av, g.bv), look = looks[id], seedLabel = SEED_PREFIX + id;
+      const kGe = nullCount(measure, g.av, g.bv, head, M, seedLabel);
+      look.effect = effectOf(measure, head);
+      look.null_model = { name: NULL_NAME, M, k_ge: kGe, seed: seedText(seedHiLo(seedLabel)), p: [kGe + 1, M + 1], p_text: decimalStr(kGe + 1, M + 1, 4) };
+      look.checks = checks(kind, measure, classes, sets, head, g);
+    }
+    const qs = bhQ(DECLARED.map(([id]) => [id, looks[id].status === 'evaluated' ? [looks[id].null_model.k_ge + 1, M + 1] : [1, 1]]), DECLARED.length);
+    const byGrade = { C: 0, L: 0, S: 0, none: 0 };
+    for (const [id, kind] of DECLARED) {
+      const look = looks[id];
+      if (look.status === 'evaluated') { const q = qs.get(id); look.q = [q[0], q[1]]; look.q_text = decimalStr(q[0], q[1], 4); }
+      [look.grade, look.grade_reason] = grade(look);
+      look.say_at_most = look.grade ? SAY_AT_MOST[look.grade] : null;
+      look.text = renderText(look);
+      if (kind === 'contrast' && pair) look.highlight = { who: pair[0], xray: true };
+      byGrade[look.grade || 'none']++;
+    }
+    const evaluated = Object.keys(heads).length;
+    return { section: { pair, pair_reason: pairReason,
+      ledger: { declared: DECLARED.length, evaluated, not_run: DECLARED.length - evaluated, by_grade: byGrade, alpha: T.ALPHA.slice(), q_threshold: T.Q_BH.slice(),
+        q_confirm: T.Q_CONFIRM.slice(), M, W, work_cap: T.WORK_CAP, work_exceeded: W * M > T.WORK_CAP, manifest_sha256: manifestSha256(), bh_note: BH_NOTE },
+      grade_rule: gradeRule(), say_at_most: { ...SAY_AT_MOST }, scope: SCOPE, findings: DECLARED.map(([id]) => looks[id]) }, draws: W * M };
+  }
+
+  // Type-strict difference of two JSON values, as paths only (looks._diff): a value is never printed. `stored` is what the bundle holds.
+  function diffPaths(path, got, want, out) {
+    if (want !== null && typeof want === 'object' && !Array.isArray(want)) {
+      if (got === null || typeof got !== 'object' || Array.isArray(got)) { out.push(path); return; }
+      for (const k of [...new Set([...Object.keys(got), ...Object.keys(want)])].sort(cmpStr)) {
+        if (!Object.hasOwn(got, k) || !Object.hasOwn(want, k)) out.push(`${path}.${k}`); else diffPaths(`${path}.${k}`, got[k], want[k], out);
+      }
+    } else if (Array.isArray(want)) {
+      if (!Array.isArray(got) || got.length !== want.length) { out.push(path); return; }
+      want.forEach((w, n) => diffPaths(`${path}[${n}]`, got[n], w, out));
+    } else if (got !== want || typeof got !== typeof want) out.push(path);
+  }
+  const WORDING = /(?:^|\.)(?:text|scope|say_at_most|grade_rule|bh_note|reason|pair_reason)(?:\.|$|\[)/;     // fixed prose; every other path is a number, a flag or an id
+
+  // ---- an ad hoc comparison of two groups of commit rows: the same statistic, null and seeding rule as a declared contrast, no checks, no grade.
+  // The question is the SAMPLE, not the words that asked for it: the seed comes from the digests of the two value lists, put in digest order, so
+  // (a, b) and (b, a), a filter spelled two ways, and a fork that changes nobody in either group are one question with one stream. A question cannot
+  // be re-rolled by rewording it. `swapped` says the asker's order was the other one.
+  function sample(rows, idxA, idxB, measure, fork) {
+    if (!EDA_FORKS.includes(fork)) throw new RangeError('unknown fork');
+    if (!['lines', 'files', 'gap_s', 'hour4', 'weekday', 'repo'].includes(measure)) throw new RangeError('unknown measure');
+    const inA = new Set(idxA), inB = new Set(idxB);
+    for (const i of inB) if (inA.has(i)) throw new RangeError('the two groups share commits: a label permutation needs disjoint groups');
+    const { rs, gaps } = makeSets(rows).get('fork', fork), g = { av: [], bv: [] };
+    for (let k = 0; k < rs.length; k++) {
+      const a = inA.has(rs[k].i), b = inB.has(rs[k].i);
+      if (!a && !b) continue;
+      if (measure === 'gap_s' && gaps[k] === null) continue;                     // the first row of the restricted set has no gap: unknown, not zero
+      (a ? g.av : g.bv).push(measure === 'gap_s' ? gaps[k] : valueOf(measure, rs[k]));
+    }
+    const da = sha256Text(canon(g.av)), db = sha256Text(canon(g.bv)), swapped = cmpStr(db, da) < 0;
+    return { ...g, swapped, label: ADHOC_PREFIX + canon({ measure, a: swapped ? db : da, b: swapped ? da : db }) };
+  }
+  const adhocM = w => Math.max(T.M_MIN, Math.min(T.M_MAX, Math.floor(LIMITS.ADHOC_CAP / w)));     // looks.compare: the same clamp as a declared look, on its own cap
+  // The test on a sample, in canonical order (the group with the smaller digest first); the caller turns it back with flipEffect when `swapped`.
+  function compare(s, measure) {
+    const [x, y] = s.swapped ? [s.bv, s.av] : [s.av, s.bv], w = Math.min(x.length, y.length);
+    if (w < T.MIN_SIDE) throw new RangeError(`a group has fewer than ${T.MIN_SIDE} commits (n_a=${s.av.length}, n_b=${s.bv.length})`);
+    const M = adhocM(w);
+    if (w * M > LIMITS.ADHOC_CAP) throw new RangeError(`the smaller group has ${w} commits; a comparison takes at most ${Math.floor(LIMITS.ADHOC_CAP / T.M_MIN)}`);
+    const head = stat(measure, x, y), kGe = nullCount(measure, x, y, head, M, s.label);
+    return { n_first: x.length, n_second: y.length, effect: effectOf(measure, head), M, k_ge: kGe, seed: seedText(seedHiLo(s.label)), p: [kGe + 1, M + 1], draws: w * M };
+  }
+  const flipEffect = e => ({ ...e, num: e.kind === 'cliff_delta' ? 0 - e.num : e.num, permille: e.kind === 'cliff_delta' ? 0 - e.permille : e.permille, direction: 0 - e.direction });
+
+  return Object.freeze({ T, DECLARED, LIMITS, SEED_PREFIX, ADHOC_PREFIX, NULL_NAME, SCOPE, WORDING, canon, sha256Text, manifestSha256, seedHiLo, seedText, splitMix, selfCheck,
+    cmpStr, decimalStr, checkRows, runLooks, bhQ, sample, compare, diffPaths, doubledMidranks, cliffCounts, tvParts, permCountCliff, permCountTv, nullCount, frac,
+    hex, sha256, sample, flipEffect, binLabel, MEASURE_PHRASE, ORDINAL, adhocM, clampM });
+})();
+// END EDA INFERENCE KERNEL
+
 function signalById(B, id) { return B.signals.find(s => s.id === id); }
 
 // ---------------------------------------------------------------- concepts and bridges (x3dray/structure.py)
@@ -822,13 +1313,20 @@ export function digest(B) {
 }
 
 // ---------------------------------------------------------------- the eda tool (x3dray/eda.py and looks.py stored in bundle.eda)
-const EDA_TOPICS = ['ledger', 'finding', 'audit', 'profile', 'flags', 'rhythm', 'concentration', 'slice', 'method'];
-const EDA_DESC = 'Exploration under rules: the stored descriptive profile, rhythm, concentration, data audit and graded looks, from code with no model. ' +
+const EDA_TOPICS = ['ledger', 'finding', 'audit', 'profile', 'flags', 'rhythm', 'concentration', 'slice', 'method', 'recompute', 'compare'];
+const EDA_DESC = 'Exploration under rules, from code with no model: stored profile, rhythm, concentration, audit and graded looks. ' +
   'topic: ledger (the 12 declared looks, their grades and what a grade means), finding (one look in full; id), audit (data checks and per-repo coverage; grade), ' +
-  'profile (size, files and gap distributions per slice; repo, who, fork, measure), flags (commits atypical for their stratum; rule size_high or gap_long, grade), ' +
-  'rhythm (hours, quiet window, bursts; repo, who), concentration (how unevenly churn falls on files; repo), method (thresholds, forks, rules), ' +
-  'slice (compute a distribution over commits filtered by repo, who, from, to, day, session, hour, weekday, min_lines, max_lines, rule, grade; fork, measure; ungraded). ' +
+  'profile (size, files and gap distributions per slice; repo, who, fork, measure), flags (atypical commits; rule size_high or gap_long, grade), ' +
+  'rhythm (hours, quiet window, bursts; repo, who), concentration (churn across files; repo), method (thresholds, forks, rules), ' +
+  'slice (compute a distribution over commits filtered by repo, who, from, to, day, session, hour, weekday, min_lines, max_lines, rule, grade; fork, measure; ungraded), ' +
+  'recompute (re-derive the 12 looks from the rows here; match or differing paths), ' +
+  'compare (a vs b, disjoint commit groups: exact permutation test of a measure, ungraded; q counts every look taken). ' +
   'A grade is robustness over declared checks, never a probability. Unknown is not zero; private repos give counts only.';
+const EDA_MEASURES_ALL = ['lines', 'files', 'gap_s', 'hour4', 'weekday', 'repo'];
+const EDA_GROUP_KEYS = ['repo', 'who', 'from', 'to', 'day', 'hour', 'weekday', 'min_lines', 'max_lines'];
+const EDA_GROUP = { type: 'object', additionalProperties: false, description: 'compare: one group of commits, filtered like slice; give at least one filter',
+  properties: { repo: { type: 'string' }, who: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, day: { type: 'string' }, hour: { type: 'integer' },
+    weekday: { type: 'string' }, min_lines: { type: 'integer' }, max_lines: { type: 'integer' } } };
 const EDA_SCHEMA = { type: 'object', additionalProperties: false, required: ['topic'], properties: {
   topic: { type: 'string', enum: EDA_TOPICS },
   id: { type: 'string', description: 'a look id such as contrast:lines (finding)' },
@@ -842,8 +1340,9 @@ const EDA_SCHEMA = { type: 'object', additionalProperties: false, required: ['to
   weekday: { type: 'string', description: 'UTC weekday: 0 (Monday) to 6, or mon to sun; slice' },
   min_lines: { type: 'integer', description: 'at least this many lines changed (add+del); slice' },
   max_lines: { type: 'integer', description: 'at most this many lines changed; slice' },
-  fork: { type: 'string', enum: EDA_FORKS, description: 'all, no_merge (default for slice), default_branch, no_mass' },
-  measure: { type: 'string', enum: ['lines', 'files', 'gap_s'], description: 'lines (add+del), files, gap_s (seconds since the previous commit); default lines' },
+  fork: { type: 'string', enum: EDA_FORKS, description: 'all (default for compare), no_merge (default for slice), default_branch, no_mass' },
+  measure: { type: 'string', enum: EDA_MEASURES_ALL, description: 'lines (add+del), files, gap_s (seconds since the previous commit); default lines; compare also takes hour4, weekday, repo' },
+  a: EDA_GROUP, b: EDA_GROUP,
   rule: { type: 'string', enum: ['size_high', 'gap_long'], description: 'flag rule (flags; slice keeps only commits it flags)' },
   grade: { type: 'string', enum: ['C', 'L', 'S'], description: 'this grade or better (C best)' },
   limit: { type: 'integer', description: 'rows to return, 1 to 40 (default 15)' } } };
@@ -900,7 +1399,16 @@ function edaNoteLook(B, q, asked) {
     min_lines: lo, max_lines: hi }));
 }
 
-const EDA_ASKED_NOTE = 'distinct eda slices plus query_commits, activity and highlight calls that carry an hour, weekday, size or flag filter; plain lookups are not counted';
+const EDA_ASKED_NOTE = 'distinct eda slices and compare questions plus query_commits, activity and highlight calls that carry an hour, weekday, size or flag filter; plain lookups are not counted';
+
+// A filter in one spelling: repo names resolved, classes as classes, a weekday as its number. Call it after commitFilter has accepted q.
+function edaFilterEcho(B, q) {
+  const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday);
+  const lo = edaWhole(q.min_lines, 'min_lines', 0, Infinity), hi = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
+  return { ...(str(q.repo) ? { repo: repoList(B, q.repo) } : {}), ...(str(q.who) ? { who: kindsOf(q.who) } : {}),
+    ...edaOnly(q, ['from', 'to', 'day', 'session', 'rule', 'grade']), ...(hour !== null ? { hour } : {}), ...(weekday !== null ? { weekday } : {}),
+    ...(lo !== null ? { min_lines: lo } : {}), ...(hi !== null ? { max_lines: hi } : {}) };
+}
 
 function edaSlice(B, E, q, asked) {
   const fork = str(q.fork) || 'no_merge', measure = str(q.measure) || 'lines';
@@ -911,11 +1419,7 @@ function edaSlice(B, E, q, asked) {
     hour: q.hour, weekday: q.weekday, min_lines: q.min_lines, max_lines: q.max_lines };
   const pass = commitFilter(B, filter);
   // Echoed in one spelling (a weekday as its number) so that two spellings of one slice count once in looks_asked_this_session.
-  const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday);
-  const lo = edaWhole(q.min_lines, 'min_lines', 0, Infinity), hi = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
-  const echo = { ...(str(q.repo) ? { repo: repoList(B, q.repo) } : {}), ...(str(q.who) ? { who: kindsOf(q.who) } : {}),
-    ...edaOnly(q, ['from', 'to', 'day', 'session', 'rule', 'grade']), ...(hour !== null ? { hour } : {}), ...(weekday !== null ? { weekday } : {}),
-    ...(lo !== null ? { min_lines: lo } : {}), ...(hi !== null ? { max_lines: hi } : {}) };
+  const echo = edaFilterEcho(B, q);
   asked.add(JSON.stringify({ ...echo, repo: (echo.repo || []).slice().sort(), who: (echo.who || []).slice().sort(), fork, measure }));
   const matched = B.commits.filter(pass);
   if (matched.length > 50000) throw new Error(`the filter matches ${matched.length} commits; a slice takes at most 50000, so narrow it`);
@@ -937,12 +1441,129 @@ function edaSlice(B, E, q, asked) {
   return out;
 }
 
+// ---------------------------------------------------------------- recompute and compare: the inference of EDA_INFER behind the eda tool
+const edaRowsCache = new WeakMap();
+function edaRows(B) {       // the commit rows checked once per commit list; a row that breaks the stats.py contract refuses the whole call
+  const hit = edaRowsCache.get(B.commits);
+  if (hit && hit.n === B.commits.length) return hit.rows;
+  const rows = EDA_INFER.checkRows(B.commits);
+  edaRowsCache.set(B.commits, { n: B.commits.length, rows });
+  return rows;
+}
+const edaRecomputed = new WeakMap();      // eda object -> its recomputation, so a button and Ask share one run
+
+// The twelve declared looks again, from the rows and the stored class labels, in this runtime; the stored section must come back byte for byte.
+function edaRecompute(B, E) {
+  const I = EDA_INFER, L = E.looks;
+  if (!L || !Array.isArray(L.findings)) throw new Error('eda has no looks section to recompute');
+  let r = edaRecomputed.get(E);
+  if (!r) {
+    const bad = I.selfCheck();
+    if (bad.length) throw new Error(`this runtime failed its known-answer checks (${bad.join(', ')}); nothing was recomputed`);
+    const labels = (E.classes || {}).labels;
+    if (!labels || typeof labels !== 'object' || Array.isArray(labels) || Object.values(labels).some(v => typeof v !== 'string')) throw new Error('eda.classes.labels is not a map of strings');
+    const { section, draws } = I.runLooks(edaRows(B), labels, I.LIMITS.RECOMPUTE_DRAWS);
+    const raw = [];
+    I.diffPaths('looks', L, section, raw);
+    const ids = section.findings.map(f => f.id), paths = raw.map(x => x.replace(/findings\[(\d+)\]/, (_, k) => `findings[${ids[+k] || k}]`));
+    const digest = v => { try { return I.sha256Text(I.canon(v)); } catch (e) { return null; } };
+    r = { section, draws, paths, wording: raw.filter(x => I.WORDING.test(x)).length, stored_sha256: digest(L), recomputed_sha256: digest(section), rows: B.commits.length };
+    edaRecomputed.set(E, r);
+  }
+  const n = r.paths.length, numbers = n - r.wording;
+  const rows = r.section.findings.map((f, k) => ({ id: f.id, status: f.status, grade: f.grade, k_ge: f.null_model ? f.null_model.k_ge : null, M: f.null_model ? f.null_model.M : null,
+    q_text: f.q_text, match: !r.paths.some(x => x.startsWith(`looks.findings[${f.id}]`)) }));
+  return edaList({ route: 'compute', topic: 'recompute',
+    summary: n === 0 ? `recomputed from ${r.rows} commit rows in this runtime: the stored looks section matches byte for byte (${rows.length} looks, ${r.section.ledger.evaluated} evaluated)`
+      : `recomputed from ${r.rows} commit rows: ${n} stored values differ (${numbers} numbers or flags, ${r.wording} fixed wording)`,
+    match: n === 0, numbers_match: numbers === 0, wording_match: r.wording === 0, commit_rows: r.rows, draws: r.draws,
+    stored_sha256: r.stored_sha256, recomputed_sha256: r.recomputed_sha256,
+    digest_of: 'sha256 of the canonical JSON of eda.looks (sorted keys, no spaces, ASCII); Python: hashlib.sha256(eda.canonical_json(eda["looks"]).encode()).hexdigest()',
+    kernel_checks: 'passed: sha256 of abc, the reference SplitMix64 words from seed 0, the seed of contrast:lines, the manifest of the declared battery is part of the section',
+    inputs_not_recomputed: 'the commit rows themselves (the Python witness gate ties them to the dataset), eda.classes.labels (group names), and whether a stored number was written 1 or 1.0 (JSON.parse reads both as 1)',
+    ledger: r.section.ledger, looks: rows, wording: EDA_WORDING }, 'differences', r.paths, 40);
+}
+
+// compare: one group of commits from a filter. Only filters computable from the stats.py row contract are allowed.
+function edaGroup(B, v, name) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error(`${name} must be an object of filters`);
+  const extra = Object.keys(v).filter(k => !EDA_GROUP_KEYS.includes(k));
+  if (extra.length) throw new Error(`${name} takes ${EDA_GROUP_KEYS.join(', ')}, not ${extra.join(', ')}`);
+  const given = EDA_GROUP_KEYS.filter(k => v[k] !== undefined && v[k] !== null && v[k] !== '');
+  if (!given.length) throw new Error(`${name} needs at least one filter: with none it would be the whole family`);
+  const q = Object.fromEntries(given.map(k => [k, v[k]])), pass = commitFilter(B, q), echo = edaFilterEcho(B, q);
+  return { echo, idx: B.commits.filter(pass).map(c => c.i) };
+}
+// What leaves the tool: a private repo is a count, never a name.
+function edaShowGroup(B, E, echo) {
+  const priv = edaPrivateRepos(B), lab = (E.classes || {}).labels || {}, pub = (echo.repo || []).filter(n => !priv.has(n)), nPriv = (echo.repo || []).length - pub.length;
+  const shown = { ...echo }; delete shown.repo;
+  if (pub.length) shown.repo = pub;
+  if (nPriv) shown.private_repos = nPriv;
+  const parts = [];
+  if (echo.who) parts.push(echo.who.map(c => lab[c] || CLASS_NAMES[c] || c).join(' + '));
+  if (echo.repo) parts.push('in ' + [...pub, ...(nPriv ? [nPriv === 1 ? 'a private repo' : `${nPriv} private repos`] : [])].join(', '));
+  if (echo.day) parts.push('on ' + echo.day);
+  if (echo.from || echo.to) parts.push(`from ${echo.from || 'the start'} to ${echo.to || 'the end'}`);
+  if (echo.hour !== undefined) parts.push('UTC hour ' + echo.hour);
+  if (echo.weekday !== undefined) parts.push(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][echo.weekday]);
+  if (echo.min_lines !== undefined) parts.push('at least ' + echo.min_lines + ' lines');
+  if (echo.max_lines !== undefined) parts.push('at most ' + echo.max_lines + ' lines');
+  return { filter: shown, label: parts.join(', ').slice(0, 160) };
+}
+
+function edaCompare(B, E, q, asked, compared) {
+  const I = EDA_INFER, L = E.looks || {}, fork = str(q.fork) || 'all', measure = str(q.measure) || 'lines';
+  if (!EDA_FORKS.includes(fork)) throw new Error(`unknown fork ${JSON.stringify(fork.slice(0, 40))}; forks: ${EDA_FORKS.join(', ')}`);
+  if (!EDA_MEASURES_ALL.includes(measure)) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; measures: ${EDA_MEASURES_ALL.join(', ')}`);
+  if (!Array.isArray(L.findings) || L.findings.length !== I.DECLARED.length) throw new Error('compare counts the 12 declared looks in its family, and this build has no stored looks');
+  const ga = edaGroup(B, q.a, 'a'), gb = edaGroup(B, q.b, 'b'), sm = I.sample(edaRows(B), ga.idx, gb.idx, measure, fork), key = 'cmp|' + sm.label;
+  let rec = compared.get(key);
+  if (!rec) {
+    if (compared.size >= I.LIMITS.ADHOC_LOOKS) throw new Error(`this tool set has already taken ${compared.size} comparisons, the most it takes: every one raises the number of looks behind q`);
+    rec = { ...I.compare(sm, measure), measure, fork };
+    compared.set(key, rec);
+  }
+  asked.add(key);
+  // The family: the 12 declared looks (their stored p, or 1 when not run), every comparison taken so far, and every other look asked, which counts through m with p = 1.
+  const declared = L.findings.map(f => {
+    const p = f.status === 'evaluated' && f.null_model ? f.null_model.p : [1, 1];
+    if (!Array.isArray(p) || p.length !== 2 || !p.every(Number.isInteger) || !(p[0] > 0 && p[0] <= p[1])) throw new Error(`stored p of ${str(f.id).slice(0, 40)} is not a pair of integers`);
+    return [f.id, p];
+  });
+  const m = I.DECLARED.length + asked.size, qs = I.bhQ(declared.concat([...compared].map(([k, r]) => [k, r.p])), m), qv = qs.get(key);
+  const effect = sm.swapped ? I.flipEffect(rec.effect) : rec.effect, [na, nb] = sm.swapped ? [rec.n_second, rec.n_first] : [rec.n_first, rec.n_second];
+  const A = edaShowGroup(B, E, ga.echo), Bg = edaShowGroup(B, E, gb.echo), priv = edaPrivateRepos(B);
+  const binPriv = measure === 'repo' && priv.has(effect.dominant_bin);
+  const shownEffect = { ...effect, dominant_bin: binPriv ? null : effect.dominant_bin, ...(binPriv ? { dominant_bin_private: true } : {}) };
+  const pText = EDA_INFER.decimalStr(rec.p[0], rec.p[1], 4), qText = EDA_INFER.decimalStr(qv[0], qv[1], 4);
+  const eff = effect.kind === 'cliff_delta' ? "Cliff's delta " + I.decimalStr(effect.permille, 1000, 3) + ' (positive means the first group is larger)'
+    : 'distribution distance ' + I.decimalStr(effect.permille, 1000, 3) + ' (largest gap in ' + (binPriv ? 'a private repo' : I.binLabel(measure, effect.dominant_bin)) + ')';
+  const text = `${A.label} vs ${Bg.label}, ${I.MEASURE_PHRASE[measure]}: ${eff}; ${rec.k_ge} of ${rec.M} label shuffles were at least as extreme (p ${pText}, q ${qText} over m = ${m} looks); ungraded.`;
+  const [an, ad] = I.T.ALPHA, [tn, td] = I.T.Q_BH;
+  const taken = [...compared].map(([k, r], n) => ({ n: n + 1, id: 'cmp-' + I.sha256Text(k).slice(0, 8), measure: r.measure, fork: r.fork, p: r.p, q: qs.get(k) }));
+  return { route: 'compute', topic: 'compare', summary: text, text,
+    question: { a: A.filter, b: Bg.filter, fork, measure, note: 'the question is the sample: (a, b) and (b, a), or two spellings of one group, draw one stream' },
+    groups: { a: { label: A.label, n: na }, b: { label: Bg.label, n: nb } }, effect: shownEffect,
+    null_model: { name: I.NULL_NAME, M: rec.M, k_ge: rec.k_ge, seed: rec.seed, p: rec.p, p_text: pText, draws: rec.draws, draws_cap: I.LIMITS.ADHOC_CAP },
+    q: qv, q_text: qText, p_at_most_alpha: ad * rec.p[0] <= an * rec.p[1], q_at_most_q_threshold: td * qv[0] <= tn * qv[1],
+    family: { declared: I.DECLARED.length, comparisons: compared.size, other_looks: asked.size - compared.size, m,
+      note: 'q is Benjamini-Hochberg over the 12 declared looks (stored p), every comparison taken so far, and every other look asked (p = 1); the next look raises m',
+      counted_in: 'this tool set only: a page reload or a new MCP process counts again from 12' },
+    taken, grade: null, grade_note: 'ungraded: a grade needs the declared robustness checks, which exist only for the 12 declared looks; read p and q as description',
+    say_at_most: 'a difference in these recorded commits that the label shuffle did or did not reproduce; not a graded finding, not causal', scope: I.SCOPE,
+    looks_asked_this_session: asked.size, looks_asked_note: EDA_ASKED_NOTE, declared_looks: I.DECLARED.length,
+    declared_p_source: edaRecomputed.has(E) && edaRecomputed.get(E).paths.length === 0 ? 'recomputed in this runtime and matching the stored section' : 'stored in bundle.eda (the Python witness gate recomputes them; the recompute topic does it here)',
+    computed_by: 'EDA_INFER.compare (twin of x3dray/looks.py compare)', wording: EDA_WORDING };
+}
+
 // The arguments each topic reads, besides limit (a page size: it never changes which data an answer describes). EDA_SCHEMA is one flat object, so without this a topic would take any of them and drop the
 // ones it does not use, answering a different question from the one asked.
 const EDA_TOPIC_ARGS = {
   ledger: [], finding: ['id'], audit: ['grade'], profile: ['repo', 'who', 'fork', 'measure'], flags: ['rule', 'grade'],
   rhythm: ['repo', 'who'], concentration: ['repo'], method: [],
   slice: ['repo', 'who', 'from', 'to', 'day', 'session', 'hour', 'weekday', 'min_lines', 'max_lines', 'rule', 'grade', 'fork', 'measure'],
+  recompute: [], compare: ['a', 'b', 'fork', 'measure'],
 };
 function edaRefuseUnusedArgs(topic, q) {
   const takes = EDA_TOPIC_ARGS[topic];
@@ -952,7 +1573,7 @@ function edaRefuseUnusedArgs(topic, q) {
   if (unused.length) throw new Error(`topic ${topic} does not use ${unused.join(', ')}; it takes ${takes.length ? takes.join(', ') : 'no arguments'}`);
 }
 
-function edaRun(B, q, asked) {
+function edaRun(B, q, asked, compared) {
   const E = B.eda;
   if (!E) return { route: 'lookup', status: 'unavailable', summary: 'eda unavailable: eda was not computed for this build', reason: 'eda was not computed for this build' };
   const topic = str(q.topic), L = E.looks || {}, lim = edaLimit(q);
@@ -984,6 +1605,7 @@ function edaRun(B, q, asked) {
   }
   if (topic === 'profile' || topic === 'rhythm') {
     const ids = edaSliceIds(B, q), fork = str(q.fork), measure = str(q.measure);
+    if (measure && !EDA_MEASURES[measure]) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; stored profiles have ${Object.keys(EDA_MEASURES).join(', ')}`);
     const src = topic === 'profile' ? (E.profile || {}).records || [] : (E.rhythm || {}).slices || [];
     const rows = src.filter(r => (!ids || ids.includes(r.slice)) && (!fork || r.fork === undefined || r.fork === fork) && (!measure || r.measure === undefined || r.measure === measure));
     const base = topic === 'profile' ? { scope: (E.profile || {}).scope, measure_defs: (E.profile || {}).measure_defs }
@@ -1021,13 +1643,16 @@ function edaRun(B, q, asked) {
       thresholds: M.thresholds, forks: M.forks, seed_label: M.seed_label, code_sha256: M.code_sha256, limitations: (E.audit || {}).limitations, grade_rule: L.grade_rule, wording: EDA_WORDING };
   }
   if (topic === 'slice') return edaSlice(B, E, q, asked);
+  if (topic === 'recompute') return edaRecompute(B, E);
+  if (topic === 'compare') return edaCompare(B, E, q, asked, compared);
   throw new Error('unknown topic; topics: ' + EDA_TOPICS.join(', '));
 }
 
 // ---------------------------------------------------------------- tools
 export function makeTools(B, scene) {
   const T = [];
-  const edaAsked = new Set();       // the distinct looks asked in this tool set (slices, and filtered row tools), so multiplicity is visible
+  const edaAsked = new Set();       // the distinct looks asked in this tool set (slices, comparisons and filtered row tools), so multiplicity is visible
+  const edaCompared = new Map();    // comparison key -> its result, so asking again repeats the answer and does not draw again
   const add = (name, description, inputSchema, execute) => T.push({ name, description, inputSchema, execute: (input = {}, ctx) => {
     validateInput(inputSchema, input);
     if (utf8Bytes(input) > 30000) throw new RangeError('tool arguments exceed 30000 UTF-8 bytes');
@@ -1433,7 +2058,7 @@ export function makeTools(B, scene) {
       throw new Error('unknown topic');
     });
 
-  add('eda', EDA_DESC, EDA_SCHEMA, q => edaRun(B, q, edaAsked));
+  add('eda', EDA_DESC, EDA_SCHEMA, q => edaRun(B, q, edaAsked, edaCompared));
 
   if (!scene) {
     add('overview',

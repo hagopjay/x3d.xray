@@ -475,6 +475,57 @@ def run(rows: list[dict], labels: dict[str, str], *, _order: list[int] | None = 
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# An ad hoc comparison of two groups of commits (the specification of the page's `compare`): the same statistic, the same
+# permutation null and the same seeding rule as a declared contrast, without the robustness checks and without a grade. The
+# question fixes the seed, so a question cannot be re-rolled; (a, b) and (b, a) are one question.
+
+ADHOC_PREFIX = "x3dray.eda.adhoc.v1|"
+ADHOC_WORK_CAP = 4_000_000       # permutations x drawn commits for one comparison; above it the question is refused, not thinned
+
+
+def _canon(x) -> str:
+    return json.dumps(x, sort_keys=True, separators=(",", ":"), allow_nan=False, ensure_ascii=True)
+
+
+def _digest(values: list) -> str:
+    return hashlib.sha256(_canon(values).encode("ascii")).hexdigest()
+
+
+def compare(rows: list[dict], idx_a: list[int], idx_b: list[int], measure: str, fork: str) -> dict:
+    """Group a and group b are sets of row indexes (field i), restricted to `fork`; a gap is measured inside the fork-restricted set
+    of all rows, as in the declared looks. The question is the sample: the seed comes from the digests of the two value lists
+    (in (t, i) order), taken in digest order, so (a, b) and (b, a), two spellings of one group and a fork that moves nobody are one
+    question with one stream. The result is in that canonical order; `swapped` says a was the group with the larger digest.
+    Raises ValueError for overlapping groups, a group under MIN_SIDE commits or a work bill above ADHOC_WORK_CAP."""
+    if fork not in stats.FORKS or measure not in CONTRAST_MEASURES:
+        raise ValueError("unknown fork or measure")
+    in_a, in_b = set(idx_a), set(idx_b)
+    if in_a & in_b:
+        raise ValueError("the two groups share commits")
+    rs, gaps = _Sets(rows).get(("fork", fork))
+    a, b = [], []
+    for k, r in enumerate(rs):
+        ia, ib = r["i"] in in_a, r["i"] in in_b
+        if not (ia or ib) or (measure == "gap_s" and gaps[k] is None):
+            continue
+        (a if ia else b).append((gaps[k] if measure == "gap_s" else _value(measure, r), r["r"]))
+    da, db = _digest([v for v, _ in a]), _digest([v for v, _ in b])
+    swapped = db < da
+    label = ADHOC_PREFIX + _canon({"measure": measure, "a": db if swapped else da, "b": da if swapped else db})
+    x, y = (b, a) if swapped else (a, b)
+    w = min(len(x), len(y))
+    if w < THRESHOLDS["MIN_SIDE"]:
+        raise ValueError(SMALL_REASON.format(n=THRESHOLDS["MIN_SIDE"], a=len(a), b=len(b)))
+    M = max(THRESHOLDS["M_MIN"], min(THRESHOLDS["M_MAX"], ADHOC_WORK_CAP // w))
+    if w * M > ADHOC_WORK_CAP:
+        raise ValueError("work above the cap")
+    head = _stat(measure, x, y)
+    k_ge = _null_count(measure, x, y, head, M, label)
+    return {"swapped": swapped, "label": label, "n_first": len(x), "n_second": len(y), "effect": _effect(measure, head), "M": M, "k_ge": k_ge,
+            "seed": str(stats.seed_from(label)), "p": [k_ge + 1, M + 1], "draws": w * M}
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # verify: the same quantities again, from the rows, with deliberately naive code.
 
 def _n_keep(r: dict, fork: str) -> bool:
