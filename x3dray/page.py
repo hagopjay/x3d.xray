@@ -132,6 +132,10 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
         "self": sd,
         "layout": layout,
     }
+    # This graph preserves detector predicates and direction. It is separate
+    # from the legacy association view; a mention is not an executable import.
+    from .relations import build_relations
+    bundle["relations"] = build_relations(ds, ti, cur)
     return bundle
 
 

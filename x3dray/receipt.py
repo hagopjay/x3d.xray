@@ -12,6 +12,7 @@ import glob
 import hashlib
 import json
 import os
+from pathlib import Path
 
 from . import __version__
 from .page import write_publish_map, privacy_scan
@@ -46,9 +47,9 @@ def write(data_dir: str, out_dir: str, stamp: str) -> dict:
         # Logical locators remain valid when a fresh staging folder is promoted.
         # Machine-specific/staging directory names are not input identities.
         add("input", p, data_dir)
-    code = sorted(glob.glob(os.path.join(HERE, "*.py")) + glob.glob(os.path.join(HERE, "web", "*.js")) + glob.glob(os.path.join(HERE, "web", "*.mjs"))
-                  + glob.glob(os.path.join(HERE, "web", "*.cjs")) + glob.glob(os.path.join(HERE, "web", "*.css"))
-                  + glob.glob(os.path.join(REPO, "families", "*.json")) + glob.glob(os.path.join(REPO, "specs", "*.json")))
+    package_code = [str(p) for p in Path(HERE).rglob("*") if p.is_file() and not p.is_symlink()
+                    and p.suffix in {".py", ".js", ".mjs", ".cjs", ".css", ".html"} and "__pycache__" not in p.parts]
+    code = sorted(package_code + glob.glob(os.path.join(REPO, "families", "*.json")) + glob.glob(os.path.join(REPO, "specs", "*.json")))
     for p in code:
         add("code", p, REPO)
     # The publication registry is the sole authority for served bytes. Every
