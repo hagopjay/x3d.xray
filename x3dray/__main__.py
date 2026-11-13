@@ -15,6 +15,7 @@ Steps, in pipeline order (all but `spec --brief` and `mcp` write into --data or 
   all      --family F --root DIR --masterclass DIR --data DIR --out DIR --spec S --xite D --font F [--onto D --fork D]
   tools                                        print the tools the page's Claude and the MCP server share
   mcp      --out DIR                           serve the data tools over MCP (stdio) from DIR/bundle.json
+  lab      --out DIR [--xite D]                 synthetic, offline bridge investigation laboratory
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
@@ -47,7 +49,8 @@ def _read(d: str, name: str, default=None):
         if default is not None:
             return default
         raise SystemExit(f"{p} is missing: run the step that writes it first")
-    return json.load(open(p, encoding="utf-8"))
+    with open(p, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _now() -> str:
@@ -57,7 +60,8 @@ def _now() -> str:
 def cmd_harvest(a) -> int:
     from . import harvest, ties
 
-    cfg = json.load(open(a.family, encoding="utf-8"))
+    with open(a.family, encoding="utf-8") as fh:
+        cfg = json.load(fh)
     t0 = time.time()
     ds = harvest.harvest_family(cfg, a.root)
     t1 = time.time()
@@ -76,7 +80,10 @@ def cmd_harvest(a) -> int:
 def cmd_curated(a) -> int:
     from . import curated
 
-    cfg = json.load(open(a.family, encoding="utf-8")) if a.family else {}
+    cfg = {}
+    if a.family:
+        with open(a.family, encoding="utf-8") as fh:
+            cfg = json.load(fh)
     exclude = tuple(a.exclude or [])
     cur = curated.import_masterclass(a.masterclass, exclude=exclude, notes=cfg.get("curated_notes"))
     _write_json(os.path.join(a.data, "curated.json"), cur)
@@ -113,7 +120,10 @@ def cmd_profile(a) -> int:
 def cmd_self(a) -> int:
     from . import selfdesc
 
-    cfg = json.load(open(a.family, encoding="utf-8")) if a.family else None
+    cfg = None
+    if a.family:
+        with open(a.family, encoding="utf-8") as fh:
+            cfg = json.load(fh)
     sd = selfdesc.describe(_read(a.data, "dataset.json"), _read(a.data, "profile.json"), a.stamp or _now(), cfg)
     _write_json(os.path.join(a.data, "self.json"), sd)
     print(f"self: {sd['tool']['modules']} modules, code {sd['tool']['code_digest']}, head {sd['tool']['git']['head']} -> {a.data}/self.json")
@@ -128,7 +138,8 @@ def cmd_spec(a) -> int:
     if a.brief:
         print(spec.brief(prof, selfd))
         return 0
-    rendered = spec.render_spec(json.load(open(a.spec, encoding="utf-8")), prof, selfd)
+    with open(a.spec, encoding="utf-8") as fh:
+        rendered = spec.render_spec(json.load(fh), prof, selfd)
     rendered["source"] = os.path.relpath(a.spec)
     _write_json(os.path.join(a.data, "spec.rendered.json"), rendered)
     n = len(rendered["problems"])
@@ -160,8 +171,8 @@ def cmd_gate(a) -> int:
     res = gates.run_all(a.data, a.out, onto=a.onto, fork=a.fork, xsd=a.xsd, live=not a.no_live)
     for k, v in res["gates"].items():
         print(f"  {k:10} {v['status']:5} {v.get('summary', '')}")
-    print("gate: " + ("pass" if res["ok"] else "FAIL"))
-    return 0 if res["ok"] else 1
+    print("gate: development " + ("pass" if res["ok"] else "FAIL") + "; release " + ("ready" if res["release_ready"] else "incomplete"))
+    return 0 if (res["release_ready"] if getattr(a, "release", False) else res["ok"]) else 1
 
 
 def cmd_receipt(a) -> int:
@@ -173,9 +184,23 @@ def cmd_receipt(a) -> int:
 
 
 def cmd_all(a) -> int:
+    from .staging import run_staged
+
+    # Freeze run time and self-description before rendering narrative slots.
+    # Every run starts with fresh data, so omitted optional stages cannot reuse
+    # artifacts from the previous family harvest.
+    a.stamp = a.stamp or _now()
+    def runner(stage_data, stage_out):
+        staged = SimpleNamespace(**vars(a))
+        staged.data, staged.out = stage_data, stage_out
+        return _all_steps(staged)
+    return run_staged(a.data, a.out, runner)
+
+
+def _all_steps(a) -> int:
     steps = [
         (cmd_harvest, {}), (cmd_curated, {}), (cmd_structure, {}), (cmd_profile, {}), (cmd_self, {}), (cmd_spec, {"brief": False}),
-        (cmd_self, {}), (cmd_build, {}), (cmd_page, {}), (cmd_gate, {}), (cmd_receipt, {}),
+        (cmd_build, {}), (cmd_page, {}), (cmd_gate, {}), (cmd_receipt, {}),
     ]
     if not a.masterclass:
         steps = [s for s in steps if s[0] is not cmd_curated]
@@ -186,6 +211,12 @@ def cmd_all(a) -> int:
         if rc:
             print(f"all: stopped at {fn.__name__[4:]}")
             return rc
+    return 0
+
+
+def cmd_lab(a) -> int:
+    from . import lab
+    print("lab: " + json.dumps(lab.build(a.out, a.xite)))
     return 0
 
 
@@ -227,6 +258,7 @@ def main(argv=None) -> int:
         q.add_argument("--fork", default=None, help="an x3d_mcp fork clone, for its validator")
         q.add_argument("--xsd", default=None, help="the X3D 4.0 XSD (default: the fork's copy)")
         q.add_argument("--no-live", action="store_true", help="skip the live X_ITE run")
+        q.add_argument("--release", action="store_true", help="require every mandatory gate to pass; skipped checks are incomplete")
 
     h = sp("harvest", cmd_harvest, data, stamp)
     h.add_argument("--family", required=True)
@@ -252,6 +284,8 @@ def main(argv=None) -> int:
     al.add_argument("--spec", required=True)
     sp("tools", cmd_tools)
     sp("mcp", cmd_mcp, out)
+    lab_p = sp("lab", cmd_lab, out)
+    lab_p.add_argument("--xite", default=None, help="optional pinned X_ITE dist folder to vendor for offline 3D")
     a = p.parse_args(argv)
     return a.fn(a)
 

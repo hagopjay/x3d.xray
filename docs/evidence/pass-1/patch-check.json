@@ -1,0 +1,7 @@
+{
+  "base_commit": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+  "git_apply_check": "passed on clean detached worktree",
+  "patch_sha256": "23143c22f6c19cc594a9b9698532b84b86238e88de0231006fc355f5f3d4fd0c",
+  "patch_bytes": 380200,
+  "upstream_pushed": false
+}

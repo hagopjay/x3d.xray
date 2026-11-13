@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "tests": 178,
+  "seconds": 7.977,
+  "resource_warnings": 0,
+  "command": "python3 -m unittest discover -s tests -v"
+}

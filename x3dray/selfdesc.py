@@ -157,7 +157,8 @@ def modules() -> list[dict]:
             if not f.endswith((".py", ".js", ".mjs", ".cjs", ".css", ".html")):
                 continue
             p = os.path.join(base, f)
-            b = open(p, "rb").read()
+            with open(p, "rb") as fh:
+                b = fh.read()
             rel = os.path.relpath(p, REPO)
             src = b.decode("utf-8", errors="replace")
             doc, defs = _py_defs(src) if f.endswith(".py") else (_js_defs(src) if f.endswith((".js", ".mjs", ".cjs")) else (None, []))
@@ -214,7 +215,8 @@ def describe(dataset: dict, profile: dict, stamp: str | None = None, family_cfg:
         st["lines"] = sum(by_path[p]["lines"] for p in paths if p in by_path)
         pipeline.append(st)
 
-    prof_src = open(os.path.join(PKG, "profile.py"), encoding="utf-8").read()
+    with open(os.path.join(PKG, "profile.py"), encoding="utf-8") as fh:
+        prof_src = fh.read()
     head = _git("rev-parse", "HEAD")
     status = _git("status", "--porcelain", "--", "x3dray", "families", "specs")
     tool = {

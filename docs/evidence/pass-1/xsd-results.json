@@ -1,0 +1,8 @@
+{
+  "schema": "https://www.web3d.org/specifications/x3d-4.0.xsd",
+  "schema_sha256": "d01ac41b4ac218acb989d6692e749a5e652ddde3a91ac5d6d3cb0af03c1afbe2",
+  "scene_sha256": "5857f9bb61e1a7724bd427ea8c81b689cbea50bf3bfd93fd49e648638617d43a",
+  "valid": true,
+  "errors": [],
+  "scope": "XSD validation of one generated laboratory export; no X_ITE runtime claim"
+}

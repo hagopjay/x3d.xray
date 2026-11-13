@@ -15,13 +15,14 @@ reviewers may only downgrade or annotate, and their notes are kept beside the ma
 from __future__ import annotations
 
 import collections
+import bisect
 import os
 import re
 
 from . import gitio
 from .harvest import classify_path
 
-HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{7,40}(?![0-9a-fA-F])")
+HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{7,64}(?![0-9a-fA-F])", re.I)
 MANIFESTS = {
     "pyproject.toml", "requirements.txt", "requirements-dev.txt", "setup.cfg", "setup.py",
     "package.json", "environment.yml", "environment.yaml", "pipfile", "uv.lock", "poetry.lock",
@@ -56,7 +57,7 @@ def _window(text: str, start: int, end: int, radius: int = 90) -> str:
     return ("…" if a > ls else "") + text[a:b].strip() + ("…" if b < le else "")
 
 
-def _mention_kind(path: str, line: str, name: str, owner: str) -> str:
+def _mention_kind(path: str, line: str, name: str, owner: str, matched_alias: str | None = None) -> str:
     low = path.lower()
     base = os.path.basename(low)
     if low.startswith(".github/workflows/"):
@@ -64,8 +65,9 @@ def _mention_kind(path: str, line: str, name: str, owner: str) -> str:
     if base in MANIFESTS or base.startswith("requirements"):
         return "dependency"
     stripped = line.strip()
-    if re.match(r"^(from|import)\s+" + re.escape(name.replace("-", "_").replace(".", "_")), stripped):
-        return "dependency"
+    for imported_name in {name, matched_alias} - {None}:
+        if re.match(r"^(from|import)\s+" + re.escape(imported_name.replace("-", "_").replace(".", "_")) + r"(?=\s|\.|$)", stripped):
+            return "dependency"
     kind = classify_path(path)
     if kind not in {"data", "x3d", "log", "media"} and ("pip install" in stripped or "git+https://" in stripped or "git clone" in stripped):
         return "dependency"
@@ -74,38 +76,75 @@ def _mention_kind(path: str, line: str, name: str, owner: str) -> str:
     return kind
 
 
+def _evidence_key(e: dict) -> tuple:
+    """Stable display priority; detector summaries, not this order, decide grades."""
+    kind = e["kind"]
+    strong = ["pin", "shared_file", "session", "fork_of", "lineage", "second_account", "uses"]
+    if kind in strong:
+        priority = strong.index(kind)
+    elif kind.startswith("mention:"):
+        mention = kind.split(":", 1)[1]
+        priority = len(strong) + (MENTION_ORDER.index(mention) if mention in MENTION_ORDER else len(MENTION_ORDER))
+    else:
+        priority = len(strong) + len(MENTION_ORDER) + 1
+    return (priority, kind, e.get("path") or "", e.get("line") or 0, e.get("text") or "", e.get("other_path") or "")
+
+
+def _retain_evidence(p: dict, evidence: dict) -> None:
+    """Bound the display sample while keeping a best witness for each detector kind.
+
+    The complete kinds/mention_lines summaries are accumulated separately. Keeping
+    one representative of each kind prevents many weak examples hiding the source
+    of a stronger judgment. The omission count describes evidence records, not hits.
+    """
+    p["_evidence_records"] += 1
+    candidates = sorted(p["evidence"] + [evidence], key=_evidence_key)
+    by_kind = collections.defaultdict(list)
+    for e in candidates:
+        if len(by_kind[e["kind"]]) < MAX_EVIDENCE:
+            by_kind[e["kind"]].append(e)
+    representatives = [es[0] for es in by_kind.values()]
+    chosen = sorted(representatives, key=_evidence_key)[:MAX_EVIDENCE * 4]
+    remainder = sorted((e for es in by_kind.values() for e in es[1:]), key=_evidence_key)
+    chosen.extend(remainder[:MAX_EVIDENCE * 4 - len(chosen)])
+    p["evidence"] = sorted(chosen, key=_evidence_key)
+
+
 def find_ties(cfg: dict, dataset: dict) -> dict:
     owner = cfg.get("owner", "")
     pats = _alias_patterns(cfg)
     repos = {r["name"]: r for r in dataset["repos"]}
     private = {n for n, r in repos.items() if r.get("visibility") == "private"}
 
-    # Index of commit hashes per repo (first 12 hex digits), for pin detection.
-    sha_index: dict[str, list[tuple[str, str]]] = collections.defaultdict(list)
+    # Full object IDs are retained internally by the harvester until ties are
+    # found. Old datasets with abbreviated sha fields remain usable, but cannot
+    # prove a longer token's suffix. Index only public commits and upstream tips.
+    sha_index: dict[str, set[tuple[str, str]]] = collections.defaultdict(set)
     for n, r in repos.items():
+        if n in private:
+            continue
         for c in r.get("commits", []):
-            s = c.get("sha")
+            s = c.get("_oid") or c.get("oid") or c.get("sha")
             if s:
-                sha_index[s[:7]].append((n, s))
+                sha_index[s[:7].lower()].add((n, s.lower()))
         up = r.get("upstream")
         if up and up.get("head"):
-            sha_index[up["head"][:7]].append((n, up["head"][:12]))
-    # also index full upstream history of forks, so a pin to an upstream commit counts
+            sha_index[up["head"][:7].lower()].add((n, up["head"].lower()))
+    pin_rejections = collections.Counter()
     pairs: dict[tuple[str, str], dict] = {}
 
     def pair(a: str, b: str) -> dict:
         key = (a, b)
         if key not in pairs:
-            pairs[key] = {"from": a, "to": b, "kinds": collections.Counter(), "evidence": []}
+            pairs[key] = {"from": a, "to": b, "kinds": collections.Counter(), "evidence": [], "_evidence_records": 0}
         return pairs[key]
 
     def add_ev(p: dict, kind: str, path: str, line_no: int | None, text: str | None, src: str):
         p["kinds"][kind] += 1
-        if len(p["evidence"]) < MAX_EVIDENCE * 4:
-            if src in private:
-                p["evidence"].append({"kind": kind, "path": "[private repo]", "line": None, "text": None})
-            else:
-                p["evidence"].append({"kind": kind, "path": path, "line": line_no, "text": (text or "").strip()[:200]})
+        if src in private:
+            _retain_evidence(p, {"kind": kind, "path": "[private repo]", "line": None, "text": None})
+        else:
+            _retain_evidence(p, {"kind": kind, "path": path, "line": line_no, "text": (text or "").strip()[:200]})
 
     # The observer effect: the tool's own repo names every repo it reads (its config, spec, tests, docs, layout), by construction.
     # Those mentions and hash-shaped strings are set aside and counted, and only the uses its config declares become ties.
@@ -136,41 +175,55 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                         if k:
                             set_aside["mentions"] += k
                             set_aside["files"] += 1
-                set_aside["hash_shaped"] += sum(1 for m in HEX_RE.finditer(text) if not m.group(0).isdigit() and sha_index.get(m.group(0)[:7]))
+                set_aside["hash_shaped"] += sum(1 for m in HEX_RE.finditer(text) if not m.group(0).isdigit() and sha_index.get(m.group(0)[:7].lower()))
                 continue
-            # mentions of other repos, by alias; each hit is judged on a window around it,
-            # so a one-line JSON file cannot turn into a "dependency" because of distant text
+            # Judge every hit, but retain only one best witness per file. A hit
+            # display cap must not hide a later import/install line. Newline
+            # offsets avoid repeatedly counting the whole prefix for each hit.
+            newlines = [m.start() for m in re.finditer("\n", text)]
             for other, pat in pats.items():
                 if other == n:
                     continue
-                hits = []
+                kinds_here = collections.Counter()
+                best_hit = None
                 for m in pat.finditer(text):
-                    hits.append((text.count("\n", 0, m.start()) + 1, _window(text, m.start(), m.end())))
-                    if len(hits) >= 50:
-                        break
-                if not hits:
+                    line_no = bisect.bisect_left(newlines, m.start()) + 1
+                    window = _window(text, m.start(), m.end())
+                    mention = _mention_kind(path, window, other, owner, m.group(0))
+                    kinds_here[mention] += 1
+                    priority = MENTION_ORDER.index(mention) if mention in MENTION_ORDER else len(MENTION_ORDER)
+                    if best_hit is None or priority < best_hit[0]:
+                        best_hit = (priority, mention, line_no, window)
+                if best_hit is None:
                     continue
                 p = pair(n, other)
-                kinds_here = collections.Counter(_mention_kind(path, w, other, owner) for _, w in hits)
                 ml = p.setdefault("mention_lines", collections.Counter())
                 for k, cnt in kinds_here.items():
                     ml[k] += cnt
-                best = min(kinds_here, key=lambda k: MENTION_ORDER.index(k) if k in MENTION_ORDER else len(MENTION_ORDER))
-                ln_no, win = next(h for h in hits if _mention_kind(path, h[1], other, owner) == best)
+                _, best, ln_no, win = best_hit
                 add_ev(p, "mention:" + best, path, ln_no, win, n)
             # commit hashes of other repos written here
             for m in HEX_RE.finditer(text):
-                tok = m.group(0)
+                tok = m.group(0).lower()
                 if tok.isdigit():
                     continue
-                for other, sha in sha_index.get(tok[:7], []):
+                indexed = sha_index.get(tok[:7], set())
+                matches = {(other, sha) for other, sha in indexed if sha.startswith(tok)}
+                if not matches:
+                    if indexed:
+                        pin_rejections["unresolved_or_longer_than_recorded_id"] += 1
+                    continue
+                # A short token naming several different commits is not an
+                # unambiguous pin. The same full object in several forks is fine.
+                if len({sha for _, sha in matches}) != 1:
+                    pin_rejections["ambiguous_abbreviation"] += 1
+                    continue
+                for other, sha in sorted(matches):
                     if other == n:
-                        continue
-                    if not (sha.startswith(tok[:12]) and (len(tok) <= 12 or tok.startswith(sha))):
                         continue
                     win = _window(text, m.start(), m.end(), 60)
                     strong = len(tok) >= 12 or bool(PIN_CONTEXT.search(win))
-                    line_no = text.count("\n", 0, m.start()) + 1
+                    line_no = bisect.bisect_left(newlines, m.start()) + 1
                     pp = pair(n, other)
                     add_ev(pp, "pin" if strong else "pin-weak", path, line_no, _window(text, m.start(), m.end()), n)
                     if strong:
@@ -189,10 +242,9 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                 p["kinds"]["shared_file"] += 1
                 p.setdefault("shared_bytes", 0)
                 p["shared_bytes"] += pa[2]
-                if len([e for e in p["evidence"] if e["kind"] == "shared_file"]) < MAX_EVIDENCE:
-                    pa_path = "[private repo]" if a in private else pa[1]
-                    pb_path = "[private repo]" if b in private else pb[1]
-                    p["evidence"].append({"kind": "shared_file", "path": pa_path, "other_path": pb_path, "bytes": pa[2], "line": None, "text": None})
+                pa_path = "[private repo]" if a in private else pa[1]
+                pb_path = "[private repo]" if b in private else pb[1]
+                _retain_evidence(p, {"kind": "shared_file", "path": pa_path, "other_path": pb_path, "bytes": pa[2], "line": None, "text": None})
 
     # one Claude session committing to two repos
     sess = collections.defaultdict(lambda: collections.defaultdict(list))
@@ -206,8 +258,7 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
             for b in names[i + 1:]:
                 p = pair(a, b)
                 p["kinds"]["session"] += 1
-                if len([e for e in p["evidence"] if e["kind"] == "session"]) < MAX_EVIDENCE:
-                    p["evidence"].append(
+                _retain_evidence(p,
                         {"kind": "session", "path": None, "line": None, "text": f"session {s}: {len(by_repo[a])} commits in {a}, {len(by_repo[b])} in {b}",
                          "t": [min(by_repo[a] + by_repo[b]), max(by_repo[a] + by_repo[b])]}
                     )
@@ -218,31 +269,34 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
         if up:
             p = pair(n, up["name"])
             p["kinds"]["fork_of"] += 1
-            p["evidence"].append({"kind": "fork_of", "path": None, "line": None, "text": f"{n} shares {up['commits']} commits with {up['name']}"})
+            _retain_evidence(p, {"kind": "fork_of", "path": None, "line": None, "text": f"{n} shares {up['commits']} commits with {up['name']}"})
         if r.get("kind", "").startswith("fork") and not up:
             p = pair(n, n + " (upstream)")
             p["kinds"]["fork_of"] += 1
-            p["evidence"].append({"kind": "fork_of", "path": None, "line": None, "text": f"{n} is a GitHub fork"})
+            _retain_evidence(p, {"kind": "fork_of", "path": None, "line": None, "text": f"{n} is a GitHub fork"})
         hs = [c for c in r.get("commits", []) if c.get("who") == "hagsmac"]
         if hs:
             p = pair("hagsmac (account)", n)
             p["kinds"]["second_account"] += len(hs)
-            p["evidence"].append({"kind": "second_account", "path": None, "line": None, "text": f"{len(hs)} commits by hagsmac in {n}"})
+            _retain_evidence(p, {"kind": "second_account", "path": None, "line": None, "text": f"{len(hs)} commits by hagsmac in {n}"})
     for n, r in observers.items():
         for target, why in (r.get("uses") or {}).items():
             p = pair(n, target)
             p["kinds"]["uses"] += 1
-            p["evidence"].append({"kind": "uses", "path": None, "line": None, "text": f"declared by the family config: {why}"})
+            _retain_evidence(p, {"kind": "uses", "path": None, "line": None, "text": f"declared by the family config: {why}"})
     lineage, resolved = resolve_lineage(cfg.get("lineage", []), set(repos), cfg.get("vocabulary") or {})
     note = "; ".join(f"'{a}' read as {b} through the vocabulary" for a, b in resolved.items())
     for a, b in zip(lineage, lineage[1:]):
         p = pair(a, b)
         p["kinds"]["lineage"] += 1
-        p["evidence"].append({"kind": "lineage", "path": None, "line": None,
+        _retain_evidence(p, {"kind": "lineage", "path": None, "line": None,
                               "text": cfg.get("lineage_source", "stated by the owner") + (f" ({note})" if note else "")})
 
     out = []
     for p in pairs.values():
+        total = p.pop("_evidence_records")
+        p["evidence_records"] = {"total": total, "returned": len(p["evidence"]), "omitted": total - len(p["evidence"]),
+                                 "limit": MAX_EVIDENCE * 4, "per_kind_limit": MAX_EVIDENCE}
         p["kinds"] = dict(p["kinds"])
         if "mention_lines" in p:
             p["mention_lines"] = dict(p["mention_lines"])
@@ -253,7 +307,8 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
     out.sort(key=lambda p: ({"C": 0, "L": 1, "S": 2}[p["grade"]], p["from"], p["to"]))
     observer = {"repos": sorted(observers), "set_aside": dict(set_aside),
                 "why": "The tool's own files name every repo it reads, by construction, so they are not evidence of a tie; only its declared uses count."} if observers else None
-    return {"pairs": out, "scanned_files": dict(scanned), "observer": observer, "detectors": __doc__.strip().splitlines()[2:9]}
+    return {"pairs": out, "scanned_files": dict(scanned), "observer": observer, "pin_rejections": dict(pin_rejections),
+            "detectors": __doc__.strip().splitlines()[2:9]}
 
 
 def resolve_lineage(stated: list[str], known: set[str], vocabulary: dict[str, str]) -> tuple[list[str], dict[str, str]]:
@@ -278,7 +333,9 @@ def machine_grade(p: dict) -> tuple[str, str]:
     for strong in ["pin", "shared_file", "session", "fork_of", "lineage", "second_account", "uses"]:
         if k.get(strong):
             return "C", strong
-    mention_kinds = {e["kind"].split(":", 1)[1] for e in p["evidence"] if e["kind"].startswith("mention:")}
+    # These complete detector summaries are independent of display sample size.
+    mention_kinds = {kind.split(":", 1)[1] for kind, count in k.items() if count and kind.startswith("mention:")}
+    mention_kinds.update(kind for kind, count in p.get("mention_lines", {}).items() if count)
     if mention_kinds & {"dependency", "ci", "url-code", "url-config"}:
         return "C", "named in a manifest, import, install line or CI workflow"
     if mention_kinds & {"code", "tests", "url-docs", "docs", "web", "config", "notebook"}:

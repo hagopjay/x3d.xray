@@ -447,6 +447,23 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
     per_repo = prof["per_repo"]
     rows = own_commits(ds)
 
+    if not rows:
+        # An empty observation population is a valid analytical state. Do not
+        # invent a busiest day or divide by a missing helix span.
+        L["views"]["overview"] = {"def": "VP_overview", "position": [0, 1, 9],
+                                    "orientation": [0, 0, 1, 0], "center": [0, 0, 0], "fov": 0.8}
+        L["regions"]["overview"] = {"center": [0, 0, 0]}
+        L["labels"] = [{"text": "No observed own commits / Inspect coverage before interpreting absence", "view": "overview", "pos": [0, 0, 0]}]
+        L["counts"] = {"commits": 0, "labels": 1, "nodes": 0, "machine_ties": 0, "curated_ties": 0, "buildings": 0, "days": 0}
+        xml = ("<?xml version='1.0' encoding='UTF-8'?>\n<X3D profile='Immersive' version='4.0'><Scene>"
+               "<WorldInfo title='No observed own commits'/><Background skyColor='0.043 0.078 0.11'/>"
+               "<Viewpoint DEF='VP_overview' position='0 1 9' description='Inspect observation coverage'/>"
+               "<Shape><Appearance><Material emissiveColor='0.85 0.92 0.94'/></Appearance>"
+               "<Text string='\"No observed own commits\" \"Inspect coverage before interpreting absence\"'>"
+               "<FontStyle family='" + FONT + "' justify='\"MIDDLE\" \"MIDDLE\"' size='0.35'/>"
+               "</Text></Shape><Group DEF='Notes'/><Group DEF='Hi'/></Scene></X3D>\n")
+        return xml, L
+
     # ================= time helix
     lanes_order = sorted([n for n, r in per_repo.items() if r["own_commits"] > 0],
                          key=lambda n: (-(per_repo[n]["own_commits"]), n))
@@ -1032,7 +1049,9 @@ def source_digest(*objs) -> str:
 
 
 def build(data_dir: str, out_dir: str) -> dict:
-    j = lambda n: json.load(open(os.path.join(data_dir, n), encoding="utf-8"))
+    def j(n):
+        with open(os.path.join(data_dir, n), encoding="utf-8") as fh:
+            return json.load(fh)
     ds, ti, prof, spec_r, selfd = j("dataset.json"), j("ties.json"), j("profile.json"), j("spec.rendered.json"), j("self.json")
     opt = lambda n: j(n) if os.path.exists(os.path.join(data_dir, n)) else None
     cur = opt("curated.json")

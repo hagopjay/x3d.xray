@@ -30,26 +30,84 @@ const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const list = v => (Array.isArray(v) ? v : (str(v) ? str(v).split(',') : [])).map(s => String(s).trim()).filter(Boolean);
 
-// Keep a result under the cap by shortening its longest arrays, and say so.
+const utf8Bytes = value => new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)).length;
+
+// A transport limit must not silently rewrite evidence inside a returned record. Shorten
+// top-level lists by whole records, or withhold a complete oversized field. Scalar text
+// may be returned as an explicitly marked prefix. Counts already computed by a tool stay
+// intact; _result_limit records this additional presentation loss separately.
 export function cap(obj, limit = LIMIT_BYTES) {
-  let s = JSON.stringify(obj);
-  if (s.length <= limit) return obj;
-  const out = JSON.parse(s);
-  const arrays = [];
-  (function walk(o, path) {
-    if (Array.isArray(o)) { arrays.push({ o, path }); o.forEach((x, i) => walk(x, path + '[' + i + ']')); }
-    else if (o && typeof o === 'object') Object.keys(o).forEach(k => walk(o[k], path + '.' + k));
-  })(out, '');
-  arrays.sort((a, b) => JSON.stringify(b.o).length - JSON.stringify(a.o).length);
-  let guard = 0;
-  while (JSON.stringify(out).length > limit && guard++ < 400) {
-    const big = arrays.find(a => a.o.length > 1);
-    if (!big) break;
-    big.o.length = Math.max(1, Math.floor(big.o.length * 0.7));
-    arrays.sort((a, b) => JSON.stringify(b.o).length - JSON.stringify(a.o).length);
+  if (!Number.isInteger(limit) || limit < 256) throw new RangeError('result limit must be an integer of at least 256 bytes');
+  const serialized = JSON.stringify(obj);
+  if (serialized === undefined) throw new TypeError('a tool result must be JSON serializable');
+  const originalBytes = utf8Bytes(serialized);
+  if (originalBytes <= limit) return obj;
+  const clone = JSON.parse(serialized);
+  const out = clone && !Array.isArray(clone) && typeof clone === 'object' ? clone : { value: clone };
+  const omissions = new Map();
+  // Reserved metadata must not be mistaken for the source payload's own declaration.
+  if (Object.hasOwn(out, '_result_limit') || Object.hasOwn(out, 'truncated')) {
+    return { truncated: 'Entire oversized payload withheld; narrow the query.', _result_limit: { original_bytes: originalBytes, entire_payload_omitted: true } };
   }
-  out.truncated = 'Shortened to stay under the tool result limit; ask for less (a repo, a date range, a smaller limit).';
-  return out;
+  out.truncated = 'Result shortened by whole records or fields; see _result_limit. Narrow the query for omitted evidence.';
+  out._result_limit = { original_bytes: originalBytes, omissions: [] };
+  const update = (key, record) => {
+    omissions.set(key, record);
+    out._result_limit.omissions = [...omissions.values()].slice(0, 16);
+    out._result_limit.omission_records = omissions.size;
+  };
+  let steps = 0;
+  while (utf8Bytes(out) > limit && steps++ < 512) {
+    const entries = Object.entries(out).filter(([k]) => !['truncated', '_result_limit'].includes(k));
+    entries.sort((a, b) => utf8Bytes(JSON.stringify(b)) - utf8Bytes(JSON.stringify(a)));
+    const entry = entries[0];
+    if (!entry) break;
+    const [key, value] = entry;
+    const path = '/' + key.replace(/~/g, '~0').replace(/\//g, '~1');
+    const previous = omissions.get(key);
+    if (Array.isArray(value) && value.length) {
+      const before = value.length;
+      value.length = Math.floor(value.length / 2);
+      const original = previous ? previous.original_items : before;
+      update(key, { path: path.slice(0, 160), kind: 'array', original_items: original, returned_items: value.length, omitted_items: original - value.length });
+      // Existing per-tool omissions include the newly removed whole records too.
+      if (typeof out[key + '_omitted'] === 'number') out[key + '_omitted'] += before - value.length;
+    } else if (typeof value === 'string' && value.length > 1) {
+      const original = previous ? previous.original_utf8_bytes : utf8Bytes(value);
+      // Array.from keeps surrogate pairs intact, including emoji.
+      out[key] = Array.from(value).slice(0, Math.floor(Array.from(value).length / 2)).join('');
+      update(key, { path: path.slice(0, 160), kind: 'text_prefix', original_utf8_bytes: original,
+        returned_utf8_bytes: utf8Bytes(out[key]), omitted_utf8_bytes: original - utf8Bytes(out[key]) });
+    } else {
+      delete out[key];
+      update(key, { path: path.slice(0, 160), kind: 'field_withheld' });
+    }
+  }
+  if (utf8Bytes(out) <= limit) return out;
+  // Huge property names or many independent fields can make explanation larger than
+  // the available payload. Withholding all is more honest than an unmarked overflow.
+  return { truncated: 'Entire oversized payload withheld; narrow the query.', _result_limit: { original_bytes: originalBytes, entire_payload_omitted: true } };
+}
+
+// The schemas already published to both consumers are also enforced at their shared
+// execution boundary. This deliberately implements only the schema features we use.
+export function validateInput(schema, value, path = 'arguments') {
+  const type = schema.type;
+  const isObject = value !== null && typeof value === 'object' && !Array.isArray(value);
+  const valid = type === 'object' ? isObject : type === 'array' ? Array.isArray(value)
+    : type === 'integer' ? Number.isInteger(value) : type === 'number' ? typeof value === 'number' && Number.isFinite(value)
+      : type === 'string' ? typeof value === 'string' : type === 'boolean' ? typeof value === 'boolean' : true;
+  if (!valid) throw new TypeError(path + ' must be ' + type);
+  if (schema.enum && !schema.enum.includes(value)) throw new TypeError(path + ' must be one of: ' + schema.enum.join(', '));
+  if (isObject) {
+    for (const key of schema.required || []) if (!Object.hasOwn(value, key)) throw new TypeError(path + '.' + key + ' is required');
+    for (const [key, child] of Object.entries(value)) {
+      if (schema.properties && schema.properties[key]) validateInput(schema.properties[key], child, path + '.' + key);
+      else if (schema.additionalProperties === false) throw new TypeError(path + '.' + key + ' is not allowed');
+    }
+  }
+  if (Array.isArray(value) && schema.items) value.forEach((child, i) => validateInput(schema.items, child, path + '[' + i + ']'));
+  return value;
 }
 
 function lev(a, b) {
@@ -311,7 +369,11 @@ export function digest(B) {
 // ---------------------------------------------------------------- tools
 export function makeTools(B, scene) {
   const T = [];
-  const add = (name, description, inputSchema, execute) => T.push({ name, description, inputSchema, execute: (input, ctx) => cap(execute(input || {}, ctx)) });
+  const add = (name, description, inputSchema, execute) => T.push({ name, description, inputSchema, execute: (input = {}, ctx) => {
+    validateInput(inputSchema, input);
+    if (utf8Bytes(input) > 30000) throw new RangeError('tool arguments exceed 30000 UTF-8 bytes');
+    return cap(execute(input, ctx));
+  } });
   const filterProps = {
     repo: { type: 'string', description: 'repo name, or several separated by commas' },
     who: { type: 'string', description: 'you (HagopJay), ai (Claude), bot, other or upstream; several separated by commas' },

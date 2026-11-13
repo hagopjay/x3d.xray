@@ -1,0 +1,304 @@
+{
+  "scope": "Single-host synthetic alternating repository/session chain; full _bipartite call.",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "repeats": 3,
+  "includes_independent_verifier": true,
+  "baseline_commit": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+  "candidate_base_commit": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+  "candidate_state": "working-tree implementation; source patch accompanies deliverable",
+  "results": [
+    {
+      "sessions": 10,
+      "nodes": 21,
+      "baseline": {
+        "sessions": 10,
+        "repos": 11,
+        "nodes": 21,
+        "wall_seconds": [
+          0.00989026700017348,
+          0.010680945999865799,
+          0.012905710999802977
+        ],
+        "cpu_seconds": [
+          0.009882485000000003,
+          0.010037348999999994,
+          0.012487040000000005
+        ],
+        "verification_wall_seconds": [
+          0.005264489000182948,
+          0.010408188999917911,
+          0.006697429999803717
+        ],
+        "verification_cpu_seconds": [
+          0.005262569000000002,
+          0.010205492999999996,
+          0.006695154999999994
+        ],
+        "median_verification_wall_seconds": 0.006697429999803717,
+        "median_total_wall_seconds": 0.019603140999606694,
+        "median_wall_seconds": 0.010680945999865799,
+        "result_sha256": "3ecca3d603072a7db5ad1c3ac8c0fe43c3dce60572ad0287e389dba9eeab4bff",
+        "source_sha256": {
+          "centrality.py": "e447a73cee367dd356f0729170d40d46a3684e500f2894519ee4c7f2b2d4bccb",
+          "structure.py": "4bbe744f1d28fdb2d7ef98f99ca7b957c02b5d6897d96266493e2bc0e037e694"
+        }
+      },
+      "candidate": {
+        "sessions": 10,
+        "repos": 11,
+        "nodes": 21,
+        "wall_seconds": [
+          0.0031086619997040543,
+          0.002787186999739788,
+          0.002774039000087214
+        ],
+        "cpu_seconds": [
+          0.0030988380000000065,
+          0.0027851529999999985,
+          0.0027730039999999956
+        ],
+        "verification_wall_seconds": [
+          0.003934408000077383,
+          0.003706202000103076,
+          0.0036566899998433655
+        ],
+        "verification_cpu_seconds": [
+          0.003931733999999992,
+          0.003704185999999998,
+          0.0036551840000000058
+        ],
+        "median_verification_wall_seconds": 0.003706202000103076,
+        "median_total_wall_seconds": 0.006493388999842864,
+        "median_wall_seconds": 0.002787186999739788,
+        "result_sha256": "3ecca3d603072a7db5ad1c3ac8c0fe43c3dce60572ad0287e389dba9eeab4bff",
+        "source_sha256": {
+          "centrality.py": "e51e30b2c6ae955182320a5ac9da57531d750a1585746d10094dd37592b60756",
+          "structure.py": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487"
+        }
+      },
+      "exact_output_equal": true,
+      "median_speedup": 3.832159808747304,
+      "median_total_speedup": 3.018938338682786
+    },
+    {
+      "sessions": 20,
+      "nodes": 41,
+      "baseline": {
+        "sessions": 20,
+        "repos": 21,
+        "nodes": 41,
+        "wall_seconds": [
+          0.1394784660001278,
+          0.146401823999895,
+          0.11457658000017545
+        ],
+        "cpu_seconds": [
+          0.139457764,
+          0.14639176699999995,
+          0.11455358499999996
+        ],
+        "verification_wall_seconds": [
+          0.07569195600035528,
+          0.0777802289999272,
+          0.05479891300001327
+        ],
+        "verification_cpu_seconds": [
+          0.07568872100000001,
+          0.07777741500000002,
+          0.054796990000000045
+        ],
+        "median_verification_wall_seconds": 0.07569195600035528,
+        "median_total_wall_seconds": 0.21517042200048309,
+        "median_wall_seconds": 0.1394784660001278,
+        "result_sha256": "d5346821c526ea046b7a523c4afec76b3e211f727cc0574868c528ba8461f2c5",
+        "source_sha256": {
+          "centrality.py": "e447a73cee367dd356f0729170d40d46a3684e500f2894519ee4c7f2b2d4bccb",
+          "structure.py": "4bbe744f1d28fdb2d7ef98f99ca7b957c02b5d6897d96266493e2bc0e037e694"
+        }
+      },
+      "candidate": {
+        "sessions": 20,
+        "repos": 21,
+        "nodes": 41,
+        "wall_seconds": [
+          0.007886384000357793,
+          0.006794082999931561,
+          0.006754183999873931
+        ],
+        "cpu_seconds": [
+          0.007879112,
+          0.006792819999999991,
+          0.00675299
+        ],
+        "verification_wall_seconds": [
+          0.02112866000015856,
+          0.017643574000430817,
+          0.01681392099999357
+        ],
+        "verification_cpu_seconds": [
+          0.021125737999999998,
+          0.01764115699999999,
+          0.016812447000000008
+        ],
+        "median_verification_wall_seconds": 0.017643574000430817,
+        "median_total_wall_seconds": 0.02443765700036238,
+        "median_wall_seconds": 0.006794082999931561,
+        "result_sha256": "d5346821c526ea046b7a523c4afec76b3e211f727cc0574868c528ba8461f2c5",
+        "source_sha256": {
+          "centrality.py": "e51e30b2c6ae955182320a5ac9da57531d750a1585746d10094dd37592b60756",
+          "structure.py": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487"
+        }
+      },
+      "exact_output_equal": true,
+      "median_speedup": 20.529402717266308,
+      "median_total_speedup": 8.80487118700833
+    },
+    {
+      "sessions": 40,
+      "nodes": 81,
+      "baseline": {
+        "sessions": 40,
+        "repos": 41,
+        "nodes": 81,
+        "wall_seconds": [
+          1.8266851120001775,
+          1.3309924949999186,
+          1.4028382260003127
+        ],
+        "cpu_seconds": [
+          1.821955823,
+          1.328215422,
+          1.4004592000000002
+        ],
+        "verification_wall_seconds": [
+          0.7420252279998749,
+          0.6744191470002079,
+          0.7296718969996618
+        ],
+        "verification_cpu_seconds": [
+          0.738978556,
+          0.6660651620000002,
+          0.7186110689999996
+        ],
+        "median_verification_wall_seconds": 0.7296718969996618,
+        "median_total_wall_seconds": 2.1325101229999746,
+        "median_wall_seconds": 1.4028382260003127,
+        "result_sha256": "1360145da18ebdcc2598566abfefd4d4812c0b284774310610c282527224c319",
+        "source_sha256": {
+          "centrality.py": "e447a73cee367dd356f0729170d40d46a3684e500f2894519ee4c7f2b2d4bccb",
+          "structure.py": "4bbe744f1d28fdb2d7ef98f99ca7b957c02b5d6897d96266493e2bc0e037e694"
+        }
+      },
+      "candidate": {
+        "sessions": 40,
+        "repos": 41,
+        "nodes": 81,
+        "wall_seconds": [
+          0.03769327899999553,
+          0.028950831999736693,
+          0.02956990400025461
+        ],
+        "cpu_seconds": [
+          0.037686076000000006,
+          0.028948926000000014,
+          0.02956835499999999
+        ],
+        "verification_wall_seconds": [
+          0.12535323100019014,
+          0.12113033700006781,
+          0.12308306600016294
+        ],
+        "verification_cpu_seconds": [
+          0.125339494,
+          0.12111757899999998,
+          0.12308099399999994
+        ],
+        "median_verification_wall_seconds": 0.12308306600016294,
+        "median_total_wall_seconds": 0.15265297000041755,
+        "median_wall_seconds": 0.02956990400025461,
+        "result_sha256": "1360145da18ebdcc2598566abfefd4d4812c0b284774310610c282527224c319",
+        "source_sha256": {
+          "centrality.py": "e51e30b2c6ae955182320a5ac9da57531d750a1585746d10094dd37592b60756",
+          "structure.py": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487"
+        }
+      },
+      "exact_output_equal": true,
+      "median_speedup": 47.441419694437755,
+      "median_total_speedup": 13.969660223408306
+    },
+    {
+      "sessions": 60,
+      "nodes": 121,
+      "baseline": {
+        "sessions": 60,
+        "repos": 61,
+        "nodes": 121,
+        "wall_seconds": [
+          7.093586121000044,
+          6.804220256000008,
+          7.298822186000052
+        ],
+        "cpu_seconds": [
+          7.074621393,
+          6.764195729000001,
+          7.256834967
+        ],
+        "verification_wall_seconds": [
+          3.0490464290001,
+          3.2121151390001614,
+          3.5214609670001664
+        ],
+        "verification_cpu_seconds": [
+          3.039729706,
+          3.1895266939999978,
+          3.518860972999999
+        ],
+        "median_verification_wall_seconds": 3.2121151390001614,
+        "median_total_wall_seconds": 10.142632550000144,
+        "median_wall_seconds": 7.093586121000044,
+        "result_sha256": "a60ef7b7c724bc6bc20f45f08c0d4f06c0aeff44c07fe4bbbf7ce8684d1fd221",
+        "source_sha256": {
+          "centrality.py": "e447a73cee367dd356f0729170d40d46a3684e500f2894519ee4c7f2b2d4bccb",
+          "structure.py": "4bbe744f1d28fdb2d7ef98f99ca7b957c02b5d6897d96266493e2bc0e037e694"
+        }
+      },
+      "candidate": {
+        "sessions": 60,
+        "repos": 61,
+        "nodes": 121,
+        "wall_seconds": [
+          0.08291359200029547,
+          0.09226760999990802,
+          0.11640497700000196
+        ],
+        "cpu_seconds": [
+          0.082884699,
+          0.09226587900000005,
+          0.11638549899999995
+        ],
+        "verification_wall_seconds": [
+          0.5365304609999839,
+          0.544299329000296,
+          0.5144223229999625
+        ],
+        "verification_cpu_seconds": [
+          0.535872532,
+          0.543354735,
+          0.514211642
+        ],
+        "median_verification_wall_seconds": 0.5365304609999839,
+        "median_total_wall_seconds": 0.6308272999999645,
+        "median_wall_seconds": 0.09226760999990802,
+        "result_sha256": "a60ef7b7c724bc6bc20f45f08c0d4f06c0aeff44c07fe4bbbf7ce8684d1fd221",
+        "source_sha256": {
+          "centrality.py": "e51e30b2c6ae955182320a5ac9da57531d750a1585746d10094dd37592b60756",
+          "structure.py": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487"
+        }
+      },
+      "exact_output_equal": true,
+      "median_speedup": 76.88056644154017,
+      "median_total_speedup": 16.07830312670475
+    }
+  ]
+}

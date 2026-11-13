@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 node_modules/
+build/
+*.egg-info/
 # builds and harvests stay local: a family with private repos must not reach a public repo
 /data/
 /out/

@@ -261,18 +261,19 @@ def _bipartite(pairs_public: dict, pairs_private: collections.Counter, repos_all
     repos = sorted(n for n in adj if n.startswith("repo:"))
     comps = centrality.components(adj)
     comp_of = {v: i for i, c in enumerate(comps) for v in c}
+    passage_index = centrality.BlockCutIndex(adj)
     pp, unlinked = {}, []
     for i, a in enumerate(repos):
         for b in repos[i + 1:]:
             if comp_of[a] != comp_of[b]:
                 unlinked.append([a[5:], b[5:]])
                 continue
-            p = centrality.passage_points(adj, [a], [b])
+            p = passage_index.pair(a, b)
             if p:
                 pp[f"{a[5:]} -> {b[5:]}"] = sorted(x.split(":", 1)[1] if x.startswith("repo:") else x for x in p)
     bc = centrality.betweenness(adj)
     return adj, {"betweenness": [{"id": n, "betweenness": round(v, 4)} for n, v in sorted(bc.items(), key=lambda t: (-t[1], t[0])) if v > 0],
-                 "cut_vertices": sorted(centrality.articulation_points(adj)), "passage_points": pp, "no_recorded_link": unlinked,
+                 "cut_vertices": sorted(passage_index.cut_vertices), "passage_points": pp, "no_recorded_link": unlinked,
                  "components": [sorted(c) for c in sorted(comps, key=lambda c: (-len(c), sorted(c)))]}
 
 
@@ -525,20 +526,25 @@ def _graph_checks(G: dict, adj: dict) -> list[str]:
         bad.append("clusters")
     comp_of = {v: i for i, c in enumerate(comps) for v in c}
     reps = sorted(n for n in adj if n.startswith("repo:"))
+    # Independent removal oracle: partition once per cut vertex, then reuse that
+    # partition across endpoint pairs. This does not use the production block-cut
+    # index. Removing a non-cut vertex cannot disconnect two surviving endpoints.
+    cuts = {v for v in adj if _splits(adj, v)}
+    removed_parts = {v: {x: i for i, part in enumerate(_components(adj, {v})) for x in part} for v in cuts}
     pp, unl = {}, []
     for i, a in enumerate(reps):
         for b in reps[i + 1:]:
             if comp_of[a] != comp_of[b]:
                 unl.append([a[5:], b[5:]])
                 continue
-            via = {v for v in comps[comp_of[a]] if v not in (a, b) and b not in _reach(adj, a, v)}
+            via = {v for v in cuts if v not in (a, b) and removed_parts[v][a] != removed_parts[v][b]}
             if via:
                 pp[f"{a[5:]} -> {b[5:]}"] = sorted(x[5:] if x.startswith("repo:") else x for x in via)
     if G.get("passage_points") != pp:
         bad.append("passage points")
     if G.get("no_recorded_link") != unl:
         bad.append("pairs with no recorded link")
-    if G.get("cut_vertices") != sorted(v for v in adj if _splits(adj, v)):
+    if G.get("cut_vertices") != sorted(cuts):
         bad.append("cut vertices")
     want = [{"id": v, "betweenness": round(float(b), 4)} for v, b in sorted(_brute_betweenness(adj).items(), key=lambda t: (-t[1], t[0])) if b > 0]
     if G.get("betweenness") != want:

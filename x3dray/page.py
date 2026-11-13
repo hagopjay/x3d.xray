@@ -10,18 +10,16 @@ Before anything is written, the bundle is scanned for addresses, session URLs an
 from __future__ import annotations
 
 import glob
-import hashlib
 import json
 import os
 import re
 import shutil
 
 from . import __version__
+from . import publication
+from .publication import TYPES
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
-TYPES = {".html": "text/html", ".x3d": "application/xml", ".json": "application/json", ".js": "text/javascript", ".mjs": "text/javascript",
-         ".ttf": "font/ttf", ".png": "image/png", ".txt": "text/plain", ".md": "text/markdown", ".css": "text/css", ".wasm": "application/wasm",
-         ".svg": "image/svg+xml", ".woff2": "font/woff2"}
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 SESSION_URL = re.compile(r"claude\.ai/code/session_[A-Za-z0-9]+")
 SECRET = re.compile(r"AIza[0-9A-Za-z_\-]{20,}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abp]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY")
@@ -31,7 +29,8 @@ def _j(d, n, default=None):
     p = os.path.join(d, n)
     if not os.path.exists(p):
         return default
-    return json.load(open(p, encoding="utf-8"))
+    with open(p, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _github(cfg_repo: dict | None, owner: str, name: str, visibility: str) -> str | None:
@@ -96,6 +95,11 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
             continue  # no witness, no tie
         machine.append({"from": p["from"], "to": p["to"], "grade": p["grade"], "reason": p["grade_reason"], "kinds": p["kinds"],
                         "pins": p["kinds"].get("pin", 0) or None, "pin_targets": dict(list((p.get("pin_targets") or {}).items())[:3]) or None,
+                        "evidence_records": {**p.get("evidence_records", {}),
+                                             "total": p.get("evidence_records", {}).get("total", len(p.get("evidence", []))),
+                                             "returned": min(4, len(ev)),
+                                             "omitted": max(0, p.get("evidence_records", {}).get("total", len(p.get("evidence", []))) - min(4, len(ev))),
+                                             "page_limit": 4},
                         "evidence": [{k: (v[:160] if isinstance(v, str) else v) for k, v in e.items() if v is not None} for e in ev[:4]]})
     curated_ties = [t for t in cur.get("ties", []) if t.get("evidence")]
     vocab = {}
@@ -142,7 +146,7 @@ def privacy_scan(text: str) -> list[str]:
     return problems
 
 
-def page_html(css: str) -> str:
+def page_html(css: str, xite_version: str = "local distribution") -> str:
     return f"""<title>x3d-ray</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="loom:xite" content="x_ite/x_ite.min.js">
@@ -205,21 +209,41 @@ def page_html(css: str) -> str:
   <p><b>Data.</b> The git history and tip trees of the family's repos, harvested with no model. Lines changed come from git numstat, so vendored and generated files count in full.</p>
   <p><b>Privacy.</b> Private repos show only commit times, identity classes and sizes. Emails never leave the harvester, Claude-Session URLs become short hashes, and personal names in the config are hashes.</p>
   <p><b>Words.</b> Claude wrote the captions; every number in them is a slot that code fills from the profile, and a fact gate fails any stray digit. Ties marked E01 to E40 come from the x3d_mcp fork masterclass.</p>
-  <p><b>Scene.</b> One X3D 4.0 file drawn by X_ITE 16.7.0 from this page's own files. Drag to orbit, scroll or pinch to zoom, click anything for its card.</p>
+  <p><b>Scene.</b> One X3D 4.0 file drawn by X_ITE {xite_version} from this page's own files. Drag to orbit, scroll or pinch to zoom, click anything for its card.</p>
 </footer>
 <script type="module" src="app.js"></script>
 """
 
 
 def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: dict | None = None) -> dict:
+    # Validate the selected dependency before writing any page assets. Missing
+    # components used to be silently omitted and produced a broken export.
+    required = ["x_ite.min.js", "x_ite.css", "LICENSE.md", "assets/linetype/linetypes.png",
+                "assets/lib/mikktspace_bg.wasm", "assets/images/logo.svg"]
+    components = [os.path.relpath(p, xite).replace(os.sep, "/") for p in glob.glob(os.path.join(xite, "assets", "components", "*.min.js"))]
+    want = required + sorted(components)
+    for rel in want:
+        if not publication.safe_path(xite, rel).is_file():
+            raise ValueError(f"page: required X_ITE asset is missing: {rel}")
+    if not os.path.isfile(font):
+        raise ValueError("page: label font is missing")
+    for rel in publication.GENERATED:
+        publication.safe_path(out_dir, rel)
+    for rel in ("x_ite", "fonts", "fonts/UbuntuMono-R.ttf", "fonts/UBUNTU-FONT-LICENCE.txt", "publish.json"):
+        publication.safe_path(out_dir, rel)
     if family_cfg is None:
         fam = glob.glob(os.path.join(os.path.dirname(WEB), "..", "families", "*.json"))
         ds = _j(data_dir, "dataset.json")
         for f in fam:
-            c = json.load(open(f, encoding="utf-8"))
+            with open(f, encoding="utf-8") as fh:
+                c = json.load(fh)
             if c.get("family") == ds.get("family"):
                 family_cfg = c
     bundle = make_bundle(data_dir, out_dir, family_cfg)
+    with open(os.path.join(xite, "x_ite.min.js"), encoding="utf-8", errors="replace") as fh:
+        header = fh.read(4096)
+    version = re.search(r"X_ITE\s+v?(\d+\.\d+\.\d+)", header)
+    bundle["meta"]["x_ite"] = version.group(1) if version else "unverified distribution"
     text = json.dumps(bundle, ensure_ascii=False, separators=(",", ":"))
     problems = privacy_scan(text)
     if problems:
@@ -227,9 +251,10 @@ def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: di
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "bundle.json"), "w", encoding="utf-8") as fh:
         fh.write(text)
-    css = open(os.path.join(WEB, "page.css"), encoding="utf-8").read()
+    with open(os.path.join(WEB, "page.css"), encoding="utf-8") as fh:
+        css = fh.read()
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as fh:
-        fh.write(page_html(css))
+        fh.write(page_html(css, bundle["meta"]["x_ite"]))
     for f in ("app.js", "tools.js"):
         shutil.copyfile(os.path.join(WEB, f), os.path.join(out_dir, f))
     # X_ITE: the script, its stylesheet, every component it may import, the line-type texture, the wasm it asks for, its licence
@@ -238,38 +263,41 @@ def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: di
         shutil.rmtree(xo)
     # Not vendored: X_ITE's woff2 fonts and their decoder. The decoder evaluates strings as code, which the Artifact policy refuses, so
     # every label in the scene names the TTF above; X_ITE's preload of its default SERIF font then fails quietly and nothing uses it.
-    want = ["x_ite.min.js", "x_ite.css", "LICENSE.md", "assets/linetype/linetypes.png", "assets/lib/mikktspace_bg.wasm", "assets/images/logo.svg"]
-    want += [os.path.relpath(p, xite) for p in glob.glob(os.path.join(xite, "assets", "components", "*.min.js"))]
     for rel in want:
         src = os.path.join(xite, rel)
-        if not os.path.exists(src):
-            continue
         dst = os.path.join(xo, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copyfile(src, dst)
     fo = os.path.join(out_dir, "fonts")
+    publication.safe_path(out_dir, "fonts/UbuntuMono-R.ttf")
     os.makedirs(fo, exist_ok=True)
-    shutil.copyfile(font, os.path.join(fo, os.path.basename(font)))
+    # Compiler labels and scene notes share this stable URL regardless of the
+    # supplied font's filename.
+    shutil.copyfile(font, os.path.join(fo, "UbuntuMono-R.ttf"))
     lic = os.path.join(os.path.dirname(font), "UBUNTU-FONT-LICENCE.txt")
     if os.path.exists(lic):
         shutil.copyfile(lic, os.path.join(fo, "UBUNTU-FONT-LICENCE.txt"))
+    emitted = [publication.entry(rel) for rel in publication.GENERATED]
+    emitted += [publication.entry("x_ite/" + rel, "vendored") for rel in want]
+    emitted.append(publication.entry("fonts/UbuntuMono-R.ttf", "vendored"))
+    if os.path.exists(lic):
+        emitted.append(publication.entry("fonts/UBUNTU-FONT-LICENCE.txt", "vendored"))
+    publication.register(out_dir, emitted)
     return write_publish_map(out_dir)
 
 
 def write_publish_map(out_dir: str) -> dict:
+    publication.safe_path(out_dir, "publish.json")
     pub, total = {}, 0
-    for base, _, files in os.walk(out_dir):
-        for f in files:
-            p = os.path.join(base, f)
-            rel = os.path.relpath(p, out_dir).replace(os.sep, "/")
-            if rel in ("publish.json", "layout.json", "index.html") or rel.startswith("frames/"):
-                continue
-            ext = os.path.splitext(f)[1].lower()
-            if ext not in TYPES:
-                continue
-            pub[rel] = {"from": os.path.abspath(p), "contentType": TYPES[ext]}
-            total += os.path.getsize(p)
-    total += os.path.getsize(os.path.join(out_dir, "index.html"))
-    with open(os.path.join(out_dir, "publish.json"), "w", encoding="utf-8") as fh:
+    selected = publication.assets(out_dir)
+    for asset in selected:
+        rel = asset["path"]
+        p = publication.safe_path(out_dir, rel)
+        total += p.stat().st_size
+        if rel != "index.html":   # the Artifact host serves its entrypoint separately
+            pub[rel] = {"from": str(p), "contentType": asset["contentType"]}
+    temporary = publication.safe_path(out_dir, ".publish.json.tmp")
+    with temporary.open("w", encoding="utf-8") as fh:
         json.dump(pub, fh, indent=1, sort_keys=True)
-    return {"files": len(pub) + 1, "bytes": total}
+    temporary.replace(publication.safe_path(out_dir, "publish.json"))
+    return {"files": len(selected), "bytes": total}

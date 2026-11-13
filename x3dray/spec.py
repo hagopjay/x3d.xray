@@ -18,7 +18,10 @@ rules, the schema and every slot with its current value.
 from __future__ import annotations
 
 import datetime as dt
+import copy
 import json
+import math
+import os
 import re
 
 SLOT = re.compile(r"\{([^{}|]+)(?:\|(\w+))?\}")
@@ -32,6 +35,22 @@ MAX_CLAIM = 200
 # git (counted from git by code), tool (x3d.xray's description of itself) or reading (Claude's reading of the data).
 BASES = {"git": "git says", "tool": "the tool says", "reading": "Claude reads"}
 HOW_BUILT_TOPICS = {"pipeline", "stage", "signal_code", "module", "gates", "receipt", "self_in_data", "claude", "limits", "spec", "identity"}
+
+# Claims remain optional for backwards-compatible exhibits. Their presence does
+# not prove their prose: this module checks structure, references and formatting.
+_HIGHLIGHT_FIELDS = {k: {"type": "string"} for k in ("repo", "who", "from", "to", "day", "text", "sha", "session")}
+_HIGHLIGHT_FIELDS.update({k: {"type": "boolean"} for k in ("merges", "trailer", "xray", "clear")})
+ACTION_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "properties": {
+        "highlight": {"type": "object", "additionalProperties": False, "properties": _HIGHLIGHT_FIELDS},
+        "color_by": {"type": "object", "required": ["mode"], "additionalProperties": False,
+                     "properties": {"mode": {"type": "string", "enum": ["who", "repo", "size", "branch", "age"]}}},
+        "xray": {"type": "object", "required": ["on"], "additionalProperties": False,
+                 "properties": {"on": {"type": "boolean"}}},
+        "clear": {"type": "object", "additionalProperties": False, "properties": {}},
+    },
+}
 
 SCHEMA = {
     "type": "object", "required": ["family", "title", "views", "tour", "questions"],
@@ -47,10 +66,41 @@ SCHEMA = {
         "tour": {"type": "array", "items": {"type": "object", "required": ["view", "caption"],
                                             "properties": {"view": {"type": "string"}, "title": {"type": "string"},
                                                            "caption": {"type": "string"},
-                                                           "action": {"type": "object", "description": "highlight {repo?, who?, from?, to?, text?}, color_by {mode}, xray {on}, or clear {}"}}}},
+                                                           "action": ACTION_SCHEMA}}},
         "questions": {"type": "array", "items": {"type": "string"}},
     },
 }
+
+
+def validate_shape(value, schema: dict = SCHEMA, path: str = "spec") -> list[str]:
+    """Validate the deliberately small JSON-Schema subset used above, stdlib only.
+
+    This is not a general JSON Schema implementation. Keep the exported schema
+    and this walk aligned when adding constraints. Unknown top-level metadata is
+    allowed; action names and their argument keys are deliberately closed.
+    """
+    problems = []
+    kind = schema.get("type")
+    matches = {"object": isinstance(value, dict), "array": isinstance(value, list),
+               "string": isinstance(value, str), "boolean": isinstance(value, bool)}
+    if kind and not matches[kind]:
+        return [f"{path}: expected {kind}"]
+    if "enum" in schema and value not in schema["enum"]:
+        problems.append(f"{path}: value is not one of the supported options")
+    if isinstance(value, dict):
+        for name in schema.get("required", []):
+            if name not in value:
+                problems.append(f"{path}: missing required field {name}")
+        props = schema.get("properties", {})
+        for name, item in value.items():
+            if name in props:
+                problems += validate_shape(item, props[name], f"{path}.{name}")
+            elif schema.get("additionalProperties") is False:
+                problems.append(f"{path}: unknown field {name}")
+    elif isinstance(value, list) and "items" in schema:
+        for i, item in enumerate(value):
+            problems += validate_shape(item, schema["items"], f"{path}[{i}]")
+    return problems
 
 
 def _human_date(s: str) -> str:
@@ -105,25 +155,46 @@ def fmt(v, f: str | None) -> str:
 
 def fill(text: str, profile: dict, selfd: dict | None = None) -> tuple[str, list[dict], list[str]]:
     slots, problems = [], []
+    if not isinstance(text, str):
+        return "?", [], ["text must be a string"]
 
     def sub(m):
         ref, f = m.group(1), m.group(2)
         if f and f not in FORMATS:
             problems.append(f"unknown format |{f} in {{{ref}}}")
+            return "?"
         try:
             v = resolve(ref, profile, selfd)
         except (KeyError, TypeError, IndexError):
             problems.append(f"slot {{{ref}}} does not resolve")
             return "?"
-        if isinstance(v, (dict, list)) or (isinstance(v, str) and len(v) > 80):
+        if not isinstance(v, (str, int, float, bool)) or (isinstance(v, str) and len(v) > 80):
             problems.append(f"slot {{{ref}}} is not a number or a short string")
             return "?"
-        s = fmt(v, f)
+        if isinstance(v, float) and not math.isfinite(v):
+            problems.append(f"slot {{{ref}}} is not finite")
+            return "?"
+        if f in {"n", "pct", "k", "hour"} and (isinstance(v, bool) or not isinstance(v, (int, float))):
+            problems.append(f"slot {{{ref}}} needs a number for |{f}")
+            return "?"
+        if f == "hour" and (not 0 <= v < 24 or int(v) != v):
+            problems.append(f"slot {{{ref}}} needs an integer UTC hour from zero to twenty-three")
+            return "?"
+        if f == "date" and not isinstance(v, str):
+            problems.append(f"slot {{{ref}}} needs an ISO date string for |date")
+            return "?"
+        try:
+            s = fmt(v, f)
+        except (ValueError, TypeError, OverflowError):
+            problems.append(f"slot {{{ref}}} cannot use format |{f or 'default'}")
+            return "?"
         slots.append({"ref": ref, "format": f, "value": v, "text": s})
         return s
 
     out = SLOT.sub(sub, text)
     bare = SLOT.sub(" ", text)
+    if "{" in bare or "}" in bare:
+        problems.append("malformed slot syntax")
     bare = NAMEISH.sub(" ", bare)
     digits = re.findall(r"\d[\d,.:%]*", bare)
     if digits:
@@ -132,8 +203,18 @@ def fill(text: str, profile: dict, selfd: dict | None = None) -> tuple[str, list
 
 
 def render_spec(spec: dict, profile: dict, selfd: dict | None = None) -> dict:
-    problems = []
+    problems = validate_shape(spec)
+    # Build metadata is not source prose. A deep copy preserves the source
+    # templates even if a caller later mutates its input or the rendered views.
+    source = copy.deepcopy({k: v for k, v in spec.items() if k not in {"source_spec", "source", "problems"}}) if isinstance(spec, dict) else None
+    if problems:
+        return {"family": source.get("family") if source else None, "title": source.get("title", "") if source else "",
+                "views": [], "tour": [], "questions": [], "source_spec": source, "problems": problems}
+    spec = source
+    if profile.get("family") is not None and profile["family"] != spec["family"]:
+        problems.append("spec family does not match profile family")
     out = {k: v for k, v in spec.items() if k not in ("views", "tour", "questions", "subtitle")}
+    out["source_spec"] = copy.deepcopy(source)
     if "subtitle" in spec:
         out["subtitle"], _, p = fill(spec["subtitle"], profile, selfd)
         problems += [f"subtitle: {x}" for x in p]
@@ -171,6 +252,8 @@ def render_spec(spec: dict, profile: dict, selfd: dict | None = None) -> dict:
             claim = {"text": ctext, "template": c.get("text", ""), "backs": c.get("backs", []), "basis": basis,
                      "says": BASES.get(basis, basis), "slots": cslots}
         out["views"].append({**v, "caption": cap, "slots": slots, "template": v.get("caption", ""), "claim": claim})
+    if len(view_ids) != len(set(view_ids)):
+        problems.append("views: duplicate view ids")
     out["tour"] = []
     for i, st in enumerate(spec.get("tour", [])):
         if st["view"] not in view_ids:
@@ -206,6 +289,42 @@ def render_spec(spec: dict, profile: dict, selfd: dict | None = None) -> dict:
         out["questions"].append(qq)
     out["problems"] = problems
     return out
+
+
+def verify_rendered_spec(data_dir: str) -> list[str]:
+    """Re-render saved source templates against current profile/self data.
+
+    Detects stale or edited filled output, including an edited `problems` list.
+    Saved source provenance is not independently authenticated; this does not
+    establish natural-language entailment or independently verify profile data.
+    Old artifacts without source_spec must be regenerated by the spec stage.
+    """
+    def read(name, optional=False):
+        path = os.path.join(data_dir, name)
+        if optional and not os.path.exists(path):
+            return {}
+        with open(path, encoding="utf-8") as stream:
+            return json.load(stream)
+
+    try:
+        saved, profile, selfd = read("spec.rendered.json"), read("profile.json"), read("self.json", optional=True)
+    except (OSError, ValueError):
+        return ["fact inputs: missing or invalid JSON"]
+    if not isinstance(saved, dict) or not isinstance(saved.get("source_spec"), dict):
+        return ["rendered spec lacks source_spec; rerun the spec stage"]
+    if not isinstance(profile, dict) or not isinstance(profile.get("signals"), list) or not isinstance(profile.get("per_repo"), dict):
+        return ["profile: invalid shape for spec verification"]
+    if not isinstance(selfd, dict):
+        return ["self: invalid shape for spec verification"]
+    try:
+        expected = render_spec(saved["source_spec"], profile, selfd)
+    except (KeyError, TypeError, IndexError, ValueError, AttributeError):
+        return ["fact inputs: invalid referenced data"]
+    problems = list(expected["problems"])
+    actual = {k: v for k, v in saved.items() if k != "source"}
+    if actual != expected:
+        problems.append("rendered spec differs from its source templates and current profile/self data")
+    return problems
 
 
 def _flatten(prefix: str, v, out: list, depth: int = 0):
