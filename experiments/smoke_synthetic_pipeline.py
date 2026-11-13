@@ -25,7 +25,7 @@ import time
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from x3dray import compiler, gates, harvest, page, profile, publication, receipt, selfdesc, spec, structure, ties
+from x3dray import compiler, eda, gates, harvest, page, profile, publication, receipt, selfdesc, spec, structure, ties
 
 
 def write_json(path: Path, value):
@@ -100,7 +100,11 @@ def run(xite: Path, font: Path):
                 raise AssertionError("structure verification findings: " + "; ".join(problems[:3]))
             write_json(data / "concepts.json", con)
             write_json(data / "bridges.json", bri)
-            prof = stage("profile", lambda: profile.profile_family(dataset, relationships, None, con, bri))
+            eda_out, eda_problems = stage("eda", lambda: eda.run(dataset))
+            if eda_problems:
+                raise AssertionError("eda verification findings: " + "; ".join(eda_problems[:3]))
+            (data / "eda.json").write_text(json.dumps(eda_out, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+            prof = stage("profile", lambda: profile.profile_family(dataset, relationships, None, con, bri, eda=eda_out))
             write_json(data / "profile.json", prof)
             description = stage("self_description", lambda: selfdesc.describe(dataset, prof, "2026-01-05T00:00:00Z", cfg))
             write_json(data / "self.json", description)

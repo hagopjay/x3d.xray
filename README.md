@@ -82,8 +82,10 @@ Around the scene the page carries dense readouts (signals, KPIs, per-repo table,
 
 - **One tool set, two consumers.** `x3dray/web/tools.js` is both the tool list the page hands to Claude (through the claude.ai
   Artifact `sample` capability) and the tool list of an MCP server (`x3dray/web/mcp.mjs`), so any agent can drive the same data.
-  Data tools: `query_commits`, `activity`, `top_files`, `ties`, `traverse`, `architecture`, `concepts`, `bridges`, `signals`, `how_built` (and
-  `overview` over MCP).
+  Data tools: `query_commits`, `activity`, `top_files`, `ties`, `traverse`, `architecture`, `concepts`, `bridges`, `eda`, `signals`,
+  `how_built` (and `overview` over MCP). `eda` has nine topics: `ledger`, `finding`, `audit`, `profile`, `flags`, `rhythm`,
+  `concentration`, `slice` and `method`. A grade is a robustness check over declared variations, never a probability; slices are
+  descriptive and ungraded.
   Scene tools, page only: `show` (camera), `highlight` (light commits, x-ray the rest), `note` (pin a label in the scene), `color_by`.
 - **Prose by Claude, numbers by code.** A spec (`specs/*.json`) is written by Claude with every number as a `{slot}`;
   `x3dray/spec.py` fills the slots from the profile, and the fact gate fails any digit outside a slot. Each view also makes one
@@ -118,6 +120,51 @@ Around the scene the page carries dense readouts (signals, KPIs, per-repo table,
   cluster of files.
 - **Viewpoints are claims.** Each Viewpoint is named by the claim it backs, not by where the camera stands.
 
+## Exploring under rules
+
+`python3 -m x3dray eda` runs after `structure` and writes `data/eda.json`. It is quasi-exploratory: what may be looked at is
+declared before the data is read, and what is found is graded by how well it survives declared checks.
+
+- **A fixed family.** `looks.DECLARED` lists 12 looks: six contrasts between the two largest of you, Claude and bots (lines changed,
+  files changed, seconds since the previous commit, author hour in four-hour bins, weekday, repo mix) and six drift looks (the later
+  half against the earlier half of one kind of author's commits, for lines, hour and weekday, once for each of the pair). The family
+  size is fixed at m = 12 whatever the data; a look that cannot run enters the false-discovery correction with p = 1 and says why it
+  did not run. The manifest hash of the declared family is stored and checked.
+- **Checks, not tests of belief.** Each look gets an effect size (Cliff's delta, or total variation for hour, weekday and repo), an
+  add-one label-permutation count with a seeded SplitMix64 stream, a Benjamini-Hochberg q over the 12, and these robustness
+  checks: four forks (all commits, without merges, default branch only, without mass edits of more than 15 files; forks that hold exactly
+  the same commits count once, and `coverage.distinct_forks` and `fork_same_as` say how many differ), leave-one-repo-out,
+  per-repo strata that must not show an opposite effect, and interleaved-week halves that must each replicate the direction.
+- **Grades.** `looks.grade` is a pure function applied in a fixed order: not run or effect below the floor or add-one count above
+  1/20 gives no grade; q above 1/10 or an opposite effect in a repo gives Suspected; a failed or unavailable check (including no
+  repo holding 20 commits of each group, so the strata could not be run, or fewer than three distinct forks) gives Likely, and so does
+  a q above 1/20 (Confirmed needs q of at most 1/20, stored as `ledger.q_confirm`); all checks passing at q of at most 1/20 gives Confirmed.
+  The reason is stored with every grade. `say_at_most` gives the strongest wording each grade
+  allows. A grade is a robustness check over declared variations, never a probability; `contrast:repo` never exceeds Likely.
+- **Slices are ungraded.** The `eda` tool's `slice` topic computes exact summaries of the commits matching repo, who, dates, session, hour, weekday, size (`min_lines`, `max_lines`)
+  and flag (`rule`, `grade`) filters (quantiles, MAD, power-of-two bins, Gini) in the browser or over MCP, and counts how many looks have been asked this session next to the 12
+  declared (distinct slices, plus `query_commits`, `activity` and `highlight` calls that carry an hour, weekday, size or flag filter; the
+  `ledger` topic shows the count too). A `from`, `to` or `day` that is not a real YYYY-MM-DD date is refused, not read as an empty slice. It never grades. Each `eda` topic refuses an argument it does not read (for example `from` on `profile`), so an answer
+  is never for a different question than the one asked.
+- **Flags.** Two rules mark commits for a second look, graded by how many distinct forks agree: `size_high` (unusually many lines for the
+  commit's kind of author) and `gap_long` (after an unusually long quiet spell in its repo). Light them with
+  `highlight {flag, flag_grade, min_lines, max_lines, hour, weekday}`; the same filters work in `query_commits` and `activity`. The filter reads the stored flag lists, which stop at 200 per
+  rule and grade; when a rule and grade the filter would reach has more flags than that, it refuses and names the grades that are
+  listed in full, rather than counting only the commits listed.
+- **Audit and profile.** Eight data checks (timestamp range, duplicate object IDs, duplicate fingerprints, same-second runs, empty
+  commits, stat-free changes, merge contract, class residual), per-slice profiles over four forks, quiet hours and bursts, and per-repo
+  churn concentration. The timestamp check needs a parsable `harvested_at` to test for commits after the harvest; without one it
+  reports `unavailable` rather than a pass. A dataset the stage cannot count (a time beyond plus or minus 8.64e12 seconds, a
+  negative or non-integer line count or file churn, a repo without a name) stops with one `eda: ...` line and writes nothing.
+- **Independent check.** `eda.verify` and `looks.verify` recompute everything by naive routes (pair loops, Fraction histograms,
+  textbook BH); the witness gate runs them again. No float appears in `eda.json`, and the file is byte-identical across runs.
+
+Limits: times are UTC author times, not local. Commits are treated as exchangeable under the permutation null, which they are not
+(they cluster in sessions). Benjamini-Hochberg assumes independent or positively dependent looks; these share commits, so q is
+indicative. Private repos contribute counts and times only, and concentration of an unmeasured tree is reported as unknown. Flag
+lists keep at most 200 commits per rule and grade and say how many were omitted. Renames are not followed. The Gallery scene view of
+this data is a follow-up; the scene gate's scope is unchanged.
+
 ## Privacy
 
 - Emails never leave the harvester. Claude-Session URLs become short hashes. People in the family config are matched by sha256
@@ -137,6 +184,7 @@ Python 3.10+, git and Node 18+. The XSD gate needs `xmllint`; the live gate need
 python3 -m x3dray harvest --family families/hagopjay-x3d.json --root ~/src --data data/hagopjay-x3d
 python3 -m x3dray curated --data data/hagopjay-x3d --family families/hagopjay-x3d.json --masterclass path/to/masterclass   # optional
 python3 -m x3dray structure --data data/hagopjay-x3d     # concepts.json and bridges.json
+python3 -m x3dray eda     --data data/hagopjay-x3d     # eda.json: data audit, size and time profiles, graded looks, flags
 python3 -m x3dray profile --data data/hagopjay-x3d
 python3 -m x3dray self    --data data/hagopjay-x3d --family families/hagopjay-x3d.json
 python3 -m x3dray spec    --data data/hagopjay-x3d --spec specs/hagopjay-x3d.json
@@ -146,7 +194,7 @@ python3 -m x3dray gate    --data data/hagopjay-x3d --out out/hagopjay-x3d
 python3 -m x3dray receipt --data data/hagopjay-x3d --out out/hagopjay-x3d
 ```
 
-`python3 -m x3dray all ...` runs the whole chain. `out/<family>/publish.json` maps every file of the page for publishing as an
+`python3 -m x3dray all ...` runs the whole chain (harvest, curated, structure, eda, profile, self, spec, build, page, gate, receipt). `out/<family>/publish.json` maps every file of the page for publishing as an
 Artifact (declare the `sample` capability so Ask works).
 
 ## Use it from any agent
@@ -163,8 +211,8 @@ python3 -m x3dray tools     # every tool with its schema: shared, MCP only, page
 | xsd | the scene validates against the X3D 4.0 schema |
 | loom | x3d.onto's Loom gate on the scene, with the x3d_mcp fork's validator |
 | fact | no digit outside a slot, every slot resolves, every claim is backed |
-| privacy | no address, session URL or secret-shaped string in any file the build wrote, and no private repo itemised (no sha, subject, file, path or area) in the commits, concepts or bridges, or in the gate results themselves |
-| witness | no tie without evidence, and the scene draws no tie the data lacks; the concepts and bridges are recomputed from the dataset and must match, they pass the structure stage's own check again, and the scene draws no concept, session or bridge file they lack. That check re-derives from the commits, apart from the lattice and graph code: every cited hash is a commit that did what it is cited for (touched that file or both files, is that author's or that kind of author's, in that repo, carries that session, is the first of its kind there, is that mass edit); every count and each part's set-asides; every closed set of kinds and the lines between them; every area rule that meets the thresholds; the file graphs' sizes, clusters, degrees, cut vertices and which files lie on a shortest path between two others; and the session and author graphs' passage points, cut vertices and betweenness, by brute force. The size of each file's betweenness is checked against a brute-force oracle in the tests |
+| privacy | no address, session URL or secret-shaped string in any file the build wrote, and no private repo itemised (no sha, subject, file, path or area) in the commits, concepts or bridges, or in the gate results themselves. It also scans `bundle.eda` and checks that every audit witness is a public commit hash and every flag index points at a commit of the bundle |
+| witness | no tie without evidence, and the scene draws no tie the data lacks; the concepts and bridges are recomputed from the dataset and must match, they pass the structure stage's own check again, and the scene draws no concept, session or bridge file they lack. It also recomputes `eda`: the bundle's section, `data/eda.json` and a fresh run of the stage on the dataset must agree, the section must pass the stage's independent check, and the bundle's commits must be the rows the stage indexed its flags by. That check re-derives from the commits, apart from the lattice and graph code: every cited hash is a commit that did what it is cited for (touched that file or both files, is that author's or that kind of author's, in that repo, carries that session, is the first of its kind there, is that mass edit); every count and each part's set-asides; every closed set of kinds and the lines between them; every area rule that meets the thresholds; the file graphs' sizes, clusters, degrees, cut vertices and which files lie on a shortest path between two others; and the session and author graphs' passage points, cut vertices and betweenness, by brute force. The size of each file's betweenness is checked against a brute-force oracle in the tests |
 | scene | independent XML reader compares the declared constellation Sphere/Box world geometry, used IndexedLineSet coordinates, endpoint attachment, identity, source witnesses and grade colours against the plan; missing legacy plans skip and block release readiness. Other regions, visibility, animation and rendered pixels are outside this contract |
 | tools | every tool runs within the 32 KB result limit, aliases resolve, unknown names are refused, the MCP server answers |
 | live | Chromium under a strict content policy: the scene loads and draws every label, the scene tools work, a click opens a card, and Ask runs end to end against a stand-in for the sample runtime |
@@ -248,6 +296,9 @@ x3dray/harvest.py    git history and tip trees; identities by hash; privacy at t
 x3dray/ties.py       ties between repos, found by rule and graded C, L or S with evidence
 x3dray/curated.py    hand-graded ties imported from a masterclass, addresses scrubbed
 x3dray/structure.py  concepts and bridges, computed with no model, and the check that re-derives them from the commits
+x3dray/stats.py      exact integer statistics: quantiles, MAD, Gini, Cliff counts, total variation, SplitMix64, permutation counts, Benjamini-Hochberg
+x3dray/eda.py        the data audit, size and time profiles, rhythm, concentration, flags, and the independent check that re-derives them
+x3dray/looks.py      the declared family of 12 looks, their robustness checks and grades, and the independent check that re-derives them
 x3dray/fca.py        formal concept analysis: concepts, covers, levels, rules with their exceptions
 x3dray/centrality.py betweenness (Brandes, exact fractions), cut vertices, passage points
 x3dray/profile.py    the signals and the coverage ledger, computed with no model
@@ -260,7 +311,8 @@ x3dray/web/          app.js (the page), tools.js (the shared tools), mcp.mjs (th
                      selftest.mjs (the tools gate), live_gate.cjs (the live gate), page.css
 families/            one config per repo family: repos, identities (hashed), vocabulary, lineage
 specs/               one spec per family, written by Claude, numbers as slots
-tests/               python3 -m unittest discover -s tests
+tests/               python3 -m unittest discover -s tests (test_stats_oracle, test_eda, test_looks,
+                     test_eda_pipeline, test_eda_js_parity, test_eda_tool, with tests/eda_support.py)
 ```
 
 ## Limits

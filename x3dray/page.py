@@ -47,6 +47,7 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
     ds, ti, prof = _j(data_dir, "dataset.json"), _j(data_dir, "ties.json"), _j(data_dir, "profile.json")
     spec, selfd, cur = _j(data_dir, "spec.rendered.json"), _j(data_dir, "self.json"), _j(data_dir, "curated.json", {}) or {}
     con, bri = _j(data_dir, "concepts.json"), _j(data_dir, "bridges.json")
+    eda = _j(data_dir, "eda.json")
     layout = _j(scene_dir, "layout.json")
     owner = (family_cfg or {}).get("owner") or ds.get("owner") or "hagopjay"
     cfg_repos = {r["name"]: r for r in (family_cfg or {}).get("repos", [])}
@@ -148,6 +149,8 @@ def make_bundle(data_dir: str, scene_dir: str, family_cfg: dict | None = None) -
     from .relations import build_relations
     bundle["relations"] = build_relations(ds, ti, cur)
     bundle["scene_sources"] = source_ledger
+    if eda:
+        bundle["eda"] = eda     # x3dray/eda.py: omitted, never null, when the stage did not run
     return bundle
 
 

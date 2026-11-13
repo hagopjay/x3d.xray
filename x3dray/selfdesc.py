@@ -50,7 +50,10 @@ PIPELINE = [
     {"stage": "curated", "module": "x3dray/curated.py", "entry": "import_masterclass", "inputs": ["masterclass ecosystem.json and series.json"],
      "outputs": ["curated.json"], "model": None,
      "does": "Imports the fork masterclass's hand-graded ties and the fork's commit series, with addresses scrubbed."},
-    {"stage": "profile", "module": "x3dray/profile.py", "entry": "profile_family", "inputs": ["dataset.json", "ties.json", "curated.json", "concepts.json", "bridges.json"],
+    {"stage": "eda", "module": "x3dray/eda.py + x3dray/looks.py + x3dray/stats.py", "entry": "run", "inputs": ["dataset.json"],
+     "outputs": ["eda.json"], "model": None,
+     "does": "Data audit, robust distribution profiles under four declared forks, rhythm facts, rule-based outlier flags, and a declared battery of 12 looks (6 contrasts between two author classes, 6 drifts within one) with a seeded permutation null, Benjamini-Hochberg q and a Confirmed/Likely/Suspected robustness grade. Integer arithmetic only; an independent check re-derives every number."},
+    {"stage": "profile", "module": "x3dray/profile.py", "entry": "profile_family", "inputs": ["dataset.json", "ties.json", "curated.json", "concepts.json", "bridges.json", "eda.json"],
      "outputs": ["profile.json"], "model": None,
      "does": "Computes the signals: totals, shares, rhythm, outliers, hotspots, pins. Each signal's sentence is built by code from its own numbers."},
     {"stage": "spec", "module": "x3dray/spec.py", "entry": "render_spec", "inputs": ["specs/<family>.json", "profile.json"],
@@ -66,7 +69,7 @@ PIPELINE = [
      "outputs": ["index.html", "bundle.json", "app.js", "tools.js", "page.css", "x_ite/", "fonts/", "publish.json"], "model": None,
      "does": "Projects witnessed ties into conservative typed relation records, then assembles the Artifact folder: vendored X_ITE, the label font, the scene, the data bundle and the page code."},
     {"stage": "gates", "module": "x3dray/gates.py + x3dray/scenecheck.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
-     "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts and bridges recomputed and re-derived from the commits), the scene gate (independent static constellation geometry, source witnesses and grade encoding), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
+     "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts, bridges and eda sections recomputed and re-derived from the commits), the scene gate (independent static constellation geometry, source witnesses and grade encoding), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
     {"stage": "receipt", "module": "x3dray/receipt.py", "entry": "write", "inputs": ["everything above"], "outputs": ["receipt.json"], "model": None,
      "does": "sha256 of every input, module, output and gate result, and one digest over them."},
     {"stage": "ask", "module": "x3dray/web/tools.js + x3dray/web/app.js", "entry": "makeTools, ask", "inputs": ["bundle.json", "the viewer's question"],
@@ -79,7 +82,7 @@ PIPELINE = [
 ]
 
 AI_ROLES = [
-    {"where": "harvest, ties, concepts, bridges, curated, profile, compile, gates, receipt", "ai": "none", "check": "deterministic code; the receipt hashes it"},
+    {"where": "harvest, ties, concepts, bridges, eda, curated, profile, compile, gates, receipt", "ai": "none", "check": "deterministic code; the receipt hashes it"},
     {"where": "the tool's code and the spec's prose", "ai": "Claude, in Claude Code sessions (see the Co-Authored-By and Claude-Session trailers in x3d.xray's history)",
      "check": "the spec holds no numbers of its own; the fact gate fails any digit outside a {slot} and any slot that does not resolve"},
     {"where": "the fork masterclass's 40 graded ties", "ai": "Claude, in an earlier Claude Code session, reading code, commits and CI",
@@ -110,6 +113,9 @@ LIMITS = [
     "Commits made after the harvest are not in the data, including this tool's own later commits.",
     "Concepts and bridges read file paths from git numstat without following renames, so a renamed file counts as two files.",
     "The file lattice, the area rules and the file co-change graph set aside merges, private commits and commits of more than 15 files; the repo lattice and the author graph leave out only merges, and the session graph reads every commit with a Claude-Session trailer. Each answer counts what its part set aside.",
+    "Contrast grades are robustness checks over declared variations (four forks, counted once when they hold the same commits, leave-one-repo-out, repo strata, interleaved-week halves), not probabilities; commits are treated as exchangeable and the multiplicity correction assumes independent or positively dependent looks.",
+    "Times are UTC author times with no recorded offset; the quiet window and burst counts are descriptive and do not locate a timezone.",
+    "Slice profiles asked through the eda tool are descriptive and ungraded; only the 12 declared looks and the flag rules carry grades.",
 ]
 
 

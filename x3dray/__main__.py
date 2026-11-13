@@ -4,6 +4,7 @@ Steps, in pipeline order (all but `spec --brief` and `mcp` write into --data or 
   harvest  --family F --root DIR --data DIR    git clones -> dataset.json + ties.json (no model)
   curated  --masterclass DIR --data DIR        the fork masterclass's graded ties and series -> curated.json
   structure --data DIR                         concepts (formal concept analysis) and bridges (betweenness) -> concepts.json, bridges.json (no model)
+  eda      --data DIR                          data audit, robust profiles, flags and 12 declared looks (contrasts and drifts) with graded robustness -> eda.json (no model)
   profile  --data DIR                          -> profile.json: signals, each with its numbers (no model)
   spec     --data DIR --spec S                 fill the spec's slots from the profile -> spec.rendered.json; fails on a stray digit
   spec     --data DIR --brief                  print what an AI needs to write a spec: rules, schema, every slot and its value
@@ -110,11 +111,33 @@ def cmd_structure(a) -> int:
     return 1 if problems else 0
 
 
+def cmd_eda(a) -> int:
+    from . import eda
+
+    t0 = time.time()
+    try:
+        out, problems = eda.run(_read(a.data, "dataset.json"))
+    except eda.DatasetError as exc:
+        print(f"eda: {exc}")
+        return 1
+    _write_json(os.path.join(a.data, "eda.json"), out, compact=True)
+    ledger, cov = out["looks"]["ledger"], out["coverage"]
+    by = ledger["by_grade"]
+    flagged = len({row[0] for rule in out["flags"]["by_rule"].values() for g in ("C", "L", "S") for row in rule[g]})
+    print(f"eda: {cov['commits']} commits, {ledger['declared']} declared looks ({by['C']} Confirmed, {by['L']} Likely, "
+          f"{by['S']} Suspected, {by['none'] - ledger['not_run']} without a grade, {ledger['not_run']} not run), {flagged} flagged commits "
+          f"in {time.time() - t0:.1f}s -> {a.data}/eda.json")
+    for p in problems[:20]:
+        print("  " + p)
+    return 1 if problems else 0
+
+
 def cmd_profile(a) -> int:
     from . import profile
 
     prof = profile.profile_family(_read(a.data, "dataset.json"), _read(a.data, "ties.json"), _read(a.data, "curated.json", {}) or None,
-                                  _read(a.data, "concepts.json", {}) or None, _read(a.data, "bridges.json", {}) or None)
+                                  _read(a.data, "concepts.json", {}) or None, _read(a.data, "bridges.json", {}) or None,
+                                  eda=_read(a.data, "eda.json", {}) or None)
     _write_json(os.path.join(a.data, "profile.json"), prof)
     print(f"profile: {len(prof['signals'])} signals -> {a.data}/profile.json")
     return 0
@@ -202,7 +225,7 @@ def cmd_all(a) -> int:
 
 def _all_steps(a) -> int:
     steps = [
-        (cmd_harvest, {}), (cmd_curated, {}), (cmd_structure, {}), (cmd_profile, {}), (cmd_self, {}), (cmd_spec, {"brief": False}),
+        (cmd_harvest, {}), (cmd_curated, {}), (cmd_structure, {}), (cmd_eda, {}), (cmd_profile, {}), (cmd_self, {}), (cmd_spec, {"brief": False}),
         (cmd_build, {}), (cmd_page, {}), (cmd_gate, {}), (cmd_receipt, {}),
     ]
     if not a.masterclass:
@@ -331,6 +354,7 @@ def main(argv=None) -> int:
     c.add_argument("--masterclass", required=True)
     c.add_argument("--exclude", nargs="*", help="repos to leave out (for a public build)")
     sp("structure", cmd_structure, data)
+    sp("eda", cmd_eda, data)
     sp("profile", cmd_profile, data)
     sp("self", cmd_self, data, stamp, fam)
     s = sp("spec", cmd_spec, data)
