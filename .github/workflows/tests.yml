@@ -22,3 +22,6 @@ jobs:
       - run: python -m x3dray lab --out /tmp/x3dray-bridge-lab
       - run: npm install --prefix /tmp/lab-dom-tests --no-audit --no-fund jsdom@31.0.0
       - run: NODE_PATH=/tmp/lab-dom-tests/node_modules node experiments/test_lab_dom.cjs /tmp/x3dray-bridge-lab/index.html
+      - run: node --check x3dray/proof_web/proof.js && node --check x3dray/proof_web/investigation.js
+      - run: python -m x3dray observatory --out /tmp/x3dray-observatory
+      - run: NODE_PATH=/tmp/lab-dom-tests/node_modules node experiments/test_observatory_dom.cjs /tmp/x3dray-observatory/index.html

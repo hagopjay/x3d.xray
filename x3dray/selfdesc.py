@@ -62,11 +62,11 @@ PIPELINE = [
     {"stage": "compile", "module": "x3dray/compiler.py", "entry": "build", "inputs": ["dataset.json", "ties.json", "curated.json", "concepts.json", "bridges.json", "profile.json", "spec.rendered.json", "self.json"],
      "outputs": ["xray.x3d", "layout.json"], "model": None,
      "does": "Writes one X3D 4.0 scene: the time helix, the tie constellation, the code city, the concept lattice, the bridges, and the tool's own pipeline, with viewpoints for the tour."},
-    {"stage": "page", "module": "x3dray/page.py", "entry": "build_page", "inputs": ["xray.x3d", "layout.json", "all JSON above", "x3dray/web/*"],
+    {"stage": "page", "module": "x3dray/page.py + x3dray/relations.py", "entry": "build_page", "inputs": ["xray.x3d", "layout.json", "all JSON above", "x3dray/web/*"],
      "outputs": ["index.html", "bundle.json", "app.js", "tools.js", "page.css", "x_ite/", "fonts/", "publish.json"], "model": None,
-     "does": "Assembles the Artifact folder: vendored X_ITE, the label font, the scene, the data bundle and the page code."},
-    {"stage": "gates", "module": "x3dray/gates.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
-     "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts and bridges recomputed and re-derived from the commits), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
+     "does": "Projects witnessed ties into conservative typed relation records, then assembles the Artifact folder: vendored X_ITE, the label font, the scene, the data bundle and the page code."},
+    {"stage": "gates", "module": "x3dray/gates.py + x3dray/scenecheck.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
+     "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts and bridges recomputed and re-derived from the commits), the scene gate (independent static constellation geometry, source witnesses and grade encoding), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
     {"stage": "receipt", "module": "x3dray/receipt.py", "entry": "write", "inputs": ["everything above"], "outputs": ["receipt.json"], "model": None,
      "does": "sha256 of every input, module, output and gate result, and one digest over them."},
     {"stage": "ask", "module": "x3dray/web/tools.js + x3dray/web/app.js", "entry": "makeTools, ask", "inputs": ["bundle.json", "the viewer's question"],
@@ -101,6 +101,8 @@ IDENTITY = {
 }
 
 LIMITS = [
+    "Static scene verification covers the declared constellation glyphs and polylines; other geometry, visibility, animation and rendered pixels require separate checks.",
+    "Typed traversal follows the direction and grade of recorded predicates. Static references and configured use do not establish runtime execution or causation.",
     "A private repo shows only commit times, identity classes and sizes: no subjects, paths, branches or files.",
     "People appear as identity labels from the family config; an identity the config does not name counts as an upstream contributor.",
     "Lines changed come from git numstat, so a vendored schema or a generated file counts as much as hand-written code.",

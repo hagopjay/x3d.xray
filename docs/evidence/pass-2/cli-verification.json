@@ -1,0 +1,607 @@
+[
+  {
+    "case": "baseline",
+    "exit_code": 0,
+    "result": {
+      "ok": true,
+      "scope": "Static constellation entity glyphs and relation polylines in declared semantic layers; world transforms, source witnesses and grade colour checked. Decorations, arrowheads, other regions, runtime events, pixels and source authenticity are not verified.",
+      "checks": {
+        "entities": 4,
+        "relations": 6,
+        "source_relations": 6,
+        "expanded_visits": 247
+      },
+      "findings": [],
+      "finding_count": 0,
+      "omitted_findings": 0,
+      "limits": {
+        "expanded_visits": 250000
+      },
+      "observed": {
+        "entities": [
+          {
+            "id": "node:evidence",
+            "position": [
+              -47.0,
+              7.2,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:ingest",
+            "position": [
+              -39.8,
+              0.0,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:render",
+            "position": [
+              -47.0,
+              -7.2,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:review",
+            "position": [
+              -54.2,
+              0.0,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          }
+        ],
+        "relations": [
+          {
+            "id": "curated:SYN-READING",
+            "points": [
+              [
+                -53.324,
+                0.0,
+                0.195
+              ],
+              [
+                -52.692,
+                0.0,
+                0.328
+              ],
+              [
+                -52.059,
+                0.0,
+                0.448
+              ],
+              [
+                -51.427,
+                0.0,
+                0.553
+              ],
+              [
+                -50.794,
+                0.0,
+                0.644
+              ],
+              [
+                -50.162,
+                0.0,
+                0.722
+              ],
+              [
+                -49.53,
+                0.0,
+                0.785
+              ],
+              [
+                -48.897,
+                0.0,
+                0.834
+              ],
+              [
+                -48.265,
+                0.0,
+                0.869
+              ],
+              [
+                -47.632,
+                0.0,
+                0.89
+              ],
+              [
+                -47.0,
+                0.0,
+                0.897
+              ],
+              [
+                -46.368,
+                0.0,
+                0.89
+              ],
+              [
+                -45.735,
+                0.0,
+                0.869
+              ],
+              [
+                -45.103,
+                0.0,
+                0.834
+              ],
+              [
+                -44.47,
+                0.0,
+                0.785
+              ],
+              [
+                -43.838,
+                0.0,
+                0.722
+              ],
+              [
+                -43.206,
+                0.0,
+                0.644
+              ],
+              [
+                -42.573,
+                0.0,
+                0.553
+              ],
+              [
+                -41.941,
+                0.0,
+                0.448
+              ],
+              [
+                -41.308,
+                0.0,
+                0.328
+              ],
+              [
+                -40.676,
+                0.0,
+                0.195
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.91,
+              0.529,
+              0.353
+            ]
+          },
+          {
+            "id": "machine:0569798988ac5cf85362",
+            "points": [
+              [
+                -46.351,
+                6.551,
+                0.0
+              ],
+              [
+                -40.449,
+                0.649,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:558ac4fe1629a895a9e2",
+            "points": [
+              [
+                -40.449,
+                0.649,
+                0.0
+              ],
+              [
+                -46.351,
+                6.551,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:800e5e626c04d3e1f592",
+            "points": [
+              [
+                -47.0,
+                -6.283,
+                0.0
+              ],
+              [
+                -47.0,
+                6.283,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:af1917419af4ad8116f4",
+            "points": [
+              [
+                -53.551,
+                -0.649,
+                0.0
+              ],
+              [
+                -47.649,
+                -6.551,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:fb92efbd03d1a6c39491",
+            "points": [
+              [
+                -47.0,
+                6.283,
+                0.0
+              ],
+              [
+                -47.0,
+                -6.283,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          }
+        ],
+        "entities_omitted": 0,
+        "relations_omitted": 0
+      }
+    }
+  },
+  {
+    "case": "wrong_edge_endpoint",
+    "exit_code": 1,
+    "result": {
+      "ok": false,
+      "scope": "Static constellation entity glyphs and relation polylines in declared semantic layers; world transforms, source witnesses and grade colour checked. Decorations, arrowheads, other regions, runtime events, pixels and source authenticity are not verified.",
+      "checks": {
+        "entities": 4,
+        "relations": 6,
+        "source_relations": 6,
+        "expanded_visits": 247
+      },
+      "findings": [
+        {
+          "code": "relation_geometry_mismatch",
+          "message": "relation geometry mismatch",
+          "record": 0
+        },
+        {
+          "code": "relation_attachment_mismatch",
+          "message": "relation attachment mismatch",
+          "record": 0
+        }
+      ],
+      "finding_count": 2,
+      "omitted_findings": 0,
+      "limits": {
+        "expanded_visits": 250000
+      },
+      "observed": {
+        "entities": [
+          {
+            "id": "node:evidence",
+            "position": [
+              -47.0,
+              7.2,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:ingest",
+            "position": [
+              -39.8,
+              0.0,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:render",
+            "position": [
+              -47.0,
+              -7.2,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          },
+          {
+            "id": "node:review",
+            "position": [
+              -54.2,
+              0.0,
+              0.0
+            ],
+            "geometry": {
+              "type": "Sphere",
+              "radius": 0.797
+            }
+          }
+        ],
+        "relations": [
+          {
+            "id": "curated:SYN-READING",
+            "points": [
+              [
+                -53.324,
+                0.0,
+                0.195
+              ],
+              [
+                -52.692,
+                0.0,
+                0.328
+              ],
+              [
+                -52.059,
+                0.0,
+                0.448
+              ],
+              [
+                -51.427,
+                0.0,
+                0.553
+              ],
+              [
+                -50.794,
+                0.0,
+                0.644
+              ],
+              [
+                -50.162,
+                0.0,
+                0.722
+              ],
+              [
+                -49.53,
+                0.0,
+                0.785
+              ],
+              [
+                -48.897,
+                0.0,
+                0.834
+              ],
+              [
+                -48.265,
+                0.0,
+                0.869
+              ],
+              [
+                -47.632,
+                0.0,
+                0.89
+              ],
+              [
+                -47.0,
+                0.0,
+                0.897
+              ],
+              [
+                -46.368,
+                0.0,
+                0.89
+              ],
+              [
+                -45.735,
+                0.0,
+                0.869
+              ],
+              [
+                -45.103,
+                0.0,
+                0.834
+              ],
+              [
+                -44.47,
+                0.0,
+                0.785
+              ],
+              [
+                -43.838,
+                0.0,
+                0.722
+              ],
+              [
+                -43.206,
+                0.0,
+                0.644
+              ],
+              [
+                -42.573,
+                0.0,
+                0.553
+              ],
+              [
+                -41.941,
+                0.0,
+                0.448
+              ],
+              [
+                -41.308,
+                0.0,
+                0.328
+              ],
+              [
+                -40.676,
+                0.0,
+                0.195
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.91,
+              0.529,
+              0.353
+            ]
+          },
+          {
+            "id": "machine:0569798988ac5cf85362",
+            "points": [
+              [
+                -46.351,
+                6.551,
+                0.0
+              ],
+              [
+                -39.199,
+                0.649,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:558ac4fe1629a895a9e2",
+            "points": [
+              [
+                -40.449,
+                0.649,
+                0.0
+              ],
+              [
+                -46.351,
+                6.551,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:800e5e626c04d3e1f592",
+            "points": [
+              [
+                -47.0,
+                -6.283,
+                0.0
+              ],
+              [
+                -47.0,
+                6.283,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:af1917419af4ad8116f4",
+            "points": [
+              [
+                -53.551,
+                -0.649,
+                0.0
+              ],
+              [
+                -47.649,
+                -6.551,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          },
+          {
+            "id": "machine:fb92efbd03d1a6c39491",
+            "points": [
+              [
+                -47.0,
+                6.283,
+                0.0
+              ],
+              [
+                -47.0,
+                -6.283,
+                0.0
+              ]
+            ],
+            "points_omitted": 0,
+            "color": [
+              0.361,
+              0.761,
+              0.541
+            ]
+          }
+        ],
+        "entities_omitted": 0,
+        "relations_omitted": 0
+      }
+    }
+  }
+]

@@ -31,7 +31,7 @@ from . import publication
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
-REQUIRED_RELEASE_GATES = ("xsd", "loom", "fact", "privacy", "witness", "tools", "live")
+REQUIRED_RELEASE_GATES = ("xsd", "loom", "fact", "privacy", "witness", "scene", "tools", "live")
 
 
 def _run(cmd: list[str], env: dict | None = None, timeout: int = 900) -> tuple[int, str, str]:
@@ -245,6 +245,35 @@ def gate_tools(out_dir: str) -> dict:
             "failed": r["failed"], "checks": [c["name"] for c in r["all"]]}
 
 
+def gate_scene(out_dir: str) -> dict:
+    """Independently read the actual static constellation primitives.
+
+    Legacy exports can still be inspected in development, but absence of this
+    contract never constitutes release-ready geometry evidence.
+    """
+    from .scenecheck import MAX_XML_BYTES, verify_scene
+    try:
+        with open(os.path.join(out_dir, "bundle.json"), encoding="utf-8") as fh:
+            bundle = json.load(fh)
+        with open(os.path.join(out_dir, "layout.json"), encoding="utf-8") as fh:
+            layout = json.load(fh)
+        plan = layout.get("scene_plan")
+        if plan is None:
+            return {"status": "skip", "summary": "No static scene plan; regenerate with the current compiler", "scope": "No geometry verification performed"}
+        if (bundle.get("layout") or {}).get("scene_plan") != plan:
+            return {"status": "fail", "summary": "Served and build-control scene plans differ"}
+        path = os.path.join(out_dir, "xray.x3d")
+        if os.path.getsize(path) > MAX_XML_BYTES:
+            return {"status": "fail", "summary": "Scene exceeds the bounded static verifier input size"}
+        with open(path, encoding="utf-8") as fh:
+            result = verify_scene(fh.read(), plan, bundle)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return {"status": "fail", "summary": "Static scene contract could not be read", "error_type": type(exc).__name__}
+    return {"status": "pass" if result["ok"] else "fail", "summary": "Static constellation geometry " + ("matches source plan" if result["ok"] else "failed correspondence checks"),
+            "scope": result["scope"], "checks": result.get("checks", {}), "findings": result.get("findings", []),
+            "counts": result.get("checks", {}), "findings_omitted": result.get("omitted_findings", 0)}
+
+
 def gate_live(out_dir: str) -> dict:
     node = shutil.which("node")
     if not node:
@@ -287,6 +316,7 @@ def run_all(data_dir: str, out_dir: str, onto: str | None = None, fork: str | No
     g["fact"] = gate_fact(data_dir)
     g["privacy"] = gate_privacy(out_dir)
     g["witness"] = gate_witness(out_dir, data_dir)
+    g["scene"] = gate_scene(out_dir)
     g["tools"] = gate_tools(out_dir)
     g["live"] = gate_live(out_dir) if live else {"status": "skip", "summary": "skipped with --no-live"}
     with open(os.path.join(out_dir, "bundle.json"), encoding="utf-8") as fh:

@@ -16,6 +16,8 @@ Steps, in pipeline order (all but `spec --brief` and `mcp` write into --data or 
   tools                                        print the tools the page's Claude and the MCP server share
   mcp      --out DIR                           serve the data tools over MCP (stdio) from DIR/bundle.json
   lab      --out DIR [--xite D]                 synthetic, offline bridge investigation laboratory
+  observatory --out DIR [--xite D --font F]     geometry audit, typed traversal and replayable investigations
+  verify-scene --scene X --plan P --bundle B   independent static constellation verification
 """
 
 from __future__ import annotations
@@ -220,6 +222,29 @@ def cmd_lab(a) -> int:
     return 0
 
 
+def cmd_observatory(a) -> int:
+    from . import prooflab
+    print("observatory: " + json.dumps(prooflab.build(a.out, a.xite, a.font, a.font_license)))
+    return 0
+
+
+def cmd_verify_scene(a) -> int:
+    from .scenecheck import MAX_XML_BYTES, verify_scene
+    try:
+        if any(os.path.getsize(p) > MAX_XML_BYTES for p in (a.scene, a.plan, a.bundle)):
+            raise ValueError("bounded input size exceeded")
+        with open(a.plan, encoding="utf-8") as fh:
+            plan = json.load(fh)
+        with open(a.bundle, encoding="utf-8") as fh:
+            bundle = json.load(fh)
+        with open(a.scene, encoding="utf-8") as fh:
+            result = verify_scene(fh.read(), plan.get("scene_plan", plan), bundle)
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        result = {"ok": False, "error_type": type(exc).__name__, "scope": "Inputs could not be read as the static scene contract"}
+    print(json.dumps(result, ensure_ascii=True, indent=1))
+    return 0 if result["ok"] else 1
+
+
 def _node() -> str:
     n = shutil.which("node")
     if not n:
@@ -286,6 +311,14 @@ def main(argv=None) -> int:
     sp("mcp", cmd_mcp, out)
     lab_p = sp("lab", cmd_lab, out)
     lab_p.add_argument("--xite", default=None, help="optional pinned X_ITE dist folder to vendor for offline 3D")
+    observatory = sp("observatory", cmd_observatory, out)
+    observatory.add_argument("--xite", default=None, help="optional local X_ITE distribution for offline 3D")
+    observatory.add_argument("--font", default=None, help="optional local TTF for X3D text labels")
+    observatory.add_argument("--font-license", default=None, help="font redistribution notice to include alongside a supplied font")
+    verify = sp("verify-scene", cmd_verify_scene)
+    verify.add_argument("--scene", required=True)
+    verify.add_argument("--plan", required=True, help="scene-plan JSON or layout.json")
+    verify.add_argument("--bundle", required=True)
     a = p.parse_args(argv)
     return a.fn(a)
 

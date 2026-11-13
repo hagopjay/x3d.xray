@@ -84,6 +84,27 @@ def mfstring(lines: list[str]) -> str:
     return " ".join('"' + esc_attr(x).replace("\\", "\\\\").replace('"', '\\"') + '"' for x in lines)
 
 
+def _semantic_metadata(name: str, record: dict) -> str:
+    """One MFString containing canonical JSON; positions stay in geometry/plan."""
+    payload = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    value = esc_attr(json.dumps(payload, ensure_ascii=True))
+    return f"<MetadataString name='{name}' value='{value}'/>"
+
+
+def _stable_def(prefix: str, *parts: str) -> str:
+    # Human-readable names may contain punctuation or normalize to the same
+    # XML identifier. DEF identity is a digest of the unmodified source names.
+    return prefix + hashlib.sha256(json.dumps(parts, ensure_ascii=True).encode()).hexdigest()[:20]
+
+
+def _point(p) -> list[float]:
+    return [float(f(c)) for c in p]
+
+
+def _machine_relation_id(a: str, b: str) -> str:
+    return "machine:" + hashlib.sha256((a + "\0" + b).encode("utf-8")).hexdigest()[:20]
+
+
 def norm(a):
     n = math.sqrt(sum(c * c for c in a)) or 1.0
     return tuple(c / n for c in a)
@@ -438,6 +459,184 @@ def bridges_region(S: "Scene", L: dict, bri: dict, kinds: dict, top_hubs: dict, 
     return {"center": [bx + 0.5, by, bz], "x0": round(gc[0] - 6.5, 3), "x1": round(x0 + 10.5, 3)}
 
 
+def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dict | None, prof: dict) -> dict:
+    """Draw a bounded, instrumented constellation from declared identities only.
+
+    The scene plan describes static glyphs and edge polylines. Entity centres,
+    primitive dimensions and every ordered line coordinate are independently
+    readable from emitted XML; semantic metadata deliberately has no geometry.
+    Labels, author rings and arrowheads are decorations outside
+    the two semantic layers and are not certified by this plan.
+    """
+    repos = {r["name"]: r for r in ds["repos"]}
+    per_repo = prof["per_repo"]
+    plan = {"schema_version": 1, "scope": "constellation", "entity_layer": "XraySemanticEntities",
+            "relation_layer": "XraySemanticRelations", "node_aliases": {}, "entities": [], "relations": [],
+            "omitted": [], "tolerance": 0.003,
+            "unverified": ["labels", "author rings", "arrowheads", "other scene regions", "runtime behaviours", "rendered pixels"]}
+    L["scene_plan"] = plan
+    L.setdefault("nodes", {})
+    L.setdefault("ties", {"machine": [], "curated": []})
+    L.setdefault("regions", {})
+
+    def witness(record, source):
+        def located(e):
+            return isinstance(e, dict) and any(isinstance(e.get(k), str) and e[k].strip() for k in ("path", "text"))
+        if source == "machine":
+            return any(located(e) for e in record.get("evidence", []))
+        return any((isinstance(e, str) and e.strip()) or
+                   located(e) for e in record.get("evidence", []))
+
+    prepared = []
+    source_ids = set()
+    for source, records in (("machine", ties.get("pairs", [])), ("curated", (curated or {}).get("ties", []))):
+        for i, record in enumerate(records):
+            a, b = record["from"], record["to"]
+            if not all(isinstance(n, str) and n.strip() for n in (a, b)):
+                raise ValueError("constellation: source endpoints must be nonblank strings")
+            rid = _machine_relation_id(a, b) if source == "machine" else "curated:" + record["id"]
+            if rid in source_ids:
+                raise ValueError("constellation: duplicate source relation identity")
+            source_ids.add(rid)
+            reason = "no_witness" if not witness(record, source) else "self_relation" if a == b else "invalid_grade" if record.get("grade") not in GRADE_COL else None
+            if reason:
+                plan["omitted"].append({"id": rid, "source": source, "from": a, "to": b, "reason": reason})
+            else:
+                prepared.append((source, i, rid, record))
+
+    known = set(repos) | {r[k] for _, _, _, r in prepared for k in ("from", "to")}
+    central = "x3d_mcp" if "x3d_mcp" in known else None
+    inner_preference = ["x3d-blender-io", "x3d.ML", "x3d_ai", "x3d.onto", "x3d.xray", "x3d.poc", "KeGG", "shellmcp"]
+    outer_preference = ["graphify", "x3d.jepa-notebooks", "x3dom", "splat-transform", "x3d-coopilot", "blender-mcp"]
+    inner = [n for n in inner_preference if n in known and n != central]
+    outer = [n for n in outer_preference if n in known and n != central and n not in inner]
+    remaining = sorted(known - set(inner) - set(outer) - ({central} if central else set()))
+    # Generic families receive deterministic rings. Family anchors remain
+    # preferences, never an independent source of repository identities.
+    if not central and not inner:
+        inner, remaining = remaining[:8], remaining[8:]
+    outer += remaining
+    nodes = {}
+
+    def place(name, ang, rad):
+        r = repos.get(name, {})
+        kind = "private" if r.get("visibility") == "private" else r.get("kind", "external")
+        p = (CT[0] + rad * math.cos(ang), CT[1] + rad * math.sin(ang), CT[2])
+        nodes[name] = {"p": p, "kind": kind}
+
+    if central:
+        place(central, 0, 0)
+    for i, name in enumerate(inner):
+        place(name, math.pi / 2 - 2 * math.pi * i / len(inner), 7.2)
+    for i, name in enumerate(outer):
+        place(name, math.pi / 2 - 2 * math.pi * (i + 0.5) / len(outer), 12.0)
+    for n, nd in nodes.items():
+        own = per_repo.get(n, {}).get("own_commits", 0)
+        nd["r"] = 0.32 + 0.17 * math.log2(1 + own) if n in per_repo else 0.3
+
+    S.w("<Group DEF='Ties'><TouchSensor DEF='TS_ties' description='repo or tie'/>")
+    S.w("<Group DEF='XraySemanticEntities'>")
+    for name, node in nodes.items():
+        p, radius, kind = node["p"], node["r"], node["kind"]
+        dn = _stable_def("n_", name)
+        hexc = NODE_COL.get(kind, NODE_COL["external"])
+        entity_id = "node:" + name
+        geometry = ({"type": "Box", "size": [float(f(radius * 1.3))] * 3} if kind == "external"
+                    else {"type": "Sphere", "radius": float(f(radius))})
+        rotation = " rotation='0 0 1 0.7854'" if kind == "external" else ""
+        primitive = (f"<Box size='{f(radius * 1.3)} {f(radius * 1.3)} {f(radius * 1.3)}'/>" if kind == "external"
+                     else f"<Sphere radius='{f(radius)}'/>")
+        S.w(f"<Transform DEF='{dn}' translation='{v3(p)}'{rotation}>" + _semantic_metadata("xray.entity", {"id": entity_id}) +
+            f"<Shape><Appearance><Material DEF='{dn}_m' diffuseColor='{col(hexc)}' emissiveColor='{col(hexc, 0.3)}'/></Appearance>{primitive}</Shape></Transform>")
+        entity = {"id": entity_id, "def": dn, "source_name": name, "position": _point(p), "geometry": geometry,
+                  "kind": kind, "attachment_radius": float(f(radius))}
+        plan["entities"].append(entity)
+        L["nodes"][name] = {"p": _point(p), "r": float(f(radius)), "kind": kind, "def": dn}
+    S.w("</Group>")
+
+    # Decoration does not enter semantic layers. It cannot create identities.
+    for name, node in nodes.items():
+        p, radius, kind = node["p"], node["r"], node["kind"]
+        bc = per_repo.get(name, {}).get("by_class", {})
+        if sum(bc.values()):
+            ring(S, p, radius + 0.1, radius + 0.34, [(CLS_COL[c], bc.get(c, 0)) for c in CLASSES])
+        pr = per_repo.get(name)
+        subtext = []
+        if pr:
+            if pr["own_commits"]:
+                subtext.append(f"{pr['own_commits']} own commits")
+            if pr.get("tests"):
+                subtext.append(f"{_fmt_n(pr['tests'])} tests")
+            if not pr["own_commits"] and pr.get("kind") == "fork-idle":
+                subtext.append("idle fork")
+        if name == "x3d.xray":
+            subtext.append("this tool")
+            S.lines("selfring", CORAL, [[(p[0] + (radius + 0.55) * math.cos(2 * math.pi * j / 40),
+                                          p[1] + (radius + 0.55) * math.sin(2 * math.pi * j / 40), p[2]) for j in range(41)]], width=2.5)
+        if kind == "private":
+            subtext.append("private")
+        if name == "x3d.ML" and ".prov" in ds.get("lineage", []):
+            subtext.append("holds the .prov stage")
+        S.label([name] + ([" · ".join(subtext)] if subtext else []), (p[0], p[1] + radius + 0.75, p[2] + 0.1),
+                0.34 if pr else 0.28, BONE if pr and pr["own_commits"] else DIM, view="ties")
+
+    # Arc layout groups are a presentation choice; identities retain raw source
+    # endpoints, and no display alias is allowed to silently merge repositories.
+    groups = collections.defaultdict(list)
+    for source, _, rid, record in prepared:
+        if source == "curated":
+            groups[tuple(sorted((record["from"], record["to"])))].append(rid)
+    relation_xml, labels = [], []
+    for source, index, rid, record in prepared:
+        a_name, b_name = record["from"], record["to"]
+        a, b = nodes[a_name]["p"], nodes[b_name]["p"]
+        padding = 0.12 if source == "machine" else 0.1
+        ra, rb = nodes[a_name]["r"] + padding, nodes[b_name]["r"] + padding
+        if source == "machine":
+            direction = norm(sub(b, a))
+            points = [add(a, mul(direction, ra)), sub(b, mul(direction, rb))]
+            width = 1.0 + min(3.0, math.log10(1 + sum(record["kinds"].values())) * 1.2)
+        else:
+            group = groups[tuple(sorted((a_name, b_name)))]
+            j = group.index(rid)
+            direction = norm(sub(b, a))
+            perp = (-direction[1], direction[0], 0.0)
+            offset = (j - (len(group) - 1) / 2) * 0.55
+            height = 1.6 + 0.45 * (j % 5)
+            control = add(add(mul(add(a, b), 0.5), mul(perp, offset * 1.6)), (0, 0, height))
+            a2 = add(a, mul(norm(sub(control, a)), ra))
+            b2 = add(b, mul(norm(sub(control, b)), rb))
+            points = [add(add(mul(a2, (1 - u) ** 2), mul(control, 2 * u * (1 - u))), mul(b2, u * u)) for u in (q / 20 for q in range(21))]
+            width = 1.6
+        dn = _stable_def("tm_" if source == "machine" else "ta_", rid)
+        meta = {"id": rid, "source": source, "from_entity": "node:" + a_name, "to_entity": "node:" + b_name, "grade": record["grade"]}
+        color = GRADE_COL[record["grade"]]
+        transparent = " transparency='0.15'" if source == "machine" else ""
+        relation_xml.append(f"<Shape DEF='{dn}'>" + _semantic_metadata("xray.relation", meta) +
+                            f"<Appearance><Material DEF='{dn}_m' diffuseColor='0 0 0' emissiveColor='{col(color)}'{transparent}/><LineProperties linewidthScaleFactor='{f(width)}'/></Appearance>"
+                            f"<IndexedLineSet coordIndex='{' '.join(str(q) for q in range(len(points)))} -1'><Coordinate point='{', '.join(v3(q) for q in points)}'/></IndexedLineSet></Shape>")
+        plan["relations"].append({**meta, "def": dn, "from": a_name, "to": b_name, "points": [_point(q) for q in points],
+                                  "color": _point(hexcol(color)), "attachment_offsets": [float(f(ra)), float(f(rb))]})
+        midpoint = mul(add(points[0], points[-1]), 0.5) if source == "machine" else points[10]
+        if source == "machine":
+            L["ties"]["machine"].append({"i": index, "from": a_name, "to": b_name, "grade": record["grade"], "p": _point(midpoint), "def": dn})
+            if record["kinds"].get("pin", 0) >= 10:
+                labels.append(([f"{_fmt_n(record['kinds']['pin'])} pins"], (midpoint[0], midpoint[1], midpoint[2] + 0.15), 0.22, color))
+        else:
+            L["ties"]["curated"].append({"id": record["id"], "from": a_name, "to": b_name, "grade": record["grade"], "p": _point(midpoint), "def": dn})
+            # A curator's prose direction is an annotation, not a typed
+            # executable predicate. Symmetric associations get no arrowhead.
+            labels.append(([f"{record['id']} {record.get('kind') or ''}".strip()], (midpoint[0], midpoint[1], midpoint[2] + 0.12), 0.2, color))
+    S.w("<Group DEF='XraySemanticRelations'>" + "".join(relation_xml) + "</Group>")
+    for lines, pos, size, color in labels:
+        S.label(lines, pos, size, color, view="ties")
+    S.w("</Group>")
+    plan["coverage"] = {"source_relations": len(source_ids), "drawn_relations": len(plan["relations"]),
+                        "omitted_relations": len(plan["omitted"]), "drawn_entities": len(plan["entities"])}
+    L["regions"]["ties"] = {"center": list(CT), "r": 13.5}
+    return nodes
+
+
 def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: dict, selfd: dict,
                 con: dict | None = None, bri: dict | None = None) -> tuple[str, dict]:
     S = Scene()
@@ -450,18 +649,20 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
     if not rows:
         # An empty observation population is a valid analytical state. Do not
         # invent a busiest day or divide by a missing helix span.
+        nodes = constellation_region(S, L, ds, ties, curated, prof)
         L["views"]["overview"] = {"def": "VP_overview", "position": [0, 1, 9],
                                     "orientation": [0, 0, 1, 0], "center": [0, 0, 0], "fov": 0.8}
         L["regions"]["overview"] = {"center": [0, 0, 0]}
-        L["labels"] = [{"text": "No observed own commits / Inspect coverage before interpreting absence", "view": "overview", "pos": [0, 0, 0]}]
-        L["counts"] = {"commits": 0, "labels": 1, "nodes": 0, "machine_ties": 0, "curated_ties": 0, "buildings": 0, "days": 0}
+        L["labels"] = [{"text": "No observed own commits / Inspect coverage before interpreting absence", "view": "overview", "pos": [0, 0, 0]}] + S.label_texts
+        L["counts"] = {"commits": 0, "labels": 1 + S.labels, "nodes": len(nodes), "machine_ties": len(L["ties"]["machine"]),
+                       "curated_ties": len(L["ties"]["curated"]), "buildings": 0, "days": 0}
         xml = ("<?xml version='1.0' encoding='UTF-8'?>\n<X3D profile='Immersive' version='4.0'><Scene>"
                "<WorldInfo title='No observed own commits'/><Background skyColor='0.043 0.078 0.11'/>"
                "<Viewpoint DEF='VP_overview' position='0 1 9' description='Inspect observation coverage'/>"
                "<Shape><Appearance><Material emissiveColor='0.85 0.92 0.94'/></Appearance>"
                "<Text string='\"No observed own commits\" \"Inspect coverage before interpreting absence\"'>"
                "<FontStyle family='" + FONT + "' justify='\"MIDDLE\" \"MIDDLE\"' size='0.35'/>"
-               "</Text></Shape><Group DEF='Notes'/><Group DEF='Hi'/></Scene></X3D>\n")
+               "</Text></Shape>" + "".join(S.out) + "<Group DEF='Notes'/><Group DEF='Hi'/></Scene></X3D>\n")
         return xml, L
 
     # ================= time helix
@@ -619,161 +820,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
     L["regions"]["helix"] = {"center": [0, 0, 0], "x0": round(-HELIX_LEN / 2, 3), "x1": round(x_end, 3), "r": round(r_out, 3), "face_x": round(xf, 3)}
 
     # ================= tie constellation
-    ext_ids = {"Web3DConsortium/x3d_mcp": "upstream", "hagsmac (account)": "hagsmac"}
-    nodes: dict[str, dict] = {}
-    # The owner's lineage order first, then the rest. ".prov" is no repo (the vocabulary reads it as x3d.ML), so it gets no node.
-    inner = [n for n in ["x3d-blender-io", "x3d.ML", "x3d_ai", "x3d.onto", "x3d.xray", "x3d.poc", "KeGG", "shellmcp"] if n in repos]
-    outer = [n for n in ["graphify", "x3d.jepa-notebooks", "x3dom", "splat-transform", "x3d-coopilot", "blender-mcp"] if n in repos]
-    externals = ["hagsmac", "physics-stress", "polyxandria", "genealogy-loom"]
-    if curated:
-        cur_ids = {t["from"] for t in curated["ties"]} | {t["to"] for t in curated["ties"]}
-        externals = [e for e in externals if e in cur_ids or e == "hagsmac"]
-
-    def place(name, ang, rad, kind):
-        p = (CT[0] + rad * math.cos(ang), CT[1] + rad * math.sin(ang), CT[2])
-        nodes[name] = {"p": p, "kind": kind}
-
-    place("x3d_mcp", 0, 0, "fork-active")
-    place("upstream", -math.pi / 2, 3.4, "external")
-    for i, n in enumerate(inner):
-        kind = "private" if per_repo.get(n, {}).get("visibility") == "private" else repos[n].get("kind", "own")
-        place(n, math.pi / 2 - 2 * math.pi * i / len(inner), 7.2, "own" if kind == "own" else kind)
-    ring2 = outer + externals
-    for i, n in enumerate(ring2):
-        kind = repos[n].get("kind") if n in repos else "external"
-        place(n, math.pi / 2 - 2 * math.pi * (i + 0.5) / len(ring2), 12.0, kind)
-    for n, nd in nodes.items():
-        oc = per_repo.get(n, {}).get("own_commits", 0)
-        nd["r"] = 0.32 + 0.17 * math.log2(1 + oc) if n in per_repo else 0.3
-    S.w("<Group DEF='Ties'>")
-    S.w("<TouchSensor DEF='TS_ties' description='repo or tie'/>")
-    for n, nd in nodes.items():
-        p, r = nd["p"], nd["r"]
-        kind = nd["kind"]
-        hexc = NODE_COL.get(kind, NODE_COL["external"])
-        dn = "n_" + "".join(ch if ch.isalnum() else "_" for ch in n)
-        if kind == "external":
-            S.w(f"<Transform DEF='{dn}' translation='{v3(p)}' rotation='0 0 1 0.7854'><Shape><Appearance><Material DEF='{dn}_m' diffuseColor='{col(hexc)}' "
-                f"emissiveColor='{col(hexc, 0.3)}'/></Appearance><Box size='{f(r * 1.3)} {f(r * 1.3)} {f(r * 1.3)}'/></Shape></Transform>")
-        else:
-            S.w(f"<Transform DEF='{dn}' translation='{v3(p)}'><Shape><Appearance><Material DEF='{dn}_m' diffuseColor='{col(hexc)}' "
-                f"emissiveColor='{col(hexc, 0.3)}'/></Appearance><Sphere radius='{f(r)}'/></Shape></Transform>")
-        L["nodes"][n] = {"p": [round(c, 3) for c in p], "r": round(r, 3), "kind": kind, "def": dn}
-        # who-wrote-it ring
-        bc = per_repo.get(n, {}).get("by_class", {})
-        tot = sum(bc.values())
-        if tot:
-            pts, idx, cols = [], [], []
-            a = math.pi / 2
-            r1, r2 = r + 0.1, r + 0.34
-            for cl in CLASSES:
-                cnt = bc.get(cl, 0)
-                if not cnt:
-                    continue
-                span = 2 * math.pi * cnt / tot
-                steps = max(2, int(span / 0.12))
-                for st in range(steps):
-                    a0 = a - span * st / steps
-                    a1 = a - span * (st + 1) / steps
-                    b = len(pts)
-                    for (aa, rr) in ((a0, r1), (a1, r1), (a1, r2), (a0, r2)):
-                        pts.append(v3((p[0] + rr * math.cos(aa), p[1] + rr * math.sin(aa), p[2] + 0.02)))
-                    idx.append(f"{b} {b + 1} {b + 2} {b + 3} -1")
-                    cols.append(col(CLS_COL[cl]))
-                a -= span
-            S.w(f"<Shape>{S.mat('ringc', '')}<IndexedFaceSet solid='false' colorPerVertex='false' coordIndex='{' '.join(idx)}'>"
-                f"<Coordinate point='{', '.join(pts)}'/><Color color='{', '.join(cols)}'/></IndexedFaceSet></Shape>")
-        pr = per_repo.get(n)
-        sub_ = []
-        if pr:
-            if pr["own_commits"]:
-                sub_.append(f"{pr['own_commits']} own commits")
-            if pr.get("tests"):
-                sub_.append(f"{_fmt_n(pr['tests'])} tests")
-            if not pr["own_commits"]:
-                sub_.append("idle fork" if pr.get("kind") == "fork-idle" else "")
-        if n == "x3d.xray":
-            sub_.append("this tool")
-            S.lines("selfring", CORAL, [[(p[0] + (r + 0.55) * math.cos(2 * math.pi * j / 40), p[1] + (r + 0.55) * math.sin(2 * math.pi * j / 40), p[2])
-                                         for j in range(41)]], width=2.5)
-        if kind == "private":
-            sub_.append("private")
-        if n == "x3d.ML" and ".prov" in ds.get("lineage", []):
-            sub_.append("holds the .prov stage")
-        S.label([n] + [x for x in [" · ".join(x for x in sub_ if x)] if x], (p[0], p[1] + r + 0.75, p[2] + 0.1), 0.34 if pr else 0.28,
-                BONE if pr and pr["own_commits"] else DIM, view="ties")
-
-    def node_id(n):
-        if n in ext_ids:
-            return ext_ids[n]
-        return n
-
-    # fork stubs for forks whose upstream was not harvested
-    for p_ in ties.get("pairs", []):
-        if p_["to"].endswith(" (upstream)"):
-            fork = p_["from"]
-            if fork in nodes:
-                a = nodes[fork]["p"]
-                d_ = norm(sub(a, CT)) if a != CT else (0, 1, 0)
-                b = add(a, mul(d_, nodes[fork]["r"] + 1.1))
-                S.lines("stub", "#4c5a66", [[add(a, mul(d_, nodes[fork]["r"])), b]], width=1.0)
-                S.w(f"<Transform translation='{v3(b)}'><Shape>{S.lit('stubn', NODE_COL['stub'], 0.3)}<Sphere radius='0.12'/></Shape></Transform>")
-    # machine ties: straight lines, one shape each
-    for i, p_ in enumerate(ties.get("pairs", [])):
-        a_id, b_id = node_id(p_["from"]), node_id(p_["to"])
-        if a_id not in nodes or b_id not in nodes:
-            continue
-        a, b = nodes[a_id]["p"], nodes[b_id]["p"]
-        wsum = sum(v for k_, v in p_["kinds"].items())
-        wdt = 1.0 + min(3.0, math.log10(1 + wsum) * 1.2)
-        d = norm(sub(b, a))
-        a2 = add(a, mul(d, nodes[a_id]["r"] + 0.12))
-        b2 = sub(b, mul(d, nodes[b_id]["r"] + 0.12))
-        dn = f"tm{i}"
-        S.w(f"<Shape DEF='{dn}'><Appearance><Material DEF='{dn}_m' diffuseColor='0 0 0' emissiveColor='{col(GRADE_COL[p_['grade']])}' transparency='0.15'/>"
-            f"<LineProperties linewidthScaleFactor='{f(wdt)}'/></Appearance><IndexedLineSet coordIndex='0 1 -1'><Coordinate point='{v3(a2)}, {v3(b2)}'/>"
-            f"</IndexedLineSet></Shape>")
-        mid = mul(add(a2, b2), 0.5)
-        L["ties"]["machine"].append({"i": i, "from": p_["from"], "to": p_["to"], "grade": p_["grade"], "p": [round(c, 3) for c in mid], "def": dn})
-        pins = p_["kinds"].get("pin", 0)
-        if pins >= 10:
-            S.label([f"{_fmt_n(pins)} pins"], (mid[0], mid[1], mid[2] + 0.15), 0.22, GRADE_COL[p_["grade"]], view="ties")
-    # curated ties: arcs toward the viewer, with arrowheads
-    if curated:
-        groups = collections.defaultdict(list)
-        for t in curated["ties"]:
-            groups[tuple(sorted((t["from"], t["to"])))].append(t)
-        for key, ts in groups.items():
-            for j, t in enumerate(ts):
-                if t["from"] not in nodes or t["to"] not in nodes or t["from"] == t["to"]:
-                    continue
-                a, b = nodes[t["from"]]["p"], nodes[t["to"]]["p"]
-                d = norm(sub(b, a))
-                perp = (-d[1], d[0], 0.0)
-                off = (j - (len(ts) - 1) / 2) * 0.55
-                h = 1.6 + 0.45 * (j % 5)
-                ctrl = add(add(mul(add(a, b), 0.5), mul(perp, off * 1.6)), (0, 0, h))
-                a2 = add(a, mul(norm(sub(ctrl, a)), nodes[t["from"]]["r"] + 0.1))
-                b2 = add(b, mul(norm(sub(ctrl, b)), nodes[t["to"]]["r"] + 0.1))
-                pts = []
-                for s_ in range(21):
-                    u = s_ / 20
-                    pts.append(add(add(mul(a2, (1 - u) ** 2), mul(ctrl, 2 * u * (1 - u))), mul(b2, u * u)))
-                dn = f"ta_{t['id']}"
-                gc = GRADE_COL.get(t["grade"], DIM)
-                S.w(f"<Shape DEF='{dn}'><Appearance><Material DEF='{dn}_m' diffuseColor='0 0 0' emissiveColor='{col(gc)}'/>"
-                    f"<LineProperties linewidthScaleFactor='1.6'/></Appearance><IndexedLineSet coordIndex='{' '.join(str(q) for q in range(len(pts)))} -1'>"
-                    f"<Coordinate point='{', '.join(v3(q) for q in pts)}'/></IndexedLineSet></Shape>")
-                tip = pts[17]
-                tang = sub(pts[18], pts[16])
-                rx, ry, rz, ra = rot_y_to(tang)
-                S.w(f"<Transform translation='{v3(tip)}' rotation='{f(rx, 4)} {f(ry, 4)} {f(rz, 4)} {f(ra, 4)}'><Shape>{S.lit('cone' + t['grade'], gc, 0.6)}"
-                    f"<Cone bottomRadius='0.11' height='0.3'/></Shape></Transform>")
-                apex = pts[10]
-                S.label([f"{t['id']} {t['kind'] or ''}".strip()], (apex[0], apex[1], apex[2] + 0.12), 0.2, gc, view="ties")
-                L["ties"]["curated"].append({"id": t["id"], "from": t["from"], "to": t["to"], "grade": t["grade"], "p": [round(c, 3) for c in apex], "def": dn})
-    S.w("</Group>")
-    L["regions"]["ties"] = {"center": list(CT), "r": 13.5}
+    nodes = constellation_region(S, L, ds, ties, curated, prof)
 
     # ================= code city
     S.w("<Group DEF='City'>")
@@ -988,7 +1035,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "rhythm": ((reg["helix"]["face_x"] + 52, 0, 0), (reg["helix"]["face_x"], 0, 0), 0.34),
         "claude": (((hx0 + hx1) / 2, 9.0, 27), ((hx0 + hx1) / 2, 0, 0), 0.9),
         "ties": ((CT[0], 1.5, 37), (CT[0], 0, 0), 0.85),
-        "fork": ((nodes["x3d_mcp"]["p"][0] + 2.5, nodes["x3d_mcp"]["p"][1] + 3, 15), nodes["x3d_mcp"]["p"], 0.85),
+        "fork": ((CT[0] + 2.5, CT[1] + 3, 15), nodes.get("x3d_mcp", {"p": CT})["p"], 0.85),
         "city": ((city_c[0], 19, city_c[2] + 25), (city_c[0], -4, city_c[2]), 0.85),
         "self": ((0, SELF_Y + 2.5, SELF_Z + 22), (0, SELF_Y, SELF_Z), 0.85),
     }

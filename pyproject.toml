@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "x3dray"
-version = "0.2.0.dev1"
+version = "0.3.0.dev1"
 description = "Evidence-linked repository analysis with X3D output"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,7 +17,7 @@ x3dray = "x3dray.__main__:main"
 include = ["x3dray*"]
 
 [tool.setuptools.package-data]
-x3dray = ["web/*", "lab_web/*"]
+x3dray = ["web/*", "lab_web/*", "proof_web/*"]
 
 [tool.ruff.lint]
 select = ["F821", "F822", "F823"]

@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "bound_address": "loopback",
+  "requests": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 666526,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/observatory-data.json",
+      "status": 200,
+      "bytes": 583352,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/baseline.x3d",
+      "status": 200,
+      "bytes": 33208,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/x_ite/x_ite.min.js",
+      "status": 200,
+      "bytes": 1306961,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/fonts/LICENSE.txt",
+      "status": 200,
+      "bytes": 3859,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/start_lab.py",
+      "status": 404,
+      "bytes": 354,
+      "nosniff": "nosniff"
+    },
+    {
+      "path": "/unknown.json",
+      "status": 404,
+      "bytes": 354,
+      "nosniff": "nosniff"
+    }
+  ],
+  "scope": "Actual HTTP assets and manifest refusal; no browser or GPU."
+}

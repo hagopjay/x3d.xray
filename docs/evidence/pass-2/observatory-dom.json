@@ -1,0 +1,21 @@
+{
+  "checks": 14,
+  "passed": [
+    "baseline renders independently read geometry and typed three-hop query",
+    "corrupt endpoint exposes actual checker findings",
+    "benign equivalent transforms are accepted",
+    "outside-layer acceptance is presented as a scope boundary",
+    "incoming direction changes the result with the same endpoints",
+    "association lens reveals attributed symmetric shortcut",
+    "relation inspection exposes original supplied evidence",
+    "endpoint controls are part of replay state",
+    "history restores exact selection endpoints lens and mutation",
+    "altered event chain is refused without replacing current state",
+    "different analysis identity is refused",
+    "downloads contain selected XML and unchanged plan plus source bundle",
+    "selection preserves loaded world identity with a renderer stand-in",
+    "all six guided observations complete through shared event handling"
+  ],
+  "initial_js_errors": [],
+  "scope": "DOM integration only; no browser layout, WebGL, GPU or X_ITE runtime claim"
+}
