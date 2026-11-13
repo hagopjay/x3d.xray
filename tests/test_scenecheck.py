@@ -48,6 +48,32 @@ def fixture():
     return xml, plan, bundle
 
 
+def bind_payload(xml, plan, payload):
+    """Bind an explicit golden payload without using a producer hash helper."""
+    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=True, sort_keys=True,
+                                      separators=(",", ":"), allow_nan=False).encode("ascii")).hexdigest()
+    plan["source_binding_schema"] = 1
+    plan["relations"][0]["source_digest"] = digest
+    root = ET.fromstring(xml)
+    meta = root.find(".//Shape[@DEF='Edge']/MetadataString")
+    record = json.loads(json.loads(meta.get("value")))
+    record["source_digest"] = digest
+    meta.set("value", json.dumps(json.dumps(record, sort_keys=True)))
+    return ET.tostring(root, encoding="unicode")
+
+
+def modern_fixture(private=False):
+    xml, plan, bundle = fixture()
+    bundle["ties"]["machine"][0]["kinds"] = {"uses": 1}
+    payload = {"schema_version": 1, "source": "machine", "from": "a", "to": "b", "grade": "C",
+               "kinds": {"uses": 1}, "visibility": "aggregate_only" if private else "public", "evidence_count": 1,
+               "evidence": [{"count": 1}] if private else [{"kind": "uses", "path": "config.json", "text": "uses b"}]}
+    if private:
+        bundle["repos"][0]["visibility"] = "private"
+    bundle["scene_sources"] = copy.deepcopy(bundle["ties"])
+    return bind_payload(xml, plan, payload), plan, bundle, payload
+
+
 class SceneGeometryTests(unittest.TestCase):
     def setUp(self):
         self.xml, self.plan, self.bundle = fixture()
@@ -159,6 +185,14 @@ class SceneGeometryTests(unittest.TestCase):
         b["ties"]["machine"][0]["evidence"] = []
         self.rejects(bundle=b, code="relation_has_no_source_witness")
 
+    def test_source_witness_must_be_substantive_and_correctly_typed(self):
+        for evidence in ([{}], [{"path": "  ", "text": "\t"}], "not-a-list", {"path": "source.py"},
+                         ["machine evidence is not free prose"], [{"line": 10}], [{"path": 1}], None):
+            with self.subTest(evidence=evidence):
+                b = copy.deepcopy(self.bundle)
+                b["ties"]["machine"][0]["evidence"] = evidence
+                self.rejects(bundle=b, code="relation_has_no_source_witness")
+
     def test_source_endpoints_cannot_be_swapped_by_changing_metadata(self):
         p = copy.deepcopy(self.plan)
         p["relations"][0]["from_entity"] = "node:b"
@@ -175,9 +209,19 @@ class SceneGeometryTests(unittest.TestCase):
 
     def test_hidden_or_runtime_dependent_semantic_ancestors_are_refused(self):
         for start, end in (("<Switch whichChoice='-1'>", "</Switch>"), ("<Billboard>", "</Billboard>"),
-                           ("<Group visible='false'>", "</Group>")):
+                           ("<Group visible='false'>", "</Group>"), ("<CADLayer visible='false true'>", "</CADLayer>"),
+                           ("<GeoLocation geoCoords='1 2 3'>", "</GeoLocation>"),
+                           ("<HAnimJoint translation='1 2 3'>", "</HAnimJoint>")):
             xml = self.xml.replace("<Group DEF='Entities'>", start+"<Group DEF='Entities'>").replace("</Group><Group DEF='Relations'>", "</Group>"+end+"<Group DEF='Relations'>", 1)
             self.rejects(xml, code="unsupported_semantic_ancestor")
+
+    def test_unknown_transform_inside_entity_glyph_is_refused(self):
+        def mutate(root):
+            owner = root.find(".//Transform[@DEF='A']")
+            shape = owner.find("Shape")
+            owner.remove(shape)
+            ET.SubElement(owner, "HAnimJoint", translation="1 2 3").append(shape)
+        self.rejects(self.mutate(mutate), code="unsupported_semantic_ancestor")
 
     def test_transparency_and_shader_overrides_are_refused(self):
         xml = self.mutate(lambda r: r.find(".//Shape[@DEF='Edge']/Appearance/Material").set("transparency", "1"))
@@ -220,6 +264,11 @@ class SceneGeometryTests(unittest.TestCase):
                 report = self.rejects(xml)
                 self.assertNotIn("/private", json.dumps(report))
         self.rejects(" "*(MAX_XML_BYTES+1)+self.xml, code="scene_xml_too_large")
+
+    def test_deep_json_metadata_returns_a_controlled_finding(self):
+        root = ET.fromstring(self.xml)
+        root.find(".//Shape[@DEF='Edge']/MetadataString").set("value", json.dumps("["*1500+"0"+"]"*1500))
+        self.rejects(ET.tostring(root, encoding="unicode"), code="invalid_semantic_metadata")
 
     def test_empty_plan_with_empty_layers_is_a_valid_explicit_population(self):
         p = {"schema_version": 1, "scope": "constellation", "entity_layer": "Entities", "relation_layer": "Relations", "entities": [], "relations": []}
@@ -282,6 +331,197 @@ class SceneGeometryTests(unittest.TestCase):
             report = self.report()
         self.assertTrue(report["ok"], report)
         self.assertLess(report["checks"]["expanded_visits"], 512)
+
+
+class SceneSourceBindingTests(unittest.TestCase):
+    def setUp(self):
+        self.xml, self.plan, self.bundle, self.payload = modern_fixture()
+
+    def report(self):
+        return verify_scene(self.xml, self.plan, self.bundle)
+
+    def rejects(self, code):
+        report = self.report()
+        self.assertFalse(report["ok"], report)
+        self.assertIn(code, {f["code"] for f in report["findings"]}, report)
+        return report
+
+    def rebind(self):
+        self.xml = bind_payload(self.xml, self.plan, self.payload)
+
+    def test_explicit_golden_binding_and_legacy_scope(self):
+        report = self.report()
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["source_binding"]["mode"], "public_sample_or_private_aggregate")
+        self.assertEqual(report["source_binding"]["source_authentication"], "not verified")
+        self.assertEqual(report["checks"]["eligible_source_relations"], 1)
+        xml, plan, bundle = fixture()
+        self.assertEqual(verify_scene(xml, plan, bundle)["source_binding"]["mode"], "legacy_declared_subset")
+
+    def test_ledger_source_witness_and_detector_changes_break_binding(self):
+        for key, value in (("evidence", [{"path": "different.py", "text": "changed witness"}]), ("kinds", {"uses": 2})):
+            with self.subTest(key=key):
+                original = copy.deepcopy(self.bundle)
+                self.bundle["scene_sources"]["machine"][0][key] = value
+                report = self.rejects("relation_source_digest_mismatch")
+                self.assertNotIn("different.py", json.dumps(report))
+                self.bundle = original
+
+    def test_display_and_ledger_are_both_bound(self):
+        self.bundle["ties"]["machine"][0]["evidence"][0]["text"] = "changed served witness"
+        self.rejects("display_source_digest_mismatch")
+
+    def test_recursive_source_fields_return_a_controlled_finding(self):
+        nested = {}
+        nested["start"] = nested
+        self.bundle["ties"]["machine"][0]["evidence"][0]["valid_time"] = nested
+        self.rejects("invalid_source_binding")
+
+    def test_drawn_relations_require_display_witness_record(self):
+        self.bundle["ties"]["machine"] = []
+        self.rejects("drawn_relation_missing_from_display")
+
+    def test_binding_also_works_with_original_source_without_ledger(self):
+        del self.bundle["scene_sources"]
+        self.assertTrue(self.report()["ok"])
+
+    def test_metadata_digest_tampering_fails(self):
+        root = ET.fromstring(self.xml)
+        meta = root.find(".//Shape[@DEF='Edge']/MetadataString")
+        record = json.loads(json.loads(meta.get("value")))
+        record["source_digest"] = "0"*64
+        meta.set("value", json.dumps(json.dumps(record)))
+        self.xml = ET.tostring(root, encoding="unicode")
+        self.rejects("relation_metadata_mismatch")
+
+    def test_complete_source_membership_cannot_be_deleted_from_plan_and_xml(self):
+        self.plan["relations"] = []
+        root = ET.fromstring(self.xml)
+        root.find(".//Group[@DEF='Relations']").clear()
+        root.find(".//Scene/Group[2]").set("DEF", "Relations")
+        self.xml = ET.tostring(root, encoding="unicode")
+        self.rejects("source_relation_coverage_mismatch")
+
+    def test_isolated_source_repositories_cannot_be_silently_omitted(self):
+        self.bundle["repos"].append({"name": "isolated"})
+        self.rejects("source_entity_coverage_mismatch")
+
+    def test_omissions_have_independently_checked_reasons_and_no_phantom_nodes(self):
+        cases = [("witnessless", [], "C", "no_witness"), ("a", [{"path": "self.py"}], "C", "self_relation"),
+                 ("invalid", [{"path": "bad.py"}], "?", "invalid_grade"),
+                 ("missing-grade", [{"path": "bad.py"}], None, "invalid_grade")]
+        self.plan["omitted"] = []
+        for to, evidence, grade, reason in cases:
+            record = {"from": "a", "to": to, "grade": grade, "evidence": evidence}
+            self.bundle["scene_sources"]["machine"].append(record)
+            rid = "machine:"+hashlib.sha256(("a\0"+to).encode()).hexdigest()[:20]
+            self.plan["omitted"].append({"id": rid, "source": "machine", "from": "a", "to": to, "reason": reason})
+        self.assertTrue(self.report()["ok"], self.report())
+        self.plan["omitted"][0]["reason"] = "display_cap"
+        self.rejects("invalid_source_omission")
+
+    def test_omission_ledger_must_cover_exactly_ineligible_sources(self):
+        self.plan["omitted"] = [{"id": self.plan["relations"][0]["id"], "source": "machine", "from": "a", "to": "b", "reason": "no_witness"}]
+        self.rejects("invalid_source_omission")
+        self.plan["omitted"][0]["id"] = "machine:unknown"
+        self.rejects("source_omission_unverifiable")
+
+    def test_evidence_count_binds_population_beyond_the_four_witness_sample(self):
+        evidence = [{"path": f"{i}.py"} for i in range(5)]
+        for section in ("ties", "scene_sources"):
+            self.bundle[section]["machine"][0]["evidence"] = copy.deepcopy(evidence)
+        self.payload["evidence"] = evidence[:4]
+        self.payload["evidence_count"] = 5
+        self.rebind()
+        self.assertTrue(self.report()["ok"], self.report())
+        # Contents after the bounded sample are explicitly outside the binding.
+        self.bundle["ties"]["machine"][0]["evidence"][4]["path"] = "outside-sample.py"
+        self.assertTrue(self.report()["ok"])
+        self.bundle["ties"]["machine"][0]["evidence"].append({"path": "six.py"})
+        self.rejects("display_source_digest_mismatch")
+
+    def test_count_is_maximum_of_total_and_raw_list_length(self):
+        for value in (0, -1, True, "1", None):
+            with self.subTest(value=value):
+                for section in ("ties", "scene_sources"):
+                    self.bundle[section]["machine"][0]["evidence_records"] = {"total": value}
+                self.assertTrue(self.report()["ok"], self.report())
+        self.bundle["ties"]["machine"][0]["evidence_records"] = {"total": 9}
+        self.rejects("display_source_digest_mismatch")
+
+    def test_full_locator_and_observation_time_are_bound_without_truncation(self):
+        locator = {"schema_version": 1, "kind": "git_blob", "visibility": "public", "repo_id": "repo:a",
+                   "revision": {"oid": "a"*40, "object_format": "sha1"},
+                   "blob": {"oid": "b"*40, "object_format": "sha1", "mode": "100644", "size_bytes": 20, "content_sha256": "c"*64},
+                   "path": "source.py", "span": {"kind": "lines", "encoding": "utf-8", "start": 1, "end": 2,
+                   "byte_start": 0, "byte_end": 20, "content_sha256": "d"*64}, "detector": {"id": "uses", "version": "1"}}
+        evidence = {"path": "source.py", "locator": locator, "locators": [locator],
+                    "observed_at": "2026-11-12T00:00:00Z", "valid_time": {"start": "2026-11-01T00:00:00Z", "end": None}}
+        self.payload["evidence"] = [evidence]
+        for section in ("ties", "scene_sources"):
+            self.bundle[section]["machine"][0]["evidence"] = [copy.deepcopy(evidence)]
+        self.rebind()
+        self.assertTrue(self.report()["ok"], self.report())
+        # Normalization strips unknown fields and canonicalizes object IDs.
+        display = self.bundle["ties"]["machine"][0]["evidence"][0]
+        display["locator"]["unknown"] = "not part of locator schema"
+        display["locator"]["revision"]["oid"] = "A"*40
+        self.assertTrue(self.report()["ok"], self.report())
+        for change in (lambda e: e["locator"]["revision"].update(oid="e"*40),
+                       lambda e: e["locators"][0]["span"].update(content_sha256="f"*64),
+                       lambda e: e.update(observed_at="2026-11-13T00:00:00Z"),
+                       lambda e: e["valid_time"].update(end="2026-11-14T00:00:00Z")):
+            with self.subTest(change=change):
+                original = copy.deepcopy(display)
+                change(display)
+                self.rejects("display_source_digest_mismatch")
+                display.clear()
+                display.update(original)
+
+    def test_producer_projection_matches_independent_golden_public_and_private_binding(self):
+        # A compatibility check supplements (rather than supplies) the golden
+        # payload above. The checker imports no producer projection/hash code.
+        from x3dray.witness_contract import source_digest
+        for private in (False, True):
+            xml, plan, bundle, _ = modern_fixture(private=private)
+            digest = source_digest(bundle["ties"]["machine"][0], "machine", {"a"} if private else set())
+            self.assertEqual(plan["relations"][0]["source_digest"], digest)
+            self.assertTrue(verify_scene(xml, plan, bundle)["ok"])
+
+    def test_private_binding_ignores_hidden_content_but_preserves_aggregate_counts(self):
+        self.xml, self.plan, self.bundle, self.payload = modern_fixture(private=True)
+        for section in ("ties", "scene_sources"):
+            record = self.bundle[section]["machine"][0]
+            record["evidence"][0].update(path="private/hidden.py", text="hidden source text", locator={"secret": "private"})
+            record["kinds"] = {"uses": 1, "private detector identity": 3}
+        self.payload["kinds"]["other"] = 3
+        self.rebind()
+        self.assertTrue(self.report()["ok"], self.report())
+        self.bundle["ties"]["machine"][0]["kinds"] = {"uses": 1, "another hidden detector identity": 3}
+        self.assertTrue(self.report()["ok"])
+        self.bundle["ties"]["machine"][0]["evidence_records"] = {"total": 2}
+        report = self.rejects("display_source_digest_mismatch")
+        self.assertNotIn("hidden source", json.dumps(report))
+        self.assertNotIn("private/hidden", json.dumps(report))
+
+    def test_private_curated_kind_is_aggregate_and_never_free_prose(self):
+        self.xml, self.plan, self.bundle, self.payload = modern_fixture(private=True)
+        self.plan["relations"][0].update(id="curated:manual", source="curated")
+        self.payload.update(source="curated", kinds={"curated_kind": "aggregate"})
+        for section in ("ties", "scene_sources"):
+            record = self.bundle[section]["machine"].pop()
+            record.update(id="manual", kind="private curator prose", evidence=["private witness"])
+            self.bundle[section]["curated"].append(record)
+        root = ET.fromstring(self.xml)
+        meta = root.find(".//Shape[@DEF='Edge']/MetadataString")
+        record = json.loads(json.loads(meta.get("value")))
+        record.update(id="curated:manual", source="curated")
+        meta.set("value", json.dumps(json.dumps(record)))
+        self.xml = ET.tostring(root, encoding="unicode")
+        self.rebind()
+        self.assertTrue(self.report()["ok"], self.report())
+        self.bundle["ties"]["curated"][0]["kind"] = "changed hidden prose"
+        self.assertTrue(self.report()["ok"])
 
 
 if __name__ == "__main__":

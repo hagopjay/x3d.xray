@@ -77,6 +77,46 @@ async function clickCase(id){d.querySelector(`[data-id="${id}"]`).click();await 
     $('startTour').click();for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,15));await api.whenIdle();if(i<5)$('nextTour').click();}
     assert.match($('lesson').textContent,/Replay intent/);assert.equal(api.query.hops,3);assert.match($('logStatus').textContent,/chain and context checked/);
   });
+  await test('immutable source audit exposes actual Git checks and rejected span tamper',async()=>{
+    assert.equal(d.querySelectorAll('.locator-button').length,4);assert.match($('locatorDetail').textContent,/raw_content_sha256/);
+    assert.match($('locatorProbe').textContent,/rejected.*blob_content_or_span_mismatch/);$('downloadLocator').click();
+    const locator=JSON.parse(downloads.at(-1).parts.join(''));assert.equal(locator.revision.oid.length,40);assert.equal(locator.blob.content_sha256.length,64);
+  });
+  const applyTime=async(mode,at,unknown='exclude')=>{$('timeMode').value=mode;$('timeAt').value=at;$('timeUnknown').value=unknown;$('timeApply').click();await api.whenIdle();};
+  await test('same-instant validity excludes disjoint-time path and unknown Git lifetimes',async()=>{
+    await applyTime('valid_at','2026-01-02T12:00:00Z');assert.equal(api.temporalQuery.total_paths,0);assert.equal(api.query.total_paths,0);
+    assert.equal(api.temporalQuery.time_coverage.excluded_unknown_records,1);
+  });
+  await test('unknown-time inclusion marks supporting path provisional',async()=>{
+    await applyTime('valid_at','2026-01-02T12:00:00Z','include');assert.equal(api.temporalQuery.total_paths,1);
+    assert.equal(api.temporalQuery.paths[0].time_status,'provisional_unknown_time');assert.match($('temporalResult').textContent,/PROVISIONAL/);
+  });
+  await test('observation cutoff permits a later snapshot without asserting simultaneous validity',async()=>{
+    await applyTime('observed_by','2026-01-06T00:00:00Z');assert.equal(api.temporalQuery.total_paths,2);assert.equal(api.query.hops,3);
+    assert.match($('timeContext').textContent,/Observation cutoff/);
+  });
+  await test('timezone equivalent temporal controls canonicalize and preserve exact query state',async()=>{
+    await applyTime('valid_at','2026-01-02T07:00:00.000000-05:00','include');assert.equal(api.state.time.at,'2026-01-02T12:00:00Z');assert.equal($('timeAt').value,api.state.time.at);
+    const context=api.exportLog(),expectedTime=api.state.time;await send({action:'reset'});await api.replayLog(context);assert.deepEqual(api.state.time,expectedTime);assert.equal(api.temporalQuery.total_paths,1);
+  });
+  await test('naive timestamp is refused without mutating recorded intent',async()=>{
+    const before=api.state.state_digest;await applyTime('valid_at','2026-01-02T12:00:00');assert.equal(api.state.state_digest,before);assert.match($('logStatus').textContent,/not recorded/);
+  });
+  await test('clearing time restores unfiltered source snapshot',async()=>{
+    $('timeClear').click();await api.whenIdle();assert.equal(api.state.time,null);assert.equal(api.temporalQuery.total_paths,2);assert.equal(api.query.hops,3);
+    await applyTime('valid_at','2026-01-02T12:00:00Z','include');saved=api.exportLog();expected=api.state;
+  });
+  const data=JSON.parse($('proof-data').textContent);
+  if(data.scale_previews?.length){
+    const population=Math.max(...data.scale_previews.map(p=>p.size));
+    await test(`measured ${population}-entity preview keeps the full planned population`,async()=>{
+      $('scaleSize').value=String(population);$('scaleSize').dispatchEvent(new w.Event('change'));assert.equal(d.querySelectorAll('.scale-dot').length,population);
+      assert.equal(d.querySelectorAll('#benchmarkTable tbody tr').length,data.scale_results.rows.length);assert.ok($('scaleScene').href.endsWith(`modular-${population}.x3d`));
+    });
+    await test('scale glyph selection exposes complete identity without altering investigation intent',async()=>{
+      const before=api.state.state_digest;d.querySelector('#scaleMap .scale-dot').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));assert.ok($('scaleSelection').textContent.includes('synthetic-'));assert.equal(api.state.state_digest,before);
+    });
+  }
   assert.deepEqual(errors,[]);
   if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify({log:saved,state:expected}));
   console.log(JSON.stringify({checks:checks.length,passed:checks,initial_js_errors:errors,scope:'DOM integration only; no browser layout, WebGL, GPU or X_ITE runtime claim'},null,2));

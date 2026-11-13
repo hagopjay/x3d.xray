@@ -6,13 +6,15 @@
   const eventEngine=window.XrayInvestigation,tool=window.XraySharedTools.makeTools(B.tool_bundle).find(t=>t.name==='architecture');
   const graph=B.tool_bundle.relations,entities=new Map(B.plan.entities.map(e=>[e.id,e])),typed=new Map(graph.records.map(r=>[r.id,r]));
   const caseMap=new Map(B.cases.map(c=>[c.id,c])),baseline=B.cases[0];
+  const temporalTool=B.temporal_fixture?window.XraySharedTools.makeTools(B.temporal_fixture).find(t=>t.name==='architecture'):null;
+  let timeQuery=null,locatorIndex=0,scaleKey=null,selectedScaleEntity=null;
   let log=clone(B.example_log),state=clone(B.example_state),queue=Promise.resolve(),tourPromise=Promise.resolve(),logAvailable=true,view='audit',tourStep=-1,queryResult=null;
   let browser=null,rendererPromise=null,sceneGeneration=0,renderedCase=null,pendingCase=null;
   const defaults={from_entity:'node:review',to_entity:'node:ingest'};
   const activeCase=()=>caseMap.get(state.requested_mutation)||baseline;
   const activeQuery=()=>state.query||defaults;
   const queryArgs=()=>{const q=activeQuery();return {from:entities.get(q.from_entity).source_name,to:entities.get(q.to_entity).source_name,
-    direction:state.lens.direction,predicates:state.lens.predicates.join(','),grades:state.lens.grade==='all'?'':state.lens.grade,max_hops:state.lens.max_hops,limit:6};};
+    direction:state.lens.direction,predicates:state.lens.predicates.join(','),grades:state.lens.grade==='all'?'':state.lens.grade,max_hops:state.lens.max_hops,limit:6,...(state.time||{})};};
   const expected=B.plan.entities.map(e=>e.position),xs=expected.map(p=>p[0]),ys=expected.map(p=>p[1]);
   const xmin=Math.min(...xs)-3,xmax=Math.max(...xs)+3,ymin=Math.min(...ys)-3,ymax=Math.max(...ys)+3;
   const scale=Math.min(820/(xmax-xmin),440/(ymax-ymin));
@@ -24,9 +26,10 @@
     else if(event.action==='select_relation'){state.selected_relation=event.id;state.selected_entity=null;}
     else if(event.action==='set_lens'){state.lens=clone(event.lens);state.requested_mutation=null;state.selected_finding=null;}
     else if(event.action==='set_query')state.query=clone(event.query);
+    else if(event.action==='set_time')state.time=clone(event.time);
     else if(event.action==='run_mutation'){state.requested_mutation=event.id;state.selected_finding=null;}
     else if(event.action==='inspect_finding')state.selected_finding=event.id;
-    else if(event.action==='reset')state={selected_entity:null,selected_relation:null,query:null,lens:{predicates:[],direction:'outgoing',max_hops:3,grade:'all'},requested_mutation:null,selected_finding:null};
+    else if(event.action==='reset')state={selected_entity:null,selected_relation:null,query:null,time:null,lens:{predicates:[],direction:'outgoing',max_hops:3,grade:'all'},requested_mutation:null,selected_finding:null};
   }
   function dispatch(event){
     queue=queue.then(async()=>{
@@ -49,7 +52,7 @@
     const q=activeQuery();$('queryFrom').value=q.from_entity;$('queryTo').value=q.to_entity;
     $('direction').value=state.lens.direction;$('hops').value=String(state.lens.max_hops);$('grade').value=state.lens.grade;
     $('predicates').querySelectorAll('input').forEach(i=>i.checked=state.lens.predicates.includes(i.value));
-    queryResult=tool.execute(queryArgs());drawQuery();drawMap();drawSelection();drawHistory();
+    queryResult=tool.execute(queryArgs());drawQuery();drawMap();drawSelection();drawHistory();drawContinuum();
     $('updateTime').textContent=`overlay ${number(performance.now()-start)} ms`;
     if(view==='3d'&&renderedCase!==c.id&&pendingCase!==c.id)update3D(c);
   }
@@ -107,6 +110,62 @@
     $('saveLog').disabled=!logAvailable;
   }
   function lensFromControls(){return {predicates:Array.from($('predicates').querySelectorAll('input:checked')).map(e=>e.value),direction:$('direction').value,max_hops:+$('hops').value,grade:$('grade').value};}
+  function drawContinuum(){
+    if(!$('timeMode'))return;
+    const time=state.time;$('timeMode').value=time?time.time_mode:'none';$('timeUnknown').value=time?time.unknown_time:'exclude';
+    if(time)$('timeAt').value=time.at;
+    $('timeContext').textContent=time?`${time.time_mode==='observed_by'?'Observation cutoff':'Claimed validity instant'}: ${time.at} · unknown times ${time.unknown_time==='include'?'included provisionally':'excluded'}.`:'Unfiltered snapshot: no claim that its relationships existed together.';
+    if(temporalTool){timeQuery=temporalTool.execute({from:'alpha',to:'gamma',direction:'association',max_hops:3,limit:6,...(time||{})});
+      let h=`<b>${timeQuery.total_paths} recorded shortest path${String(timeQuery.total_paths)==='1'?'':'s'}</b>`;
+      for(const p of timeQuery.paths||[])h+=`<div class="time-path ${p.time_status==='provisional_unknown_time'?'provisional':''}">${p.nodes.map(esc).join(' → ')}<br><small>${p.time_status==='provisional_unknown_time'?'PROVISIONAL · unknown time support':time?'Known time under this filter':'Snapshot association; simultaneity unverified'}</small></div>`;
+      if(timeQuery.time_coverage){const c=timeQuery.time_coverage;h+=`<p>${c.eligible_records}/${c.candidate_records} eligible records · ${c.included_unknown_records} unknown included</p><p class="muted">${esc(c.scope)}</p>`;}
+      $('temporalResult').innerHTML=h;drawTimeline();}
+    drawScale();
+  }
+  function drawTimeline(){
+    const graph=B.temporal_fixture.relations,begin=Date.parse('2026-01-01T00:00:00Z'),end=Date.parse('2026-01-06T00:00:00Z'),px=t=>220+480*(Date.parse(t)-begin)/(end-begin);
+    let h='<defs><pattern id="unknownHatch" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 8L8 0" stroke="#677e89" stroke-width="1"/></pattern></defs>';
+    for(let day=1;day<=6;day++){const x=220+(day-1)*96;h+=`<path d="M${x}30V260" stroke="#335260" stroke-dasharray="2 6"/><text x="${x}" y="23" fill="#8faeb9" font-size="10" text-anchor="middle">Jan ${day}</text>`;}
+    for(const [i,r] of graph.records.entries()){const y=65+i*53;h+=`<text x="12" y="${y+4}" fill="#c7dfdf" font-size="12">${esc(r.from)} ↔ ${esc(r.to)}</text>`;
+      if(r.valid_time){const x=px(r.valid_time.start),w=px(r.valid_time.end)-x;h+=`<rect x="${x}" y="${y-10}" width="${w}" height="20" rx="4" fill="#69c8b7" opacity=".75"/><path d="M${x+w} ${y-13}V${y+13}" stroke="#c6e7df" stroke-dasharray="2 2"/>`;}
+      else h+=`<rect x="220" y="${y-10}" width="480" height="20" rx="4" fill="url(#unknownHatch)" stroke="#607f8a" stroke-dasharray="4 4"/>`;
+      if(r.observed_at)h+=`<circle cx="${px(r.observed_at)}" cy="${y}" r="5" fill="#f1cc81" stroke="#152e39" stroke-width="2"><title>Observed ${esc(r.observed_at)}</title></circle>`;}
+    if(state.time){const x=px(state.time.at);if(x>=220&&x<=700)h+=`<path d="M${x}32V264" stroke="#f3a187" stroke-width="2"/><text x="${x}" y="283" fill="#f3a187" text-anchor="middle" font-size="10">query instant</text>`;}
+    $('timeline').innerHTML=h;
+  }
+  function drawLocator(){
+    const audit=B.source_verification||{checked:0,records:[]},record=audit.records[locatorIndex];
+    $('locatorStatus').textContent=`${audit.checked} immutable Git witnesses checked`;
+    $('locatorList').querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===locatorIndex)));
+    $('locatorDetail').textContent=record?JSON.stringify(record,null,2):'No locally verified file locator is present. Unlocated assertions remain explicit.';
+    const probe=audit.tamper_probe;$('locatorProbe').textContent=probe?`Actual cached tamper probe: ${probe.ok?'unexpected acceptance':'rejected'} · ${probe.findings.join(', ')}. Only the recorded span digest was changed.`:'';
+    $('downloadLocator').disabled=!record;
+  }
+  function drawScale(){
+    const previews=B.scale_previews||[],preview=previews.find(p=>String(p.size)===$('scaleSize').value);
+    if(!preview){$('scaleStatus').textContent='No measured fixture embedded. Build with --benchmark to inspect real results.';$('scaleMap').innerHTML='';$('scaleScene').hidden=true;return;}
+    $('scaleScene').hidden=false;$('scaleScene').href=preview.scene;
+    const key=preview.size+':'+preview.topology;if(key===scaleKey)return;scaleKey=key;selectedScaleEntity=null;
+    const start=performance.now(),ps=preview.entities.map(e=>e.position),xmin=Math.min(...ps.map(p=>p[0]))-1,xmax=Math.max(...ps.map(p=>p[0]))+1,ymin=Math.min(...ps.map(p=>p[1]))-1,ymax=Math.max(...ps.map(p=>p[1]))+1;
+    const k=Math.min(740/(xmax-xmin),440/(ymax-ymin)),proj=p=>[400+(p[0]-(xmin+xmax)/2)*k,250-(p[1]-(ymin+ymax)/2)*k];
+    let h='';for(const r of preview.relations)h+=`<path d="${r.points.map((p,i)=>(i?'L':'M')+proj(p).join(',')).join(' ')}" fill="none" stroke="#4e8892" stroke-width=".8" opacity=".3"/>`;
+    for(const e of preview.entities){const p=proj(e.position),r=Math.max(1.7,(e.geometry.radius||(e.geometry.size||[.5])[0]/2)*k);h+=`<circle class="scale-dot" data-id="${esc(e.id)}" cx="${p[0]}" cy="${p[1]}" r="${r}"><title>${esc(e.source_name)}</title></circle>`;}
+    $('scaleMap').innerHTML=h;$('scaleStatus').textContent=`${preview.entities.length} planned glyphs · ${preview.relations.length} source lines · ${number(performance.now()-start)} ms DOM update (excludes paint)`;
+    $('scaleMap').querySelectorAll('.scale-dot').forEach(dot=>dot.onclick=()=>{if(selectedScaleEntity)$('scaleMap').querySelector('.active')?.classList.remove('active');selectedScaleEntity=dot.dataset.id;dot.classList.add('active');const e=preview.entities.find(e=>e.id===dot.dataset.id);$('scaleSelection').textContent=`${e.source_name} · XYZ ${e.position.map(number).join(' / ')} · plan geometry; pixel appearance unverified.`;});
+    $('benchmarkTable').querySelectorAll('[data-size]').forEach(row=>row.classList.toggle('active',row.dataset.size===String(preview.size)&&row.dataset.topology===preview.topology));
+  }
+  function initializeContinuum(){
+    if(!$('timeMode'))return;
+    const audit=B.source_verification||{records:[]};$('locatorList').innerHTML=audit.records.map((r,i)=>`<button class="locator-button" data-index="${i}">${esc(r.locator.repo_id)} / ${esc(r.locator.path)}<br><small>${r.locator.revision.oid.slice(0,16)}… · ${r.locator.span.kind} ${r.locator.span.start}–${r.locator.span.end}</small></button>`).join('');
+    $('locatorList').querySelectorAll('button').forEach(b=>b.onclick=()=>{locatorIndex=+b.dataset.index;drawLocator();});$('downloadLocator').onclick=()=>save('immutable-witness.json',audit.records[locatorIndex].locator);drawLocator();
+    $('temporalDescription').textContent=B.temporal_fixture?.description||'';
+    $('timeApply').onclick=()=>dispatch({action:'set_time',time:$('timeMode').value==='none'?null:{at:$('timeAt').value.trim(),time_mode:$('timeMode').value,unknown_time:$('timeUnknown').value}});
+    $('timeClear').onclick=()=>dispatch({action:'set_time',time:null});$('scaleSize').onchange=()=>drawScale();
+    const report=B.scale_results;$('downloadBenchmark').disabled=!report;$('downloadBenchmark').onclick=()=>save('scale-benchmark.json',report);
+    if(report){$('benchmarkScope').textContent=report.disclosure;$('benchmarkEnvironment').textContent=`${report.environment?.platform||''} · Python ${String(report.environment?.python||'').split(' ')[0]} · ${report.environment?.cpu_count||'?'} logical CPUs. Stage p50/p95 in ms; repeat/warmup details and fingerprints are in the downloadable evidence.`;
+      $('benchmarkTable').innerHTML='<thead><tr><th>entities / topology</th><th>compile p50/p95</th><th>check p50/p95</th><th>glyph overlaps</th></tr></thead><tbody>'+report.rows.map(r=>`<tr data-size="${r.size}" data-topology="${esc(r.topology)}"><td>${r.size} / ${esc(r.topology)}</td><td>${number(r.timings.compile.p50_ms)} / ${number(r.timings.compile.p95_ms)}</td><td>${number(r.timings.verify.p50_ms)} / ${number(r.timings.verify.p95_ms)}</td><td>${r.geometry.glyph_overlap_pairs}</td></tr>`).join('')+'</tbody>';
+    }else $('benchmarkScope').textContent='No timing data was supplied. Run python3 -m x3dray scale and rebuild this export with --benchmark; no timings are fabricated.';
+  }
   function save(name,value,type='application/json'){const text=typeof value==='string'?value:JSON.stringify(value,null,2),url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function replayLog(raw){const task=queue.then(async()=>{const next=await eventEngine.replay(raw,B.catalog,B.fixture_digest,B.analysis_digest);log=clone(raw);state=next;logAvailable=true;render();return clone(state);});queue=task.catch(()=>{});return task;}
   const tour=[
@@ -139,8 +198,9 @@
   $('fixtureDigest').textContent=B.fixture_digest.slice(0,24)+'…';$('analysisDigest').textContent=B.analysis_digest.slice(0,24)+'…';$('scope').textContent=B.scope;$('verificationMode').textContent=B.verification_mode;
   $('sourceFiles').innerHTML=Object.entries(B.source_tips).map(([repo,files])=>`<details><summary>${esc(repo)}</summary>${Object.entries(files).map(([name,text])=>`<p>${esc(name)}</p><pre>${esc(text)}</pre>`).join('')}</details>`).join('');
   $('lesson').innerHTML='<b>Make the proof boundary visible.</b>Begin the guided investigation, or select an altered XML case. Typed paths always query the unchanged source graph.';
+  initializeContinuum();
   const ready=eventEngine.replay(log,B.catalog,B.fixture_digest,B.analysis_digest).then(next=>{state=next;render();}).catch(error=>{logAvailable=false;$('logStatus').textContent='Event hashing unavailable ('+(error.code||error.message)+'). Analytical views and recorded checks remain available.';render();});
   queue=ready;
-  window.__observatory={ready,whenIdle:async()=>{await tourPromise;await queue;},exportLog:()=>clone(log),replayLog,get state(){return clone(state);},get query(){return clone(queryResult);},get selectedCase(){return activeCase().id;},dispatch};
+  window.__observatory={ready,whenIdle:async()=>{await tourPromise;await queue;},exportLog:()=>clone(log),replayLog,get state(){return clone(state);},get query(){return clone(queryResult);},get temporalQuery(){return clone(timeQuery);},get selectedCase(){return activeCase().id;},dispatch};
   render();
 })();

@@ -47,3 +47,10 @@ class SceneGateTests(unittest.TestCase):
         self.write()
         self.assertEqual(gates.gate_scene(str(self.root))["status"], "skip")
         self.assertIn("scene", gates.REQUIRED_RELEASE_GATES)
+
+    def test_legacy_geometry_plan_cannot_satisfy_modern_release_source_binding(self):
+        self.layout["scene_plan"].pop("source_binding_schema")
+        self.write()
+        result = gates.gate_scene(str(self.root))
+        self.assertEqual(result["status"], "skip")
+        self.assertIn("source-binding", result["summary"])

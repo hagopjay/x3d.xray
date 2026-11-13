@@ -1,0 +1,3578 @@
+{
+  "schema_version": 1,
+  "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "cpu_count": 9,
+    "machine": "x86_64",
+    "processor": ""
+  },
+  "limits": {
+    "graph_nodes": 10000,
+    "relation_records": 50000,
+    "verifier_expanded_visits": 250000
+  },
+  "source_sha256": {
+    "x3dray/scaling.py": "5035ff08fefba9243b48d53247a1105f141dcf2f8de0b9973045f942819440df",
+    "x3dray/compiler.py": "7a50c2c8d62e31ed6c80cccd33735ff9d6729e754a9ab33c5f2471dc8edbffd7",
+    "x3dray/scenecheck.py": "a2a524293dd0645a36682b03060bfc29d87384da690d2c726f6eebac3c069ada",
+    "x3dray/relations.py": "61c0628b3edc4b08bd15346683f21f63311d354fbc584ea1a166bb34a89de385",
+    "x3dray/web/tools.js": "30a0424fa5306fbb9a2e36c4a7776d2ff939095bb2777e8a8ae9def87e55c8a4",
+    "x3dray/web/scale_benchmark.cjs": "fec38100746c8b51b9e31507d8274b39697b7b10dc13a89ec4ce73c88b9da10e",
+    "x3dray/witness_contract.py": "6323c27aaec6d25bae1699ebc77814bc663416edee5a0c94f50fd32e66c5f3c1",
+    "x3dray/locators.py": "e0376df2145548bb8c9e52a3762cc786df26f5c48306697adc16c287357b8ecf",
+    "x3dray/temporal.py": "36587e26fc93e369a79742bc402553dc6ce4d7efdb7db61c6951f605341de513",
+    "x3dray/gitio.py": "89c48039b334dfe1becb6799778538b11fc9b838750c938efe9437f77d00bd22",
+    "x3dray/structure.py": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487",
+    "experiments/benchmark_architecture_scale.py": "9295e5f1779c0e37a1e95b964c4fb62b459d79d9697e9f7f9e184856a6642a24",
+    "experiments/benchmark_architecture_scale.cjs": "d9993de703bb7a786d4f1ab66e948382c96c1c83d9b39281c9054d3b70434732"
+  },
+  "rows": [
+    {
+      "size": 10,
+      "topology": "chain",
+      "metadata": {
+        "entities": 10,
+        "topology": "chain",
+        "isolated_entities": 1,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "caa3914c25dedb183585bb0ba941ef8e967b62462b553765b7be2eb52fa7ff48",
+        "generated_source_pairs": 8
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 4.799999999999997,
+        "closest_pair_surface_gap": 4.159999999999997,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 14461,
+        "xml_elements": 202,
+        "verified": true,
+        "checks": {
+          "entities": 10,
+          "relations": 9,
+          "source_relations": 9,
+          "expanded_visits": 397,
+          "eligible_source_relations": 9,
+          "eligible_source_entities": 10
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 10,
+        "records": 17
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            0.961576,
+            0.874969,
+            0.956759,
+            0.820308,
+            0.737487,
+            0.823853,
+            0.854188
+          ],
+          "p50_ms": 0.854188,
+          "p95_ms": 0.961576,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            3.673249,
+            3.811984,
+            6.085293,
+            4.111235,
+            4.378519,
+            3.933413,
+            3.915617
+          ],
+          "p50_ms": 3.933413,
+          "p95_ms": 6.085293,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            0.880526,
+            0.8077,
+            0.838114,
+            0.864032,
+            0.742584,
+            0.754992,
+            1.082965
+          ],
+          "p50_ms": 0.838114,
+          "p95_ms": 1.082965,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 5008,
+          "tracemalloc_peak_bytes": 104310,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 18224,
+          "tracemalloc_peak_bytes": 135893,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 2208,
+          "tracemalloc_peak_bytes": 80325,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              0.392988,
+              0.684648,
+              0.466077,
+              0.314413,
+              0.371447,
+              0.338268,
+              0.392868
+            ],
+            "p50_ms": 0.392868,
+            "p95_ms": 0.684648,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 7320,
+            "tracemalloc_peak_bytes": 14650,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              0.3121,
+              0.294363,
+              0.294333,
+              0.288635,
+              0.314653,
+              0.3802,
+              0.462862
+            ],
+            "p50_ms": 0.3121,
+            "p95_ms": 0.462862,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 10072,
+            "tracemalloc_peak_bytes": 16522,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              0.238321,
+              0.250739,
+              0.19719,
+              0.214566,
+              0.20342,
+              0.171994,
+              0.166676
+            ],
+            "p50_ms": 0.20342,
+            "p95_ms": 0.250739,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 64,
+            "tracemalloc_peak_bytes": 6370,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "chain-10.json",
+        "scene": "chain-10.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                0.777335,
+                0.930951,
+                1.612114,
+                0.358758,
+                0.301975,
+                0.418637,
+                0.6044
+              ],
+              "p50_ms": 0.6044,
+              "p95_ms": 1.612114,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9056112,
+              "heap_used_after_bytes": 9815736,
+              "heap_used_delta_bytes": 759624,
+              "sampled_max_heap_used_bytes": 9379608,
+              "sampled_max_rss_bytes": 41738240,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12804,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                0.322956,
+                0.768502,
+                1.229591,
+                0.345619,
+                0.328214,
+                0.298089,
+                0.245302
+              ],
+              "p50_ms": 0.328214,
+              "p95_ms": 1.229591,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9275760,
+              "heap_used_after_bytes": 8986320,
+              "heap_used_delta_bytes": -289440,
+              "sampled_max_heap_used_bytes": 9588672,
+              "sampled_max_rss_bytes": 43048960,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12803,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.07464,
+                0.056924,
+                0.057375,
+                0.065316,
+                0.055882,
+                0.053288,
+                0.051626
+              ],
+              "p50_ms": 0.056924,
+              "p95_ms": 0.07464,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9124664,
+              "heap_used_after_bytes": 9518856,
+              "heap_used_delta_bytes": 394192,
+              "sampled_max_heap_used_bytes": 9518616,
+              "sampled_max_rss_bytes": 43048960,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1623,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              16.105053,
+              21.226036,
+              20.884298,
+              20.010241,
+              20.711654,
+              10.76827,
+              12.47337
+            ],
+            "p50_ms": 20.010241,
+            "p95_ms": 21.226036,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 40,
+            "entities": 10,
+            "relations": 9,
+            "serialized_utf8_bytes": 2674
+          },
+          "memory": {
+            "heap_used_before_bytes": 39623824,
+            "heap_used_after_bytes": 53111552,
+            "heap_used_delta_bytes": 13487728,
+            "sampled_max_heap_used_bytes": 53606944,
+            "sampled_max_rss_bytes": 120913920,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 17,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 100,
+      "topology": "chain",
+      "metadata": {
+        "entities": 100,
+        "topology": "chain",
+        "isolated_entities": 10,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "c2839a21468e9fb30a66a6df8fccec57c07a27404725409f6a3ac60a248caaa8",
+        "generated_source_pairs": 89
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9913969941451302,
+        "closest_pair_surface_gap": 0.3513969941451301,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 132456,
+        "xml_elements": 1953,
+        "verified": true,
+        "checks": {
+          "entities": 100,
+          "relations": 98,
+          "source_relations": 98,
+          "expanded_visits": 3927,
+          "eligible_source_relations": 98,
+          "eligible_source_entities": 100
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 100,
+        "records": 187
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            8.581198,
+            10.071233,
+            8.119187,
+            8.859809,
+            8.16142,
+            10.186972,
+            10.946552
+          ],
+          "p50_ms": 8.859809,
+          "p95_ms": 10.946552,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            38.556755,
+            36.926724,
+            41.461544,
+            54.648875,
+            43.974854,
+            37.931394,
+            37.091948
+          ],
+          "p50_ms": 38.556755,
+          "p95_ms": 54.648875,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            7.344637,
+            8.323088,
+            8.145316,
+            7.78127,
+            7.531132,
+            8.132898,
+            10.6673
+          ],
+          "p50_ms": 8.132898,
+          "p95_ms": 10.6673,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 14016,
+          "tracemalloc_peak_bytes": 1064493,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 47584,
+          "tracemalloc_peak_bytes": 1292168,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 19080,
+          "tracemalloc_peak_bytes": 889756,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              2.038793,
+              3.902998,
+              1.898376,
+              3.807898,
+              2.299908,
+              1.933127,
+              1.9218
+            ],
+            "p50_ms": 2.038793,
+            "p95_ms": 3.902998,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 36480,
+            "tracemalloc_peak_bytes": 62842,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              2.049539,
+              2.11181,
+              1.964363,
+              1.99575,
+              1.913137,
+              2.279207,
+              2.402072
+            ],
+            "p50_ms": 2.049539,
+            "p95_ms": 2.402072,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 27456,
+            "tracemalloc_peak_bytes": 52402,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              1.809555,
+              1.865648,
+              2.260619,
+              2.034757,
+              2.372514,
+              2.062488,
+              1.961058
+            ],
+            "p50_ms": 2.034757,
+            "p95_ms": 2.372514,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 2768,
+            "tracemalloc_peak_bytes": 34914,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "chain-100.json",
+        "scene": "chain-100.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                2.625296,
+                1.783256,
+                1.677891,
+                3.427528,
+                0.486626,
+                0.386128,
+                0.970219
+              ],
+              "p50_ms": 1.677891,
+              "p95_ms": 3.427528,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 10872720,
+              "heap_used_after_bytes": 11803472,
+              "heap_used_delta_bytes": 930752,
+              "sampled_max_heap_used_bytes": 12194928,
+              "sampled_max_rss_bytes": 47534080,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12811,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                1.950893,
+                1.899367,
+                1.881171,
+                1.845458,
+                0.372299,
+                0.458015,
+                0.486286
+              ],
+              "p50_ms": 1.845458,
+              "p95_ms": 1.950893,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 12554224,
+              "heap_used_after_bytes": 12294680,
+              "heap_used_delta_bytes": -259544,
+              "sampled_max_heap_used_bytes": 13839080,
+              "sampled_max_rss_bytes": 50155520,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12810,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.398457,
+                0.5097,
+                0.381883,
+                0.351768,
+                1.472469,
+                0.39447,
+                0.383174
+              ],
+              "p50_ms": 0.39447,
+              "p95_ms": 1.472469,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 12983712,
+              "heap_used_after_bytes": 11706896,
+              "heap_used_delta_bytes": -1276816,
+              "sampled_max_heap_used_bytes": 14313464,
+              "sampled_max_rss_bytes": 53694464,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1630,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              15.724333,
+              14.568921,
+              18.615461,
+              26.636919,
+              27.013113,
+              25.347088,
+              23.915289
+            ],
+            "p50_ms": 23.915289,
+            "p95_ms": 27.013113,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 399,
+            "entities": 100,
+            "relations": 98,
+            "serialized_utf8_bytes": 24882
+          },
+          "memory": {
+            "heap_used_before_bytes": 42427024,
+            "heap_used_after_bytes": 58058096,
+            "heap_used_delta_bytes": 15631072,
+            "sampled_max_heap_used_bytes": 72892544,
+            "sampled_max_rss_bytes": 143941632,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 187,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 100,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "chain",
+      "metadata": {
+        "entities": 1000,
+        "topology": "chain",
+        "isolated_entities": 100,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "797f43d11b1cd482208a992b6a2ab2b3c60e854c7087bc054243b63bbb07d4a6",
+        "generated_source_pairs": 899
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9896837878837856,
+        "closest_pair_surface_gap": 0.34968378788378557,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 1322154,
+        "xml_elements": 19476,
+        "verified": true,
+        "checks": {
+          "entities": 1000,
+          "relations": 989,
+          "source_relations": 989,
+          "expanded_visits": 39252,
+          "eligible_source_relations": 989,
+          "eligible_source_entities": 1000
+        },
+        "observed_entities_omitted": 800,
+        "observed_relations_omitted": 789
+      },
+      "graph": {
+        "nodes": 1000,
+        "records": 1888
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            91.775968,
+            88.261977,
+            90.801623,
+            93.239318,
+            107.746489,
+            91.883306,
+            90.532833
+          ],
+          "p50_ms": 91.775968,
+          "p95_ms": 107.746489,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            434.871053,
+            472.245223,
+            397.54183,
+            407.676584,
+            380.226034,
+            390.332718,
+            419.669995
+          ],
+          "p50_ms": 407.676584,
+          "p95_ms": 472.245223,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            92.132574,
+            83.925399,
+            75.563146,
+            74.48989,
+            93.764904,
+            72.530463,
+            71.585111
+          ],
+          "p50_ms": 75.563146,
+          "p95_ms": 93.764904,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 213288,
+          "tracemalloc_peak_bytes": 10776400,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 578152,
+          "tracemalloc_peak_bytes": 12185826,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 241528,
+          "tracemalloc_peak_bytes": 9204405,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              18.723382,
+              18.287288,
+              20.377168,
+              20.577823,
+              19.451404,
+              18.787315,
+              19.112684
+            ],
+            "p50_ms": 19.112684,
+            "p95_ms": 20.577823,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 291000,
+            "tracemalloc_peak_bytes": 492762,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              21.001317,
+              20.343288,
+              22.650176,
+              19.664087,
+              18.962483,
+              20.496843,
+              21.339375
+            ],
+            "p50_ms": 20.496843,
+            "p95_ms": 22.650176,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 278728,
+            "tracemalloc_peak_bytes": 479802,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 4,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 11998
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              19.596878,
+              19.658609,
+              20.44007,
+              19.798535,
+              18.710261,
+              18.307508,
+              18.724643
+            ],
+            "p50_ms": 19.596878,
+            "p95_ms": 20.44007,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 12824,
+            "tracemalloc_peak_bytes": 460266,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "chain-1000.json",
+        "scene": "chain-1000.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                3.258901,
+                3.744322,
+                3.578511,
+                3.020129,
+                4.722687,
+                2.372816,
+                2.346827
+              ],
+              "p50_ms": 3.258901,
+              "p95_ms": 4.722687,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 31146912,
+              "heap_used_after_bytes": 34894056,
+              "heap_used_delta_bytes": 3747144,
+              "sampled_max_heap_used_bytes": 41973992,
+              "sampled_max_rss_bytes": 93339648,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12819,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                6.136039,
+                7.858838,
+                7.050456,
+                2.18588,
+                2.571669,
+                1.956613,
+                2.220541
+              ],
+              "p50_ms": 2.571669,
+              "p95_ms": 7.858838,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 39668288,
+              "heap_used_after_bytes": 43423072,
+              "heap_used_delta_bytes": 3754784,
+              "sampled_max_heap_used_bytes": 44174464,
+              "sampled_max_rss_bytes": 108412928,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 4,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 12818,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 4
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                2.168545,
+                1.823707,
+                2.219409,
+                2.352255,
+                2.854053,
+                3.154527,
+                4.12024
+              ],
+              "p50_ms": 2.352255,
+              "p95_ms": 4.12024,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 35710912,
+              "heap_used_after_bytes": 37545464,
+              "heap_used_delta_bytes": 1834552,
+              "sampled_max_heap_used_bytes": 48838168,
+              "sampled_max_rss_bytes": 118374400,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1638,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              50.542968,
+              104.678746,
+              69.779655,
+              95.213313,
+              94.559475,
+              46.288284,
+              49.58808
+            ],
+            "p50_ms": 69.779655,
+            "p95_ms": 104.678746,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 3990,
+            "entities": 1000,
+            "relations": 989,
+            "serialized_utf8_bytes": 247293
+          },
+          "memory": {
+            "heap_used_before_bytes": 63506528,
+            "heap_used_after_bytes": 115309816,
+            "heap_used_delta_bytes": 51803288,
+            "sampled_max_heap_used_bytes": 131033512,
+            "sampled_max_rss_bytes": 300367872,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 1888,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 1000,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 10,
+      "topology": "modular",
+      "metadata": {
+        "entities": 10,
+        "topology": "modular",
+        "isolated_entities": 1,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "4483e177da007e377371cee9fbfa655731347bf2bbb8a768dcf82ee422918335",
+        "generated_source_pairs": 8
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 4.799999999999997,
+        "closest_pair_surface_gap": 4.159999999999997,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 14924,
+        "xml_elements": 202,
+        "verified": true,
+        "checks": {
+          "entities": 10,
+          "relations": 9,
+          "source_relations": 9,
+          "expanded_visits": 397,
+          "eligible_source_relations": 9,
+          "eligible_source_entities": 10
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 10,
+        "records": 17
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            1.074914,
+            0.945413,
+            0.813338,
+            0.80787,
+            0.746289,
+            1.081032,
+            1.027564
+          ],
+          "p50_ms": 0.945413,
+          "p95_ms": 1.081032,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            3.941005,
+            3.847959,
+            4.276249,
+            3.513526,
+            3.758947,
+            3.820168,
+            4.18126
+          ],
+          "p50_ms": 3.847959,
+          "p95_ms": 4.276249,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            0.836953,
+            0.815892,
+            0.822342,
+            0.824605,
+            0.823924,
+            0.847368,
+            0.728052
+          ],
+          "p50_ms": 0.823924,
+          "p95_ms": 0.847368,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 4784,
+          "tracemalloc_peak_bytes": 105600,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 18224,
+          "tracemalloc_peak_bytes": 136083,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 2208,
+          "tracemalloc_peak_bytes": 83537,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              0.469622,
+              0.571822,
+              0.399849,
+              0.446247,
+              0.473528,
+              0.561467,
+              0.57075
+            ],
+            "p50_ms": 0.473528,
+            "p95_ms": 0.571822,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 22904,
+            "tracemalloc_peak_bytes": 29754,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              0.621556,
+              0.373561,
+              0.415392,
+              0.40697,
+              0.357778,
+              0.454319,
+              0.380531
+            ],
+            "p50_ms": 0.40697,
+            "p95_ms": 0.621556,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 12760,
+            "tracemalloc_peak_bytes": 18890,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              0.170611,
+              0.243548,
+              0.184702,
+              0.167096,
+              0.164773,
+              0.164483,
+              0.430845
+            ],
+            "p50_ms": 0.170611,
+            "p95_ms": 0.430845,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 64,
+            "tracemalloc_peak_bytes": 6402,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "modular-10.json",
+        "scene": "modular-10.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                0.397796,
+                1.112238,
+                0.405347,
+                0.634003,
+                0.596579,
+                0.38017,
+                0.620234
+              ],
+              "p50_ms": 0.596579,
+              "p95_ms": 1.112238,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9114232,
+              "heap_used_after_bytes": 9175528,
+              "heap_used_delta_bytes": 61296,
+              "sampled_max_heap_used_bytes": 9292656,
+              "sampled_max_rss_bytes": 41869312,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10361,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                1.339824,
+                0.287664,
+                0.394741,
+                0.260934,
+                0.340822,
+                0.285591,
+                0.256808
+              ],
+              "p50_ms": 0.287664,
+              "p95_ms": 1.339824,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9555600,
+              "heap_used_after_bytes": 9432424,
+              "heap_used_delta_bytes": -123176,
+              "sampled_max_heap_used_bytes": 9432184,
+              "sampled_max_rss_bytes": 42917888,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10360,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.059848,
+                0.05466,
+                0.063234,
+                0.100297,
+                0.078055,
+                0.136411,
+                0.132776
+              ],
+              "p50_ms": 0.078055,
+              "p95_ms": 0.136411,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9571704,
+              "heap_used_after_bytes": 9984360,
+              "heap_used_delta_bytes": 412656,
+              "sampled_max_heap_used_bytes": 10080760,
+              "sampled_max_rss_bytes": 42917888,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1623,
+            "work": {
+              "reached_nodes": 8,
+              "examined_arcs": 8
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              9.038165,
+              9.208114,
+              8.572258,
+              13.75951,
+              8.787075,
+              7.852888,
+              7.677881
+            ],
+            "p50_ms": 8.787075,
+            "p95_ms": 13.75951,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 40,
+            "entities": 10,
+            "relations": 9,
+            "serialized_utf8_bytes": 2676
+          },
+          "memory": {
+            "heap_used_before_bytes": 39775224,
+            "heap_used_after_bytes": 54146960,
+            "heap_used_delta_bytes": 14371736,
+            "sampled_max_heap_used_bytes": 54144808,
+            "sampled_max_rss_bytes": 130355200,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 17,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 100,
+      "topology": "modular",
+      "metadata": {
+        "entities": 100,
+        "topology": "modular",
+        "isolated_entities": 10,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "8edbfd850f60aa5d867dc234a034248b71f11b4a7e697012adad7fc9973962fa",
+        "generated_source_pairs": 89
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9913969941451302,
+        "closest_pair_surface_gap": 0.3513969941451301,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 132911,
+        "xml_elements": 1953,
+        "verified": true,
+        "checks": {
+          "entities": 100,
+          "relations": 98,
+          "source_relations": 98,
+          "expanded_visits": 3927,
+          "eligible_source_relations": 98,
+          "eligible_source_entities": 100
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 100,
+        "records": 187
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            8.133412,
+            8.274419,
+            7.459138,
+            8.457239,
+            8.038412,
+            9.070583,
+            8.610584
+          ],
+          "p50_ms": 8.274419,
+          "p95_ms": 9.070583,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            48.945053,
+            35.854649,
+            38.407139,
+            39.554981,
+            37.869753,
+            40.479973,
+            41.872174
+          ],
+          "p50_ms": 39.554981,
+          "p95_ms": 48.945053,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            7.879068,
+            8.228372,
+            7.31064,
+            8.347708,
+            11.191216,
+            8.85169,
+            8.792803
+          ],
+          "p50_ms": 8.347708,
+          "p95_ms": 11.191216,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 14016,
+          "tracemalloc_peak_bytes": 1066983,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 47535,
+          "tracemalloc_peak_bytes": 1292813,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 19080,
+          "tracemalloc_peak_bytes": 890562,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              8.473463,
+              6.408961,
+              2.433094,
+              2.538149,
+              2.096378,
+              2.289953,
+              2.276363
+            ],
+            "p50_ms": 2.433094,
+            "p95_ms": 8.473463,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 30320,
+            "tracemalloc_peak_bytes": 55474,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              2.336752,
+              2.236515,
+              2.252428,
+              2.087134,
+              2.329812,
+              2.527052,
+              2.289192
+            ],
+            "p50_ms": 2.289192,
+            "p95_ms": 2.527052,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 37224,
+            "tracemalloc_peak_bytes": 61658,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              1.834402,
+              1.779762,
+              1.810317,
+              1.909804,
+              1.757458,
+              1.846831,
+              1.813721
+            ],
+            "p50_ms": 1.813721,
+            "p95_ms": 1.909804,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 1448,
+            "tracemalloc_peak_bytes": 33682,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "modular-100.json",
+        "scene": "modular-100.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                0.673492,
+                0.715614,
+                0.62469,
+                1.875113,
+                0.491555,
+                0.423424,
+                0.457003
+              ],
+              "p50_ms": 0.62469,
+              "p95_ms": 1.875113,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 10938704,
+              "heap_used_after_bytes": 11847928,
+              "heap_used_delta_bytes": 909224,
+              "sampled_max_heap_used_bytes": 12310008,
+              "sampled_max_rss_bytes": 47403008,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10368,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                0.527157,
+                0.497413,
+                1.037318,
+                0.44795,
+                0.455921,
+                0.43473,
+                0.395032
+              ],
+              "p50_ms": 0.455921,
+              "p95_ms": 1.037318,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 12788320,
+              "heap_used_after_bytes": 12608672,
+              "heap_used_delta_bytes": -179648,
+              "sampled_max_heap_used_bytes": 13694528,
+              "sampled_max_rss_bytes": 50024448,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10367,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.202628,
+                0.194287,
+                0.284119,
+                0.662896,
+                0.209349,
+                0.221005,
+                0.197581
+              ],
+              "p50_ms": 0.209349,
+              "p95_ms": 0.662896,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 13298072,
+              "heap_used_after_bytes": 12004928,
+              "heap_used_delta_bytes": -1293144,
+              "sampled_max_heap_used_bytes": 14309712,
+              "sampled_max_rss_bytes": 53039104,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1630,
+            "work": {
+              "reached_nodes": 8,
+              "examined_arcs": 8
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              13.871265,
+              10.749486,
+              11.861453,
+              11.62191,
+              11.623643,
+              11.028266,
+              16.914517
+            ],
+            "p50_ms": 11.623643,
+            "p95_ms": 16.914517,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 399,
+            "entities": 100,
+            "relations": 98,
+            "serialized_utf8_bytes": 24875
+          },
+          "memory": {
+            "heap_used_before_bytes": 42672216,
+            "heap_used_after_bytes": 58872760,
+            "heap_used_delta_bytes": 16200544,
+            "sampled_max_heap_used_bytes": 73681640,
+            "sampled_max_rss_bytes": 152883200,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 187,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 100,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "modular",
+      "metadata": {
+        "entities": 1000,
+        "topology": "modular",
+        "isolated_entities": 100,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "83ea66a65de9bae5d8c7cc1e2da919e01082f5f39b3c318243ffc0bca0f7afb9",
+        "generated_source_pairs": 900
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9896837878837856,
+        "closest_pair_surface_gap": 0.34968378788378557,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 1323268,
+        "xml_elements": 19483,
+        "verified": true,
+        "checks": {
+          "entities": 1000,
+          "relations": 990,
+          "source_relations": 990,
+          "expanded_visits": 39262,
+          "eligible_source_relations": 990,
+          "eligible_source_entities": 1000
+        },
+        "observed_entities_omitted": 800,
+        "observed_relations_omitted": 790
+      },
+      "graph": {
+        "nodes": 1000,
+        "records": 1890
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            81.905949,
+            81.802297,
+            91.222895,
+            82.412996,
+            100.51293,
+            95.020394,
+            126.921649
+          ],
+          "p50_ms": 91.222895,
+          "p95_ms": 126.921649,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            388.103263,
+            409.099518,
+            424.864291,
+            408.156845,
+            357.518071,
+            435.148602,
+            413.836789
+          ],
+          "p50_ms": 409.099518,
+          "p95_ms": 435.148602,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            77.609376,
+            123.004237,
+            97.323311,
+            127.648217,
+            131.154299,
+            78.079719,
+            79.013074
+          ],
+          "p50_ms": 97.323311,
+          "p95_ms": 131.154299,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 214344,
+          "tracemalloc_peak_bytes": 10785237,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 697560,
+          "tracemalloc_peak_bytes": 12310849,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 106112,
+          "tracemalloc_peak_bytes": 9080234,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              19.301894,
+              20.978494,
+              23.338861,
+              22.599051,
+              21.406604,
+              21.131028,
+              22.340972
+            ],
+            "p50_ms": 21.406604,
+            "p95_ms": 23.338861,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 266496,
+            "tracemalloc_peak_bytes": 468218,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              18.903598,
+              21.162606,
+              19.981496,
+              22.377814,
+              20.245875,
+              23.991352,
+              21.061767
+            ],
+            "p50_ms": 21.061767,
+            "p95_ms": 23.991352,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 273976,
+            "tracemalloc_peak_bytes": 474978,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 3,
+          "total_paths": 2,
+          "returned_paths": 2,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 18297
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              75.080517,
+              43.274969,
+              20.976451,
+              24.65485,
+              21.177798,
+              20.835183,
+              20.813481
+            ],
+            "p50_ms": 21.177798,
+            "p95_ms": 75.080517,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 12824,
+            "tracemalloc_peak_bytes": 447002,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "modular-1000.json",
+        "scene": "modular-1000.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                2.936966,
+                2.609805,
+                2.850809,
+                2.707589,
+                2.927833,
+                3.836581,
+                2.191418
+              ],
+              "p50_ms": 2.850809,
+              "p95_ms": 3.836581,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 31228392,
+              "heap_used_after_bytes": 34475384,
+              "heap_used_delta_bytes": 3246992,
+              "sampled_max_heap_used_bytes": 44549520,
+              "sampled_max_rss_bytes": 94437376,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10376,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                7.475382,
+                8.279211,
+                7.241177,
+                1.944574,
+                1.840771,
+                2.157578,
+                2.121826
+              ],
+              "p50_ms": 2.157578,
+              "p95_ms": 8.279211,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 39185704,
+              "heap_used_after_bytes": 43493880,
+              "heap_used_delta_bytes": 4308176,
+              "sampled_max_heap_used_bytes": 43704264,
+              "sampled_max_rss_bytes": 107282432,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 3,
+            "total_paths": 2,
+            "returned_paths": 1,
+            "omitted_paths": 1,
+            "result_utf8_bytes": 10375,
+            "work": {
+              "reached_nodes": 5,
+              "examined_arcs": 5
+            },
+            "presentation_limited": "Whole path records omitted to fit the UTF-8 result budget."
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                1.686314,
+                2.041737,
+                1.73811,
+                1.217834,
+                1.05189,
+                1.032401,
+                3.623177
+              ],
+              "p50_ms": 1.686314,
+              "p95_ms": 3.623177,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 35740632,
+              "heap_used_after_bytes": 36704784,
+              "heap_used_delta_bytes": 964152,
+              "sampled_max_heap_used_bytes": 48825336,
+              "sampled_max_rss_bytes": 117637120,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1638,
+            "work": {
+              "reached_nodes": 8,
+              "examined_arcs": 8
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              57.331476,
+              95.51119,
+              45.194888,
+              86.767169,
+              90.536802,
+              36.947919,
+              56.420274
+            ],
+            "p50_ms": 57.331476,
+            "p95_ms": 95.51119,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 3991,
+            "entities": 1000,
+            "relations": 990,
+            "serialized_utf8_bytes": 247369
+          },
+          "memory": {
+            "heap_used_before_bytes": 85226080,
+            "heap_used_after_bytes": 113230368,
+            "heap_used_delta_bytes": 28004288,
+            "sampled_max_heap_used_bytes": 129082168,
+            "sampled_max_rss_bytes": 299503616,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 1890,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 1000,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 10,
+      "topology": "branching",
+      "metadata": {
+        "entities": 10,
+        "topology": "branching",
+        "isolated_entities": 1,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "be523153357f8b49567231f1f3b08f38e41ac4755f882122df365fb396125d19",
+        "generated_source_pairs": 8
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 4.799999999999997,
+        "closest_pair_surface_gap": 4.159999999999997,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 14912,
+        "xml_elements": 202,
+        "verified": true,
+        "checks": {
+          "entities": 10,
+          "relations": 9,
+          "source_relations": 9,
+          "expanded_visits": 397,
+          "eligible_source_relations": 9,
+          "eligible_source_entities": 10
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 10,
+        "records": 17
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            1.100551,
+            0.995847,
+            1.013093,
+            1.083075,
+            1.064989,
+            1.091338,
+            0.810965
+          ],
+          "p50_ms": 1.064989,
+          "p95_ms": 1.100551,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            4.117776,
+            3.914256,
+            4.149583,
+            3.542058,
+            4.139433,
+            3.769283,
+            3.918192
+          ],
+          "p50_ms": 3.918192,
+          "p95_ms": 4.149583,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            1.229942,
+            1.149253,
+            0.76023,
+            0.745538,
+            1.000203,
+            0.854459,
+            0.831585
+          ],
+          "p50_ms": 0.854459,
+          "p95_ms": 1.229942,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 4784,
+          "tracemalloc_peak_bytes": 105540,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 18224,
+          "tracemalloc_peak_bytes": 136583,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 2208,
+          "tracemalloc_peak_bytes": 83541,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              0.243649,
+              0.238191,
+              0.235787,
+              0.254185,
+              0.235437,
+              0.327532,
+              0.246694
+            ],
+            "p50_ms": 0.243649,
+            "p95_ms": 0.327532,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 9656,
+            "tracemalloc_peak_bytes": 15898,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              0.23736,
+              0.232873,
+              0.229838,
+              0.255546,
+              0.231842,
+              0.255877,
+              0.307232
+            ],
+            "p50_ms": 0.23736,
+            "p95_ms": 0.307232,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 6552,
+            "tracemalloc_peak_bytes": 11978,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              0.167066,
+              0.166766,
+              0.165414,
+              0.180816,
+              0.162649,
+              0.164562,
+              0.164002
+            ],
+            "p50_ms": 0.165414,
+            "p95_ms": 0.180816,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 64,
+            "tracemalloc_peak_bytes": 6434,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "branching-10.json",
+        "scene": "branching-10.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                0.287974,
+                0.217821,
+                0.286091,
+                1.012361,
+                0.194557,
+                0.165964,
+                0.220946
+              ],
+              "p50_ms": 0.220946,
+              "p95_ms": 1.012361,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 9669504,
+              "heap_used_after_bytes": 9095088,
+              "heap_used_delta_bytes": -574416,
+              "sampled_max_heap_used_bytes": 9354288,
+              "sampled_max_rss_bytes": 41742336,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7750,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                0.172794,
+                0.168318,
+                0.187767,
+                0.177742,
+                0.168538,
+                0.171753,
+                0.767611
+              ],
+              "p50_ms": 0.172794,
+              "p95_ms": 0.767611,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 8899232,
+              "heap_used_after_bytes": 8328984,
+              "heap_used_delta_bytes": -570248,
+              "sampled_max_heap_used_bytes": 9533568,
+              "sampled_max_rss_bytes": 43315200,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7749,
+            "work": {
+              "reached_nodes": 3,
+              "examined_arcs": 2
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.059738,
+                0.055282,
+                0.064335,
+                0.103322,
+                0.064886,
+                0.057355,
+                0.052948
+              ],
+              "p50_ms": 0.059738,
+              "p95_ms": 0.103322,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 8478872,
+              "heap_used_after_bytes": 8949376,
+              "heap_used_delta_bytes": 470504,
+              "sampled_max_heap_used_bytes": 8973048,
+              "sampled_max_rss_bytes": 43315200,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1623,
+            "work": {
+              "reached_nodes": 9,
+              "examined_arcs": 8
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              16.043214,
+              9.147034,
+              9.5582,
+              10.023847,
+              19.302676,
+              7.785989,
+              8.151649
+            ],
+            "p50_ms": 9.5582,
+            "p95_ms": 19.302676,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 40,
+            "entities": 10,
+            "relations": 9,
+            "serialized_utf8_bytes": 2664
+          },
+          "memory": {
+            "heap_used_before_bytes": 39696320,
+            "heap_used_after_bytes": 53786640,
+            "heap_used_delta_bytes": 14090320,
+            "sampled_max_heap_used_bytes": 53760656,
+            "sampled_max_rss_bytes": 131411968,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 17,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 100,
+      "topology": "branching",
+      "metadata": {
+        "entities": 100,
+        "topology": "branching",
+        "isolated_entities": 10,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "1963ed534ad65278c7efa7886b89ed74ff8ee14a0c8480a47688e0b72098553e",
+        "generated_source_pairs": 89
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9913969941451302,
+        "closest_pair_surface_gap": 0.3513969941451301,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 132325,
+        "xml_elements": 1953,
+        "verified": true,
+        "checks": {
+          "entities": 100,
+          "relations": 98,
+          "source_relations": 98,
+          "expanded_visits": 3927,
+          "eligible_source_relations": 98,
+          "eligible_source_entities": 100
+        },
+        "observed_entities_omitted": 0,
+        "observed_relations_omitted": 0
+      },
+      "graph": {
+        "nodes": 100,
+        "records": 187
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            7.885817,
+            7.739601,
+            8.54979,
+            8.932368,
+            10.265302,
+            9.550619,
+            8.324293
+          ],
+          "p50_ms": 8.54979,
+          "p95_ms": 10.265302,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            41.036222,
+            42.463264,
+            38.910019,
+            41.30655,
+            42.593525,
+            45.054211,
+            44.888
+          ],
+          "p50_ms": 42.463264,
+          "p95_ms": 45.054211,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            7.511685,
+            7.772601,
+            7.657139,
+            10.953766,
+            7.300435,
+            7.01272,
+            10.166115
+          ],
+          "p50_ms": 7.657139,
+          "p95_ms": 10.953766,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 14016,
+          "tracemalloc_peak_bytes": 1063814,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 47584,
+          "tracemalloc_peak_bytes": 1292037,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 19080,
+          "tracemalloc_peak_bytes": 889764,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              1.824999,
+              1.861002,
+              1.861562,
+              1.849103,
+              2.403891,
+              1.940478,
+              1.994979
+            ],
+            "p50_ms": 1.861562,
+            "p95_ms": 2.403891,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 30584,
+            "tracemalloc_peak_bytes": 68706,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              1.812971,
+              1.908191,
+              1.816856,
+              1.735427,
+              1.9893,
+              1.895312,
+              1.934349
+            ],
+            "p50_ms": 1.895312,
+            "p95_ms": 1.9893,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 32216,
+            "tracemalloc_peak_bytes": 55946,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              1.749097,
+              1.990272,
+              1.735036,
+              2.195555,
+              1.756197,
+              2.269834,
+              1.797338
+            ],
+            "p50_ms": 1.797338,
+            "p95_ms": 2.269834,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 4632,
+            "tracemalloc_peak_bytes": 50474,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "branching-100.json",
+        "scene": "branching-100.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                0.889771,
+                0.622837,
+                0.54244,
+                0.720952,
+                1.417949,
+                0.323216,
+                0.426559
+              ],
+              "p50_ms": 0.622837,
+              "p95_ms": 1.417949,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 10786504,
+              "heap_used_after_bytes": 11584920,
+              "heap_used_delta_bytes": 798416,
+              "sampled_max_heap_used_bytes": 12390784,
+              "sampled_max_rss_bytes": 47378432,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7757,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                0.867007,
+                0.408471,
+                0.395553,
+                0.403975,
+                0.856842,
+                0.367071,
+                0.403865
+              ],
+              "p50_ms": 0.403975,
+              "p95_ms": 0.867007,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 12163952,
+              "heap_used_after_bytes": 11579736,
+              "heap_used_delta_bytes": -584216,
+              "sampled_max_heap_used_bytes": 13678816,
+              "sampled_max_rss_bytes": 49999872,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7756,
+            "work": {
+              "reached_nodes": 3,
+              "examined_arcs": 2
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                0.301554,
+                0.251801,
+                0.261606,
+                0.910911,
+                0.293783,
+                0.316396,
+                0.313322
+              ],
+              "p50_ms": 0.301554,
+              "p95_ms": 0.910911,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 12555688,
+              "heap_used_after_bytes": 12265960,
+              "heap_used_delta_bytes": -289728,
+              "sampled_max_heap_used_bytes": 13997144,
+              "sampled_max_rss_bytes": 53932032,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1632,
+            "work": {
+              "reached_nodes": 90,
+              "examined_arcs": 89
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              16.976619,
+              12.744203,
+              14.117027,
+              15.108597,
+              13.875451,
+              17.602611,
+              18.818131
+            ],
+            "p50_ms": 15.108597,
+            "p95_ms": 18.818131,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 399,
+            "entities": 100,
+            "relations": 98,
+            "serialized_utf8_bytes": 24771
+          },
+          "memory": {
+            "heap_used_before_bytes": 42723504,
+            "heap_used_after_bytes": 58909688,
+            "heap_used_delta_bytes": 16186184,
+            "sampled_max_heap_used_bytes": 73704192,
+            "sampled_max_rss_bytes": 142753792,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 187,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 100,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    },
+    {
+      "size": 1000,
+      "topology": "branching",
+      "metadata": {
+        "entities": 1000,
+        "topology": "branching",
+        "isolated_entities": 100,
+        "max_identifier_characters": 116,
+        "disclosure": "Pure synthetic generated repository identities and relation observations; not a harvest of 10/100/1000 real Git repositories. Static compile/check and CPU/DOM/query measurements only; no rendered pixels or GPU throughput.",
+        "fixture_digest": "2f7d06ab8bd0cb79210eccde984b0e4419e2ed403aa8d12a887b4d16a45c9b13",
+        "generated_source_pairs": 899
+      },
+      "geometry": {
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9896837878837856,
+        "closest_pair_surface_gap": 0.34968378788378557,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      "scene": {
+        "xml_bytes": 1321498,
+        "xml_elements": 19476,
+        "verified": true,
+        "checks": {
+          "entities": 1000,
+          "relations": 989,
+          "source_relations": 989,
+          "expanded_visits": 39252,
+          "eligible_source_relations": 989,
+          "eligible_source_entities": 1000
+        },
+        "observed_entities_omitted": 800,
+        "observed_relations_omitted": 789
+      },
+      "graph": {
+        "nodes": 1000,
+        "records": 1888
+      },
+      "timings": {
+        "compile": {
+          "samples_ms": [
+            123.910081,
+            96.871313,
+            97.739192,
+            99.76031,
+            113.730749,
+            91.864258,
+            104.733105
+          ],
+          "p50_ms": 99.76031,
+          "p95_ms": 123.910081,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "verify": {
+          "samples_ms": [
+            399.340648,
+            394.987561,
+            385.826636,
+            391.771869,
+            460.677728,
+            388.920205,
+            393.520661
+          ],
+          "p50_ms": 393.520661,
+          "p95_ms": 460.677728,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        },
+        "typed_projection": {
+          "samples_ms": [
+            85.92617,
+            89.408248,
+            81.525547,
+            78.05788,
+            84.302698,
+            79.592049,
+            108.62169
+          ],
+          "p50_ms": 84.302698,
+          "p95_ms": 108.62169,
+          "p95_method": "nearest rank",
+          "warmups": 2,
+          "repeats": 7
+        }
+      },
+      "memory": {
+        "compile": {
+          "tracemalloc_current_bytes": 213288,
+          "tracemalloc_peak_bytes": 10773120,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "verify": {
+          "tracemalloc_current_bytes": 578152,
+          "tracemalloc_peak_bytes": 12185218,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        },
+        "typed_projection": {
+          "tracemalloc_current_bytes": 19080,
+          "tracemalloc_peak_bytes": 8981909,
+          "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+        }
+      },
+      "python_queries": {
+        "forward": {
+          "timings": {
+            "samples_ms": [
+              21.140239,
+              21.787683,
+              20.409033,
+              20.778697,
+              21.275279,
+              38.465008,
+              21.399652
+            ],
+            "p50_ms": 21.275279,
+            "p95_ms": 38.465008,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 230872,
+            "tracemalloc_peak_bytes": 448818,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "incoming": {
+          "timings": {
+            "samples_ms": [
+              25.574431,
+              20.43406,
+              22.804916,
+              18.939037,
+              20.349355,
+              19.548214,
+              19.11081
+            ],
+            "p50_ms": 20.349355,
+            "p95_ms": 25.574431,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 281104,
+            "tracemalloc_peak_bytes": 481402,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": 2,
+          "total_paths": 1,
+          "returned_paths": 1,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 6944
+        },
+        "disconnected": {
+          "timings": {
+            "samples_ms": [
+              20.804145,
+              19.503919,
+              20.024175,
+              20.29877,
+              20.278411,
+              21.375716,
+              20.254565
+            ],
+            "p50_ms": 20.278411,
+            "p95_ms": 21.375716,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "memory": {
+            "tracemalloc_current_bytes": 12432,
+            "tracemalloc_peak_bytes": 426642,
+            "scope": "Python allocations in one separate traced call; not total RSS, browser or GPU memory."
+          },
+          "oracle_equal": true,
+          "hops": null,
+          "total_paths": 0,
+          "returned_paths": 0,
+          "omitted_paths": 0,
+          "result_utf8_bytes": 757
+        }
+      },
+      "artifacts": {
+        "fixture": "branching-1000.json",
+        "scene": "branching-1000.x3d"
+      },
+      "javascript": {
+        "environment": {
+          "node": "v24.22.1",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu_count": 9,
+          "node_v8": "13.6.233.17-node.58"
+        },
+        "tool": "makeTools(bundle).find(architecture).execute(arguments)",
+        "queries": {
+          "forward": {
+            "timings": {
+              "samples_ms": [
+                3.766959,
+                4.687284,
+                3.76138,
+                3.721192,
+                3.352508,
+                4.05271,
+                2.453765
+              ],
+              "p50_ms": 3.76138,
+              "p95_ms": 4.687284,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 31126008,
+              "heap_used_after_bytes": 34457560,
+              "heap_used_delta_bytes": 3331552,
+              "sampled_max_heap_used_bytes": 43501880,
+              "sampled_max_rss_bytes": 93536256,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7765,
+            "work": {
+              "reached_nodes": 7,
+              "examined_arcs": 6
+            },
+            "presentation_limited": null
+          },
+          "incoming": {
+            "timings": {
+              "samples_ms": [
+                5.132139,
+                2.514785,
+                4.58911,
+                1.990833,
+                2.458692,
+                2.808847,
+                1.900349
+              ],
+              "p50_ms": 2.514785,
+              "p95_ms": 5.132139,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 38880432,
+              "heap_used_after_bytes": 43266552,
+              "heap_used_delta_bytes": 4386120,
+              "sampled_max_heap_used_bytes": 43513392,
+              "sampled_max_rss_bytes": 107692032,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": 2,
+            "total_paths": 1,
+            "returned_paths": 1,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 7764,
+            "work": {
+              "reached_nodes": 3,
+              "examined_arcs": 2
+            },
+            "presentation_limited": null
+          },
+          "disconnected": {
+            "timings": {
+              "samples_ms": [
+                2.460174,
+                2.109738,
+                2.27417,
+                2.276594,
+                1.485808,
+                1.314496,
+                4.245564
+              ],
+              "p50_ms": 2.27417,
+              "p95_ms": 4.245564,
+              "p95_method": "nearest rank",
+              "warmups": 2,
+              "repeats": 7
+            },
+            "memory": {
+              "heap_used_before_bytes": 35558640,
+              "heap_used_after_bytes": 37216280,
+              "heap_used_delta_bytes": 1657640,
+              "sampled_max_heap_used_bytes": 49315240,
+              "sampled_max_rss_bytes": 115949568,
+              "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+            },
+            "oracle_equal": true,
+            "hops": null,
+            "total_paths": 0,
+            "returned_paths": 0,
+            "omitted_paths": 0,
+            "result_utf8_bytes": 1642,
+            "work": {
+              "reached_nodes": 127,
+              "examined_arcs": 126
+            },
+            "presentation_limited": null
+          }
+        },
+        "svg_dom": {
+          "available": true,
+          "jsdom_version": "31.0.0",
+          "timings": {
+            "samples_ms": [
+              70.475832,
+              119.577624,
+              88.746834,
+              85.253819,
+              102.351454,
+              38.51958,
+              53.286972
+            ],
+            "p50_ms": 85.253819,
+            "p95_ms": 119.577624,
+            "p95_method": "nearest rank",
+            "warmups": 2,
+            "repeats": 7
+          },
+          "result": {
+            "svg_element_nodes": 3990,
+            "entities": 1000,
+            "relations": 989,
+            "serialized_utf8_bytes": 246750
+          },
+          "memory": {
+            "heap_used_before_bytes": 83623288,
+            "heap_used_after_bytes": 111514320,
+            "heap_used_delta_bytes": 27891032,
+            "sampled_max_heap_used_bytes": 127253256,
+            "sampled_max_rss_bytes": 300838912,
+            "scope": "Node process snapshots outside timing spans; GC is not forced; deltas can be negative. Not peak allocations, browser or GPU memory."
+          },
+          "scope": "Actual jsdom SVG construction + serialization of a synthetic ScenePlan mirror. Not production Workbench DOM, browser layout, paint, X_ITE or GPU timing."
+        },
+        "budget_probes": {
+          "nodes": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 10001,
+            "graph_records": 1888,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          },
+          "records": {
+            "status": "unavailable",
+            "refused": true,
+            "graph_nodes": 1000,
+            "graph_records": 50001,
+            "reason": "Typed graph exceeds this in-browser work budget; query a partitioned bundle.",
+            "limits": {
+              "max_nodes": 10000,
+              "max_records": 50000,
+              "max_hops": 6,
+              "max_returned_paths": 50,
+              "relation_records_per_hop": 4,
+              "max_returned_records": 100,
+              "result_utf8_bytes": 14000
+            }
+          }
+        }
+      }
+    }
+  ],
+  "unavailable_project_harnesses": [],
+  "measurement_conditions": "Local shared-host diagnostic samples without CPU pinning or forced JavaScript GC; not a production SLA or confidence interval.",
+  "timing_scope": "Separate stage calls. Fixture generation, imports, JSON/IPC and memory probes excluded from stage timings unless stated.",
+  "memory_scope": "Separate Python tracemalloc calls; JavaScript heap fields are process snapshots. No GPU or rendered-pixel measurements.",
+  "artifact_directory": "scale-fixtures",
+  "budget_probes": {
+    "verifier": {
+      "kind": "shared_USE_expansion",
+      "scope": "Resource refusal at real default budget; not a semantic pass.",
+      "elapsed_ms": 156.102856,
+      "xml_bytes": 16035,
+      "accepted": false,
+      "expanded_visits": 250000,
+      "limit": 250000,
+      "finding_codes": [
+        "scene_expansion_limit"
+      ]
+    },
+    "python_query": {
+      "nodes": {
+        "refused": true,
+        "nodes": 10001,
+        "records": 17,
+        "reason": "relations: graph exceeds bounded traversal budget",
+        "scope": "Actual production preflight work-budget refusal."
+      },
+      "records": {
+        "refused": true,
+        "nodes": 10,
+        "records": 50001,
+        "reason": "relations: graph exceeds bounded traversal budget",
+        "scope": "Actual production preflight work-budget refusal."
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "kind": "git_blob",
+ "visibility": "public",
+ "repo_id": "github:synthetic/evidence",
+ "revision": {
+  "oid": "60cc388e4c53f105bdcf6967a556f23bcf17a580",
+  "object_format": "sha1"
+ },
+ "blob": {
+  "oid": "99219f3da1a738baf1174af56a228a5ae03aa024",
+  "object_format": "sha1",
+  "mode": "100644",
+  "size_bytes": 69,
+  "content_sha256": "0794955dcb5acdcb9cdddc0bee3d2a2189763b5e273f312f7a877de933038bc9"
+ },
+ "path": "package.json",
+ "span": {
+  "kind": "lines",
+  "encoding": "utf-8",
+  "start": 1,
+  "end": 1,
+  "byte_start": 0,
+  "byte_end": 69,
+  "content_sha256": "0794955dcb5acdcb9cdddc0bee3d2a2189763b5e273f312f7a877de933038bc9"
+ },
+ "detector": {
+  "id": "mention:dependency",
+  "version": "1"
+ }
+}

@@ -10,8 +10,17 @@ SEP_FLD = "\x1f"
 SEP_LIST = "\x1d"
 
 
+def read_environment() -> dict:
+    """Read the explicitly selected checkout, ignoring ambient repository overrides."""
+    env = dict(os.environ)
+    for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_INDEX_FILE"):
+        env.pop(key, None)
+    env.update(GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1", GIT_NO_REPLACE_OBJECTS="1", GIT_NO_LAZY_FETCH="1", GIT_OPTIONAL_LOCKS="0")
+    return env
+
+
 def git(repo: str, *args: str, timeout: int = 600, check: bool = True) -> str:
-    env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1")
+    env = read_environment()
     proc = subprocess.run(
         ["git", "-C", repo, *args],
         capture_output=True,
@@ -29,10 +38,24 @@ def git_bytes(repo: str, *args: str, timeout: int = 600) -> bytes:
     """Git's NUL-delimited machine output, without text decoding or newline rewriting."""
     proc = subprocess.run(
         ["git", "-C", repo, *args], capture_output=True, timeout=timeout,
-        env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1"),
+        env=read_environment(),
     )
     if proc.returncode:
         raise RuntimeError(f"git {args[0]} failed: {proc.stderr.decode('utf-8', errors='replace').strip()[:400]}")
+    return proc.stdout
+
+
+def local_git_bytes(repo: str, *args: str, timeout: int = 120) -> bytes:
+    """Strict local object reads with replacements/lazy fetch disabled.
+
+    Explicit --no-lazy-fetch fails closed on Git versions that do not support
+    it, rather than silently allowing a partial clone to fetch remote objects.
+    Path arguments are literal and commands are passed without a shell.
+    """
+    proc = subprocess.run(["git", "--no-lazy-fetch", "--no-replace-objects", "--literal-pathspecs", "-C", repo, *args],
+                          capture_output=True, timeout=timeout, env=read_environment())
+    if proc.returncode:
+        raise RuntimeError("local Git object read failed")
     return proc.stdout
 
 
@@ -126,8 +149,8 @@ def log_with_numstat(repo: str, refs: list[str], author_regex: str | None = None
         yield current
 
 
-def ls_tree(repo: str, ref: str):
-    """Yield (blob_sha, size, path) for every blob in the tree of ref."""
+def ls_tree_entries(repo: str, ref: str):
+    """Yield (mode, blob_oid, size, path), preserving literal Git path bytes."""
     out = git_bytes(repo, "ls-tree", "-r", "-l", "-z", ref)
     for rec in out.split(b"\0"):
         if not rec:
@@ -137,11 +160,17 @@ def ls_tree(repo: str, ref: str):
         if len(parts) < 4 or parts[1] != b"blob":
             continue
         size = int(parts[3]) if parts[3].isdigit() else 0
-        yield parts[2].decode("ascii"), size, os.fsdecode(path)
+        yield parts[0].decode("ascii"), parts[2].decode("ascii"), size, os.fsdecode(path)
+
+
+def ls_tree(repo: str, ref: str):
+    """Yield (blob_oid, size, path) for every blob in the tree of ref."""
+    for _mode, oid, size, path in ls_tree_entries(repo, ref):
+        yield oid, size, path
 
 
 def cat_blob(repo: str, blob: str, timeout: int = 120) -> bytes:
-    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    env = read_environment()
     proc = subprocess.run(
         ["git", "-C", repo, "cat-file", "blob", blob], capture_output=True, timeout=timeout, env=env
     )

@@ -19,6 +19,8 @@ import json
 import re
 
 from .structure import private_id_rx, private_rx
+from .locators import normalize_source_locator, valid_repo_id
+from .temporal import filter_records, normalize_instant, normalize_time_filter, normalize_valid_time
 
 MAX_WITNESSES = 8
 GRADES = frozenset({"C", "L", "S"})
@@ -65,16 +67,17 @@ def _substantive(evidence) -> bool:
     return isinstance(evidence, dict) and any(evidence.get(k) for k in ("path", "other_path", "text"))
 
 
-def _safe_evidence(evidence, kind: str, private: bool, count: int, private_pattern) -> dict | None:
+def _safe_evidence(evidence, kind: str, private: bool, count: int, private_pattern, repo_ids: set, source_repo_id=None, target_repo_id=None) -> dict | None:
     if not _substantive(evidence):
         return None
     if private:
         # This witness attests only the supplied detector summary. It does not
         # reveal, hash or paraphrase the withheld source location or contents.
-        return {"kind": kind, "visibility": "aggregate_only", "count": count,
+        return {"kind": kind, "visibility": "aggregate_only", "count": count, "locator_status": "withheld_private",
                 "scope": "Recorded detector count; source details withheld."}
     if isinstance(evidence, str):
-        return {"kind": kind, "visibility": "public", "text": evidence} if _safe_text(evidence, private_pattern) else None
+        return {"kind": kind, "visibility": "public", "text": evidence, "locator_status": "unavailable",
+                "locator_unavailable_reason": "source_not_located"} if _safe_text(evidence, private_pattern) else None
     out = {"kind": kind, "visibility": "public"}
     for key in ("path", "other_path", "text"):
         value = evidence.get(key)
@@ -92,6 +95,51 @@ def _safe_evidence(evidence, kind: str, private: bool, count: int, private_patte
         if type(size) is not int or size < 0:
             return None
         out["bytes"] = size
+    locators = []
+    if evidence.get("locator") is not None:
+        locators.append(evidence["locator"])
+    if evidence.get("locators") is not None:
+        if not isinstance(evidence["locators"], list) or len(evidence["locators"]) > 2:
+            return None
+        locators.extend(evidence["locators"])
+    normalized = []
+    for raw in locators:
+        locator = normalize_source_locator(raw)
+        if locator is None or locator["repo_id"] not in repo_ids or not all(_safe_text(s, private_pattern) for s in (locator["repo_id"], locator["path"], locator["detector"]["id"], locator["detector"]["version"])):
+            return None
+        normalized.append(locator)
+    if normalized:
+        # A well-shaped Git locator still needs to name this detector's actual
+        # source witness; unrelated immutable bytes must not lend it authority.
+        if any(locator["detector"]["id"] != kind for locator in normalized):
+            return None
+        if kind == "shared_file":
+            expected = {(source_repo_id, out.get("path")), (target_repo_id, out.get("other_path"))}
+            if evidence.get("locator") is not None or len(normalized) != 2 or {(loc["repo_id"], loc["path"]) for loc in normalized} != expected:
+                return None
+            if len({loc["blob"]["content_sha256"] for loc in normalized}) != 1 or len({loc["blob"]["size_bytes"] for loc in normalized}) != 1:
+                return None
+            if size is not None and any(loc["blob"]["size_bytes"] != size for loc in normalized):
+                return None
+        else:
+            if len(normalized) != 1 or evidence.get("locator") is None:
+                return None
+            locator = normalized[0]
+            if locator["repo_id"] != source_repo_id or locator["path"] != out.get("path"):
+                return None
+            if line is not None and (locator["span"]["kind"] != "lines" or not locator["span"]["start"] <= line <= locator["span"]["end"]):
+                return None
+        out["locator_status"] = "recorded"
+        if evidence.get("locator") is not None:
+            out["locator"] = normalized[0]
+        if evidence.get("locators") is not None:
+            out["locators"] = normalized[1:] if evidence.get("locator") is not None else normalized
+    else:
+        out["locator_status"] = "unavailable"
+        # Do not pass through arbitrary producer text as trusted diagnostics.
+        reason = evidence.get("locator_unavailable_reason")
+        allowed_reasons = {"no_public_pinned_revision", "unsupported_blob_size", "source_content_unavailable", "source_not_utf8_path", "invalid_blob_identity", "line_span_unavailable", "non_file_provenance"}
+        out["locator_unavailable_reason"] = reason if isinstance(reason, str) and reason in allowed_reasons else "source_not_located"
     return out
 
 
@@ -147,11 +195,19 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
     private_pattern = private_rx(private_names)
     private_identifier = private_id_rx(private_names)
     nodes = {name: {"id": name, "name": name, "visibility": "private" if name in private_names else "public", "kind": "repo"} for name in repos}
+    repo_ids = {}
+    for name, repo in repos.items():
+        if name not in private_names:
+            identity = repo.get("repo_id", "repo:" + name)
+            if valid_repo_id(identity) and _safe_text(identity, private_pattern):
+                repo_ids[name] = identity
+                nodes[name]["repo_id"] = identity
+    observed_at = normalize_instant(dataset["harvested_at"]) if dataset.get("harvested_at") is not None else None
     records, withheld = [], Counter()
     source_counts = Counter({"machine_pairs": 0, "machine_detector_assertions": 0, "curated_assertions": 0})
     seen_sources = set()
 
-    def emit(source_type, source_key, a, b, kind, predicate, grade, supplied, count, annotation=None, source_endpoints=None):
+    def emit(source_type, source_key, a, b, kind, predicate, grade, supplied, count, annotation=None, source_endpoints=None, temporal_source=None):
         if not _identifier(a) or not _identifier(b) or a == b:
             withheld["invalid_or_self_endpoint"] += 1
             return
@@ -159,10 +215,16 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
             withheld["ambiguous_private_locator_endpoint"] += 1
             return
         is_private = a in private_names or b in private_names
+        times = temporal_source or {}
+        # Source-specific private metadata is deliberately absent from the
+        # public-safe projection and its digest, including hidden timestamps.
+        observed = observed_at if is_private or "observed_at" not in times else (normalize_instant(times["observed_at"]) if times["observed_at"] is not None else None)
+        valid = None if is_private else normalize_valid_time(times.get("valid_time"))
         safe = []
         for raw in supplied:
-            item = _safe_evidence(raw, kind, is_private, count, private_pattern)
+            item = _safe_evidence(raw, kind, is_private, count, private_pattern, {repo_ids[n] for n in (a, b) if n in repo_ids}, repo_ids.get(a), repo_ids.get(b))
             if item is not None:
+                item["observed_at"] = observed
                 safe.append(item)
         # Deduplicate projection-equivalent witnesses before assigning IDs; a
         # private relation deliberately has one count-only representative.
@@ -179,6 +241,7 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
         record = {"id": record_id, "from": a, "to": b, "predicate": predicate,
                   "directed": PREDICATES[predicate]["directed"], "grade": grade,
                   "source": source_type, "source_key": source_key, "detector_kind": kind,
+                  "observed_at": observed, "valid_time": valid,
                   "evidence": selected, "evidence_records": {"total": total, "returned": returned, "omitted": total - returned,
                     "scope": "Provided detector observation count and bounded source-witness sample."},
                   "reason": PREDICATES[predicate]["definition"],
@@ -218,7 +281,7 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
                 continue
             evidence = [e for e in pair.get("evidence", []) if isinstance(e, dict) and e.get("kind") == kind]
             u, v = (b, a) if kind == "lineage" else (a, b)
-            emit("machine", source_key, u, v, kind, predicate, grade, evidence, count, source_endpoints=(a, b))
+            emit("machine", source_key, u, v, kind, predicate, grade, evidence, count, source_endpoints=(a, b), temporal_source=pair)
 
     for item in (curated or {}).get("ties", []):
         source_counts["curated_assertions"] += 1
@@ -237,7 +300,7 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
             continue
         supplied = item.get("evidence", [])
         emit("curated", source_key, item.get("from"), item.get("to"), "curated", "curated_association", grade,
-             supplied, len(supplied), item.get("direction"))
+             supplied, len(supplied), item.get("direction"), temporal_source=item)
 
     records.sort(key=lambda r: (r["from"], r["to"], r["predicate"], r["detector_kind"], r["source"], r["id"]))
     node_list = [nodes[name] for name in sorted(nodes)]
@@ -269,10 +332,13 @@ def build_relations(dataset: dict, ties: dict, curated: dict | None = None) -> d
     coverage = {**dict(source_counts), "records": len(records), "nodes": len(node_list),
                 "withheld_assertions": sum(withheld.values()), "withheld_by_reason": dict(sorted(withheld.items())),
                 "private_relations": sum(any(nodes[n]["visibility"] == "private" for n in (r["from"], r["to"])) for r in records),
+                "observed_time_known_records": sum(r["observed_at"] is not None for r in records),
+                "valid_time_known_records": sum(r["valid_time"] is not None for r in records),
                 "scope": "Provided source ties only; unobserved or withheld relations are not evidence of absence."}
     family = dataset.get("family")
     payload = {"schema_version": 1, "family": family if _identifier(family) and _safe_text(family, private_pattern) else None,
-               "nodes": node_list, "records": records, "predicates": copy.deepcopy(PREDICATES), "coverage": coverage}
+               "observed_at": observed_at, "nodes": node_list, "records": records, "predicates": copy.deepcopy(PREDICATES), "coverage": coverage,
+               "temporal_scope": "observed_at records source observation, not validity; valid_time is an explicit bounded [start,end) claim or unknown. Commit timestamps do not establish validity."}
     payload["snapshot_digest"] = _digest({"projection": payload, "observations": observations})
     payload["identity_scope"] = "Canonical safe relation projection, public tips and public/redacted commit observations; not publisher authentication."
     return payload
@@ -293,7 +359,7 @@ def _filter_values(values, allowed: set, label: str) -> set:
 
 
 def traverse(graph: dict, source: str, target: str | None = None, *, predicates=None, direction="outgoing", grades=None,
-             max_hops=3, limit=12) -> dict:
+             max_hops=3, limit=12, at=None, time_mode=None, unknown_time=None) -> dict:
     """Bounded exact shortest-node-path traversal over declared predicates.
 
     Parallel relation records do not multiply node paths. Directed edges follow
@@ -319,8 +385,11 @@ def traverse(graph: dict, source: str, target: str | None = None, *, predicates=
         raise ValueError("relations: unknown endpoint")
     wanted = _filter_values(predicates, set(graph.get("predicates", PREDICATES)), "predicate")
     grade_filter = _filter_values(grades, set(GRADES), "grade")
+    temporal_args = {k: v for k, v in (("at", at), ("time_mode", time_mode), ("unknown_time", unknown_time)) if v is not None}
+    time_filter = normalize_time_filter(temporal_args if temporal_args else None)
     adjacent = {name: {} for name in nodes}
     record_ids = set()
+    candidates = []
     for record in graph["records"]:
         if not isinstance(record, dict) or not _identifier(record.get("id")) or record["id"] in record_ids:
             raise ValueError("relations: invalid or duplicate relation identity")
@@ -334,14 +403,24 @@ def traverse(graph: dict, source: str, target: str | None = None, *, predicates=
         a, b = record.get("from"), record.get("to")
         if not isinstance(a, str) or not isinstance(b, str) or a not in nodes or b not in nodes or a == b:
             raise ValueError("relations: invalid graph endpoint")
+        # Validate all supplied temporal metadata, even for predicates excluded
+        # by this query, so malformed assertions never become silent unknowns.
+        if record.get("observed_at") is not None:
+            normalize_instant(record["observed_at"])
+        normalize_valid_time(record.get("valid_time"))
         if wanted and record["predicate"] not in wanted or grade_filter and record["grade"] not in grade_filter:
             continue
+        candidates.append(record)
+    eligible, time_coverage, time_statuses = filter_records(candidates, time_filter)
+    time_coverage["candidate_scope"] = "All supplied records matching the predicate and grade filters, before reachability and temporal filtering."
+    for record in eligible:
+        a, b = record["from"], record["to"]
         directions = [(a, b), (b, a)] if direction == "association" or not record["directed"] else [(b, a)] if direction == "incoming" else [(a, b)]
         for u, v in directions:
             adjacent[u].setdefault(v, []).append(record)
     for nbs in adjacent.values():
         for records in nbs.values():
-            records.sort(key=lambda r: r["id"])
+            records.sort(key=lambda r: (time_statuses.get(r["id"]) == "provisional_unknown_time", r["id"]))
     distances, previous, count = {source: 0}, {source: []}, {source: 1}
     q = deque([source])
     while q:
@@ -360,6 +439,8 @@ def traverse(graph: dict, source: str, target: str | None = None, *, predicates=
             "predicates": sorted(wanted), "grades": sorted(grade_filter), "max_hops": max_hops,
             "snapshot_digest": graph.get("snapshot_digest"),
             "scope": "Recorded typed relations in this filter and hop bound; no causal or runtime-dependency inference."}
+    if time_filter is not None:
+        base.update(time_filter=time_filter, time_coverage=time_coverage)
     if target is None:
         found = sorted((n for n in distances if n != source), key=lambda n: (distances[n], n))
         returned = found[:limit]
@@ -397,7 +478,14 @@ def traverse(graph: dict, source: str, target: str | None = None, *, predicates=
                     records = adjacent[a][b]
                     hops.append({"from": a, "to": b, "relations": copy.deepcopy(records[:4]),
                                  "total_relations": len(records), "returned_relations": min(4, len(records)), "omitted_relations": max(0, len(records) - 4)})
-                paths.append({"nodes": chain, "hops": hops})
+                    if time_filter is not None:
+                        known = sum(time_statuses[r["id"]] == "known_time" for r in records)
+                        hops[-1].update(known_time_relations=known, unknown_time_relations=len(records) - known,
+                                        time_status="known_time" if known else "provisional_unknown_time")
+                path = {"nodes": chain, "hops": hops}
+                if time_filter is not None:
+                    path["time_status"] = "provisional_unknown_time" if any(h["time_status"] == "provisional_unknown_time" for h in hops) else "known_time"
+                paths.append(path)
                 return
             for child in sorted(successors[v]):
                 collect(child, chain + [child])
@@ -407,5 +495,5 @@ def traverse(graph: dict, source: str, target: str | None = None, *, predicates=
     if total > 9_007_199_254_740_991:
         result["count_encoding"] = "decimal_string"
     if not total:
-        result["note"] = "No recorded path within the supplied predicates, grades, direction and hop bound."
+        result["note"] = "No recorded path within the supplied predicates, grades, direction, temporal filter and hop bound."
     return result

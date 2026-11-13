@@ -10,11 +10,12 @@ import unittest
 import xml.etree.ElementTree as ET
 
 from x3dray import compiler, profile
+from x3dray.witness_contract import source_digest
 
 
-def region(names=("alpha", "beta"), pairs=None, curated=None):
+def region(names=("alpha", "beta"), pairs=None, curated=None, private=()):
     ds = {"family": "generic", "lineage": [], "repos": [
-        {"name": name, "kind": "own", "visibility": "public"} for name in names]}
+        {"name": name, "kind": "own", "visibility": "private" if name in private else "public"} for name in names]}
     prof = {"per_repo": {name: {"own_commits": 3, "by_class": {"you": 2, "ai": 1}, "tests": 0, "kind": "own"} for name in names}}
     scene = compiler.Scene()
     layout = {"nodes": {}, "ties": {"machine": [], "curated": []}, "regions": {}}
@@ -42,6 +43,7 @@ class ConstellationPlanTests(unittest.TestCase):
         self.assertIsNotNone(root.find(".//Group[@DEF='XraySemanticEntities']"))
         self.assertIsNotNone(root.find(".//Group[@DEF='XraySemanticRelations']"))
         self.assertEqual(layout["scene_plan"]["scope"], "constellation")
+        self.assertEqual(layout["scene_plan"]["source_binding_schema"], 1)
 
     def test_external_endpoints_are_canonical_and_require_witness(self):
         good = machine("alpha", "Upstream/project")
@@ -64,7 +66,8 @@ class ConstellationPlanTests(unittest.TestCase):
             self.assertEqual(float(node.find(".//Sphere").get("radius")), entity["geometry"]["radius"])
         rel = layout["scene_plan"]["relations"][0]
         node = root.find(f".//Shape[@DEF='{rel['def']}']")
-        self.assertEqual(metadata(node, "xray.relation"), {k: rel[k] for k in ("id", "source", "from_entity", "to_entity", "grade")})
+        self.assertEqual(metadata(node, "xray.relation"), {k: rel[k] for k in ("id", "source", "from_entity", "to_entity", "grade", "source_digest")})
+        self.assertEqual(rel["source_digest"], source_digest(machine(), "machine"))
         points = [float(v) for v in node.find(".//Coordinate").get("point").replace(",", " ").split()]
         self.assertEqual([points[i:i + 3] for i in range(0, len(points), 3)], rel["points"])
 
@@ -83,6 +86,20 @@ class ConstellationPlanTests(unittest.TestCase):
         # Free-prose curated endpoints do not establish an executable or
         # architectural direction. The source association has no arrowhead.
         self.assertEqual(len(root.findall(".//Cone")), 0)
+        self.assertEqual(rel["source_digest"], source_digest(cur["ties"][0], "curated"))
+
+    def test_private_compilation_metadata_binds_counts_without_hidden_witnesses(self):
+        raw = machine()
+        xml, layout = region(pairs=[raw], private={"beta"})
+        rel = layout["scene_plan"]["relations"][0]
+        node = ET.fromstring(xml).find(f".//Shape[@DEF='{rel['def']}']")
+        self.assertEqual(metadata(node, "xray.relation")["source_digest"], rel["source_digest"])
+        self.assertEqual(rel["source_digest"], source_digest(raw, "machine", {"beta"}))
+        changed = copy.deepcopy(raw)
+        changed["evidence"][0].update(path="different-private-path.py", text="Different private observation")
+        other_xml, other_layout = region(pairs=[changed], private={"beta"})
+        self.assertEqual(other_layout["scene_plan"]["relations"][0]["source_digest"], rel["source_digest"])
+        self.assertEqual(other_xml, xml)
 
     def test_quantized_endpoints_attach_to_actual_node_centres(self):
         cur = {"ties": [{"id": "E01", "from": "beta", "to": "alpha", "grade": "L", "evidence": ["source"]}]}

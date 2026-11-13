@@ -1,0 +1,999 @@
+{
+ "family": "architecture-observatory",
+ "title": "Synthetic Architecture Observatory",
+ "lineage": [
+  "ingest",
+  "evidence",
+  "render"
+ ],
+ "lineage_source": "Synthetic owner statement about conceptual development order, not Git ancestry.",
+ "identities": [
+  {
+   "label": "Fixture Author",
+   "class": "you"
+  },
+  {
+   "label": "Fixture Assistant",
+   "class": "ai"
+  },
+  {
+   "label": "Unmapped",
+   "class": "upstream"
+  }
+ ],
+ "repos": [
+  {
+   "name": "ingest",
+   "kind": "own",
+   "visibility": "public",
+   "role": "Synthetic ingest boundary",
+   "github": {},
+   "present": true,
+   "repo_id": "github:synthetic/ingest",
+   "default_branch": "HEAD",
+   "head": "a5a1b9d53a43febf9a8f74474d340c771a81cff9",
+   "object_format": "sha1",
+   "commits_all_refs": 6,
+   "history_scope": "all refs",
+   "upstream_available": null,
+   "commits": [
+    {
+     "t": 1767427200,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 3,
+     "add": 4,
+     "del": 0,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "97a063c67bb7",
+     "oid": "97a063c67bb72b7d6948a162f0ba33ee87578c25",
+     "subject": "Synthetic ingest observation 0",
+     "kinds": {
+      "docs": 1,
+      "code": 1,
+      "config": 1
+     },
+     "paths": [
+      "README.md",
+      "ingest_api.py",
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767430800,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "0c24ce871d83",
+     "oid": "0c24ce871d837edd287ed03f1f0aec1bf7a5b32e",
+     "subject": "Synthetic ingest observation 1",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767434400,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "0f7a0fa67f6c",
+     "oid": "0f7a0fa67f6c5d0c3d1c54ae45c2d9252993ae26",
+     "subject": "Synthetic ingest observation 2",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767438000,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "f59459c9ae51",
+     "oid": "f59459c9ae51ce775e13474a96b55575602dcbe7",
+     "subject": "Synthetic ingest observation 3",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767441600,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "e1707bb19688",
+     "oid": "e1707bb19688062092cdb7e000e2f4c252848bfe",
+     "subject": "Synthetic ingest observation 4",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767445200,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "a5a1b9d53a43",
+     "oid": "a5a1b9d53a43febf9a8f74474d340c771a81cff9",
+     "subject": "Synthetic ingest observation 5",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    }
+   ],
+   "own_commits": 6,
+   "first_own": "2026-01-03T08:00:00Z",
+   "last_own": "2026-01-03T13:00:00Z",
+   "own_by_class": {
+    "you": 3,
+    "ai": 3
+   },
+   "own_lines": {
+    "add": 9,
+    "del": 5
+   },
+   "ai_trailer_commits": 0,
+   "active_days": 1,
+   "streak_days": 1,
+   "peak_day": {
+    "date": "2026-01-03",
+    "commits": 6
+   },
+   "branch_count": 0,
+   "branches": [],
+   "tree_measured": true,
+   "tree": {
+    "files": 3,
+    "bytes": 104,
+    "lines": 4,
+    "by_kind": {
+     "code": {
+      "files": 1,
+      "bytes": 46,
+      "lines": 2
+     },
+     "docs": {
+      "files": 1,
+      "bytes": 30,
+      "lines": 1
+     },
+     "config": {
+      "files": 1,
+      "bytes": 28,
+      "lines": 1
+     }
+    },
+    "tests": 0,
+    "x3d_files": 0
+   },
+   "files": [
+    {
+     "path": "README.md",
+     "kind": "docs",
+     "bytes": 30,
+     "lines": 1,
+     "commits": 1,
+     "churn": 1,
+     "first": "2026-01-03T08:00:00Z",
+     "last": "2026-01-03T08:00:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "ingest_api.py",
+     "kind": "code",
+     "bytes": 46,
+     "lines": 2,
+     "commits": 1,
+     "churn": 2,
+     "first": "2026-01-03T08:00:00Z",
+     "last": "2026-01-03T08:00:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "revision.txt",
+     "kind": "config",
+     "bytes": 28,
+     "lines": 1,
+     "commits": 6,
+     "churn": 11,
+     "first": "2026-01-03T08:00:00Z",
+     "last": "2026-01-03T13:00:00Z",
+     "share": {
+      "ai": 0.545,
+      "you": 0.455
+     }
+    }
+   ]
+  },
+  {
+   "name": "evidence",
+   "kind": "own",
+   "visibility": "public",
+   "role": "Synthetic evidence boundary",
+   "github": {},
+   "present": true,
+   "repo_id": "github:synthetic/evidence",
+   "default_branch": "HEAD",
+   "head": "60cc388e4c53f105bdcf6967a556f23bcf17a580",
+   "object_format": "sha1",
+   "commits_all_refs": 6,
+   "history_scope": "all refs",
+   "upstream_available": null,
+   "commits": [
+    {
+     "t": 1767427260,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 3,
+     "add": 6,
+     "del": 0,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "e318de20f258",
+     "oid": "e318de20f258c41f466c891aeaaba56a4fa9cb04",
+     "subject": "Synthetic evidence observation 0",
+     "kinds": {
+      "code": 1,
+      "data": 1,
+      "config": 1
+     },
+     "paths": [
+      "contract.py",
+      "package.json",
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767430860,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "37c4afffc9c9",
+     "oid": "37c4afffc9c954e2240d53d55a342c1443adc76a",
+     "subject": "Synthetic evidence observation 1",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767434460,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "d8a4408f4e6b",
+     "oid": "d8a4408f4e6beddb5ebfd15fa906bc569d5e4117",
+     "subject": "Synthetic evidence observation 2",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767438060,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "4d51ca0a2a79",
+     "oid": "4d51ca0a2a791b2d2b78ec0d8665b201fa878a07",
+     "subject": "Synthetic evidence observation 3",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767441660,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "5f872cb92df9",
+     "oid": "5f872cb92df9a2595c4b8b22545216d9c1618e12",
+     "subject": "Synthetic evidence observation 4",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767445260,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "60cc388e4c53",
+     "oid": "60cc388e4c53f105bdcf6967a556f23bcf17a580",
+     "subject": "Synthetic evidence observation 5",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    }
+   ],
+   "own_commits": 6,
+   "first_own": "2026-01-03T08:01:00Z",
+   "last_own": "2026-01-03T13:01:00Z",
+   "own_by_class": {
+    "you": 3,
+    "ai": 3
+   },
+   "own_lines": {
+    "add": 11,
+    "del": 5
+   },
+   "ai_trailer_commits": 0,
+   "active_days": 1,
+   "streak_days": 1,
+   "peak_day": {
+    "date": "2026-01-03",
+    "commits": 6
+   },
+   "branch_count": 0,
+   "branches": [],
+   "tree_measured": true,
+   "tree": {
+    "files": 3,
+    "bytes": 171,
+    "lines": 6,
+    "by_kind": {
+     "code": {
+      "files": 1,
+      "bytes": 72,
+      "lines": 4
+     },
+     "data": {
+      "files": 1,
+      "bytes": 69,
+      "lines": 1
+     },
+     "config": {
+      "files": 1,
+      "bytes": 30,
+      "lines": 1
+     }
+    },
+    "tests": 0,
+    "x3d_files": 0
+   },
+   "files": [
+    {
+     "path": "contract.py",
+     "kind": "code",
+     "bytes": 72,
+     "lines": 4,
+     "commits": 1,
+     "churn": 4,
+     "first": "2026-01-03T08:01:00Z",
+     "last": "2026-01-03T08:01:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "package.json",
+     "kind": "data",
+     "bytes": 69,
+     "lines": 1,
+     "commits": 1,
+     "churn": 1,
+     "first": "2026-01-03T08:01:00Z",
+     "last": "2026-01-03T08:01:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "revision.txt",
+     "kind": "config",
+     "bytes": 30,
+     "lines": 1,
+     "commits": 6,
+     "churn": 11,
+     "first": "2026-01-03T08:01:00Z",
+     "last": "2026-01-03T13:01:00Z",
+     "share": {
+      "ai": 0.545,
+      "you": 0.455
+     }
+    }
+   ]
+  },
+  {
+   "name": "render",
+   "kind": "own",
+   "visibility": "public",
+   "role": "Synthetic render boundary",
+   "github": {},
+   "present": true,
+   "repo_id": "github:synthetic/render",
+   "default_branch": "HEAD",
+   "head": "365fbbbb7b071f87da32d823fcc7ea0a7fc0fdf9",
+   "object_format": "sha1",
+   "commits_all_refs": 6,
+   "history_scope": "all refs",
+   "upstream_available": null,
+   "commits": [
+    {
+     "t": 1767427320,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 3,
+     "add": 6,
+     "del": 0,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "024809959fe0",
+     "oid": "024809959fe0fcb5f2c6753c0c24a70a66835c31",
+     "subject": "Synthetic render observation 0",
+     "kinds": {
+      "data": 1,
+      "config": 1,
+      "code": 1
+     },
+     "paths": [
+      "package.json",
+      "revision.txt",
+      "viewer.py"
+     ]
+    },
+    {
+     "t": 1767430920,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "4952aff058a5",
+     "oid": "4952aff058a596c94c9ce5c4a1e24a145fbb55e4",
+     "subject": "Synthetic render observation 1",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767434520,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "3892908dea69",
+     "oid": "3892908dea69c4fa7e8a960deaa1ab961a8666b3",
+     "subject": "Synthetic render observation 2",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767438120,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "5e92a1759f68",
+     "oid": "5e92a1759f68043ab348b72f0cf3f53fa9bd9ab8",
+     "subject": "Synthetic render observation 3",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767441720,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "48243f406e25",
+     "oid": "48243f406e255ed067ee4aee3096770fb6faa623",
+     "subject": "Synthetic render observation 4",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767445320,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [
+      "s-75cc8b4009"
+     ],
+     "default": true,
+     "upstream": false,
+     "sha": "365fbbbb7b07",
+     "oid": "365fbbbb7b071f87da32d823fcc7ea0a7fc0fdf9",
+     "subject": "Synthetic render observation 5",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    }
+   ],
+   "own_commits": 6,
+   "first_own": "2026-01-03T08:02:00Z",
+   "last_own": "2026-01-03T13:02:00Z",
+   "own_by_class": {
+    "you": 3,
+    "ai": 3
+   },
+   "own_lines": {
+    "add": 11,
+    "del": 5
+   },
+   "ai_trailer_commits": 0,
+   "active_days": 1,
+   "streak_days": 1,
+   "peak_day": {
+    "date": "2026-01-03",
+    "commits": 6
+   },
+   "branch_count": 0,
+   "branches": [],
+   "tree_measured": true,
+   "tree": {
+    "files": 3,
+    "bytes": 170,
+    "lines": 6,
+    "by_kind": {
+     "code": {
+      "files": 1,
+      "bytes": 72,
+      "lines": 4
+     },
+     "data": {
+      "files": 1,
+      "bytes": 70,
+      "lines": 1
+     },
+     "config": {
+      "files": 1,
+      "bytes": 28,
+      "lines": 1
+     }
+    },
+    "tests": 0,
+    "x3d_files": 0
+   },
+   "files": [
+    {
+     "path": "package.json",
+     "kind": "data",
+     "bytes": 70,
+     "lines": 1,
+     "commits": 1,
+     "churn": 1,
+     "first": "2026-01-03T08:02:00Z",
+     "last": "2026-01-03T08:02:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "revision.txt",
+     "kind": "config",
+     "bytes": 28,
+     "lines": 1,
+     "commits": 6,
+     "churn": 11,
+     "first": "2026-01-03T08:02:00Z",
+     "last": "2026-01-03T13:02:00Z",
+     "share": {
+      "ai": 0.545,
+      "you": 0.455
+     }
+    },
+    {
+     "path": "viewer.py",
+     "kind": "code",
+     "bytes": 72,
+     "lines": 4,
+     "commits": 1,
+     "churn": 4,
+     "first": "2026-01-03T08:02:00Z",
+     "last": "2026-01-03T08:02:00Z",
+     "share": {
+      "you": 1.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "review",
+   "kind": "own",
+   "visibility": "public",
+   "role": "Synthetic review boundary",
+   "github": {},
+   "present": true,
+   "repo_id": "github:synthetic/review",
+   "default_branch": "HEAD",
+   "head": "fc0f74cb3e4f5dae999870983abb8a45f5887fc1",
+   "object_format": "sha1",
+   "commits_all_refs": 6,
+   "history_scope": "all refs",
+   "upstream_available": null,
+   "commits": [
+    {
+     "t": 1767427380,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 3,
+     "add": 4,
+     "del": 0,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "48aeecf77e90",
+     "oid": "48aeecf77e905bcf4324b431a6d09c62cfda9789",
+     "subject": "Synthetic review observation 0",
+     "kinds": {
+      "docs": 1,
+      "code": 1,
+      "config": 1
+     },
+     "paths": [
+      "README.md",
+      "inspector.py",
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767430980,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "a854b842aa50",
+     "oid": "a854b842aa50ed3d7861c17f433a53a86dd144e3",
+     "subject": "Synthetic review observation 1",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767434580,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "5f9ec1d9b76b",
+     "oid": "5f9ec1d9b76b86e92b22e40a532c2794d8547f8e",
+     "subject": "Synthetic review observation 2",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767438180,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "a7e75ae16e77",
+     "oid": "a7e75ae16e77dab3a65973e3219044f8a269429e",
+     "subject": "Synthetic review observation 3",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767441780,
+     "who": "Fixture Author",
+     "cls": "you",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "ad8634d152c2",
+     "oid": "ad8634d152c259b0198695bd34b706119fa1b35e",
+     "subject": "Synthetic review observation 4",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    },
+    {
+     "t": 1767445380,
+     "who": "Fixture Assistant",
+     "cls": "ai",
+     "files": 1,
+     "add": 1,
+     "del": 1,
+     "merge": false,
+     "ai_trailer": false,
+     "sessions": [],
+     "default": true,
+     "upstream": false,
+     "sha": "fc0f74cb3e4f",
+     "oid": "fc0f74cb3e4f5dae999870983abb8a45f5887fc1",
+     "subject": "Synthetic review observation 5",
+     "kinds": {
+      "config": 1
+     },
+     "paths": [
+      "revision.txt"
+     ]
+    }
+   ],
+   "own_commits": 6,
+   "first_own": "2026-01-03T08:03:00Z",
+   "last_own": "2026-01-03T13:03:00Z",
+   "own_by_class": {
+    "you": 3,
+    "ai": 3
+   },
+   "own_lines": {
+    "add": 9,
+    "del": 5
+   },
+   "ai_trailer_commits": 0,
+   "active_days": 1,
+   "streak_days": 1,
+   "peak_day": {
+    "date": "2026-01-03",
+    "commits": 6
+   },
+   "branch_count": 0,
+   "branches": [],
+   "tree_measured": true,
+   "tree": {
+    "files": 3,
+    "bytes": 189,
+    "lines": 4,
+    "by_kind": {
+     "code": {
+      "files": 1,
+      "bytes": 52,
+      "lines": 2
+     },
+     "docs": {
+      "files": 1,
+      "bytes": 109,
+      "lines": 1
+     },
+     "config": {
+      "files": 1,
+      "bytes": 28,
+      "lines": 1
+     }
+    },
+    "tests": 0,
+    "x3d_files": 0
+   },
+   "files": [
+    {
+     "path": "README.md",
+     "kind": "docs",
+     "bytes": 109,
+     "lines": 1,
+     "commits": 1,
+     "churn": 1,
+     "first": "2026-01-03T08:03:00Z",
+     "last": "2026-01-03T08:03:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "inspector.py",
+     "kind": "code",
+     "bytes": 52,
+     "lines": 2,
+     "commits": 1,
+     "churn": 2,
+     "first": "2026-01-03T08:03:00Z",
+     "last": "2026-01-03T08:03:00Z",
+     "share": {
+      "you": 1.0
+     }
+    },
+    {
+     "path": "revision.txt",
+     "kind": "config",
+     "bytes": 28,
+     "lines": 1,
+     "commits": 6,
+     "churn": 11,
+     "first": "2026-01-03T08:03:00Z",
+     "last": "2026-01-03T13:03:00Z",
+     "share": {
+      "ai": 0.545,
+      "you": 0.455
+     }
+    }
+   ]
+  }
+ ],
+ "harvested_at": "2026-01-04T00:00:00Z"
+}

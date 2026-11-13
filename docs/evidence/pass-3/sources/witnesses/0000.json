@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "kind": "git_blob",
+ "visibility": "public",
+ "repo_id": "github:synthetic/evidence",
+ "revision": {
+  "oid": "60cc388e4c53f105bdcf6967a556f23bcf17a580",
+  "object_format": "sha1"
+ },
+ "blob": {
+  "oid": "31178f9a3af18106e3f1a5b1410e0a1fcabf4ac2",
+  "object_format": "sha1",
+  "mode": "100644",
+  "size_bytes": 72,
+  "content_sha256": "14835ff31c278aaa5dddeca764488a36d4e8ec3c7742d109e821d9ea55888f79"
+ },
+ "path": "contract.py",
+ "span": {
+  "kind": "lines",
+  "encoding": "utf-8",
+  "start": 1,
+  "end": 1,
+  "byte_start": 0,
+  "byte_end": 32,
+  "content_sha256": "e62e3ead6070cae4fba8f7e7113486cec9e005ef59c90077b6470d7cc54e4e03"
+ },
+ "detector": {
+  "id": "mention:dependency",
+  "version": "1"
+ }
+}

@@ -1,0 +1,30 @@
+{
+  "checks": 23,
+  "passed": [
+    "baseline renders independently read geometry and typed three-hop query",
+    "corrupt endpoint exposes actual checker findings",
+    "benign equivalent transforms are accepted",
+    "outside-layer acceptance is presented as a scope boundary",
+    "incoming direction changes the result with the same endpoints",
+    "association lens reveals attributed symmetric shortcut",
+    "relation inspection exposes original supplied evidence",
+    "endpoint controls are part of replay state",
+    "history restores exact selection endpoints lens and mutation",
+    "altered event chain is refused without replacing current state",
+    "different analysis identity is refused",
+    "downloads contain selected XML and unchanged plan plus source bundle",
+    "selection preserves loaded world identity with a renderer stand-in",
+    "all six guided observations complete through shared event handling",
+    "immutable source audit exposes actual Git checks and rejected span tamper",
+    "same-instant validity excludes disjoint-time path and unknown Git lifetimes",
+    "unknown-time inclusion marks supporting path provisional",
+    "observation cutoff permits a later snapshot without asserting simultaneous validity",
+    "timezone equivalent temporal controls canonicalize and preserve exact query state",
+    "naive timestamp is refused without mutating recorded intent",
+    "clearing time restores unfiltered source snapshot",
+    "measured 1000-entity preview keeps the full planned population",
+    "scale glyph selection exposes complete identity without altering investigation intent"
+  ],
+  "initial_js_errors": [],
+  "scope": "DOM integration only; no browser layout, WebGL, GPU or X_ITE runtime claim"
+}

@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "kind": "git_blob",
+ "visibility": "public",
+ "repo_id": "github:synthetic/render",
+ "revision": {
+  "oid": "365fbbbb7b071f87da32d823fcc7ea0a7fc0fdf9",
+  "object_format": "sha1"
+ },
+ "blob": {
+  "oid": "734c936968862f8975e82152ed232a721a1843da",
+  "object_format": "sha1",
+  "mode": "100644",
+  "size_bytes": 72,
+  "content_sha256": "c9d42c11c6a3181937df6a20cc553c813c3d86dc4ae12000db07f63559465a85"
+ },
+ "path": "viewer.py",
+ "span": {
+  "kind": "lines",
+  "encoding": "utf-8",
+  "start": 1,
+  "end": 1,
+  "byte_start": 0,
+  "byte_end": 36,
+  "content_sha256": "b8e29ffd7e512c3a089d9eb9dc2769aa9057a216119e15aacf89072bec253c81"
+ },
+ "detector": {
+  "id": "mention:dependency",
+  "version": "1"
+ }
+}

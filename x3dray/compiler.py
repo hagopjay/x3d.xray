@@ -469,8 +469,9 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
     the two semantic layers and are not certified by this plan.
     """
     repos = {r["name"]: r for r in ds["repos"]}
+    private_names = {n for n, r in repos.items() if r.get("visibility") == "private"}
     per_repo = prof["per_repo"]
-    plan = {"schema_version": 1, "scope": "constellation", "entity_layer": "XraySemanticEntities",
+    plan = {"schema_version": 1, "source_binding_schema": 1, "scope": "constellation", "entity_layer": "XraySemanticEntities",
             "relation_layer": "XraySemanticRelations", "node_aliases": {}, "entities": [], "relations": [],
             "omitted": [], "tolerance": 0.003,
             "unverified": ["labels", "author rings", "arrowheads", "other scene regions", "runtime behaviours", "rendered pixels"]}
@@ -517,6 +518,16 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
         inner, remaining = remaining[:8], remaining[8:]
     outer += remaining
     nodes = {}
+    glyph_radii = {n: 0.32 + 0.17 * math.log2(1 + per_repo.get(n, {}).get("own_commits", 0)) if n in per_repo else 0.3 for n in known}
+    # Measured fixed-ring packing overlapped thousands of glyph pairs at 1k
+    # entities. Size rings from world-space glyph bounds; labels and edge
+    # crossings retain a separate readability contract.
+    bounds = {n: r * (math.sqrt(3) * 1.3 / 2 if repos.get(n, {}).get("kind", "external") == "external" else 1)
+              for n, r in glyph_radii.items()}
+    spacing = max(0.99, 2 * max(bounds.values(), default=0.32) + 0.35)
+    inner_radius = max(7.2, spacing / (2 * math.sin(math.pi / len(inner)))) if len(inner) > 1 else 7.2
+    if central:
+        inner_radius = max(inner_radius, spacing)
 
     def place(name, ang, rad):
         r = repos.get(name, {})
@@ -527,12 +538,20 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
     if central:
         place(central, 0, 0)
     for i, name in enumerate(inner):
-        place(name, math.pi / 2 - 2 * math.pi * i / len(inner), 7.2)
-    for i, name in enumerate(outer):
-        place(name, math.pi / 2 - 2 * math.pi * (i + 0.5) / len(outer), 12.0)
+        place(name, math.pi / 2 - 2 * math.pi * i / len(inner), inner_radius)
+    ring_radius = max(12.0, inner_radius + spacing)
+    offset = 0
+    while offset < len(outer):
+        capacity = max(1, math.floor(math.pi / math.asin(min(1.0, spacing / (2 * ring_radius)))))
+        rim_names = outer[offset:offset + capacity]
+        for i, name in enumerate(rim_names):
+            place(name, math.pi / 2 - 2 * math.pi * (i + 0.5) / len(rim_names), ring_radius)
+        offset += len(rim_names)
+        ring_radius += spacing
     for n, nd in nodes.items():
-        own = per_repo.get(n, {}).get("own_commits", 0)
-        nd["r"] = 0.32 + 0.17 * math.log2(1 + own) if n in per_repo else 0.3
+        nd["r"] = glyph_radii[n]
+    plan["layout_policy"] = {"id": "adaptive-concentric-v1", "min_glyph_spacing": spacing,
+                             "scope": "World-space glyph bounds; labels, edge crossings and screen-space legibility are unverified."}
 
     S.w("<Group DEF='Ties'><TouchSensor DEF='TS_ties' description='repo or tie'/>")
     S.w("<Group DEF='XraySemanticEntities'>")
@@ -609,7 +628,9 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
             points = [add(add(mul(a2, (1 - u) ** 2), mul(control, 2 * u * (1 - u))), mul(b2, u * u)) for u in (q / 20 for q in range(21))]
             width = 1.6
         dn = _stable_def("tm_" if source == "machine" else "ta_", rid)
-        meta = {"id": rid, "source": source, "from_entity": "node:" + a_name, "to_entity": "node:" + b_name, "grade": record["grade"]}
+        from .witness_contract import source_digest
+        meta = {"id": rid, "source": source, "from_entity": "node:" + a_name, "to_entity": "node:" + b_name, "grade": record["grade"],
+                "source_digest": source_digest(record, source, private_names)}
         color = GRADE_COL[record["grade"]]
         transparent = " transparency='0.15'" if source == "machine" else ""
         relation_xml.append(f"<Shape DEF='{dn}'>" + _semantic_metadata("xray.relation", meta) +
@@ -633,7 +654,8 @@ def constellation_region(S: "Scene", L: dict, ds: dict, ties: dict, curated: dic
     S.w("</Group>")
     plan["coverage"] = {"source_relations": len(source_ids), "drawn_relations": len(plan["relations"]),
                         "omitted_relations": len(plan["omitted"]), "drawn_entities": len(plan["entities"])}
-    L["regions"]["ties"] = {"center": list(CT), "r": 13.5}
+    region_radius = max(13.5, max((math.dist(CT, node["p"]) + bounds[name] + 1.5 for name, node in nodes.items()), default=0))
+    L["regions"]["ties"] = {"center": list(CT), "r": float(f(region_radius))}
     return nodes
 
 
@@ -1034,7 +1056,7 @@ def build_scene(ds: dict, ties: dict, curated: dict | None, prof: dict, spec: di
         "peak": ((pxc + 1.5, 3.0, 10.5), (pxc, 0.2, 0), 0.8),
         "rhythm": ((reg["helix"]["face_x"] + 52, 0, 0), (reg["helix"]["face_x"], 0, 0), 0.34),
         "claude": (((hx0 + hx1) / 2, 9.0, 27), ((hx0 + hx1) / 2, 0, 0), 0.9),
-        "ties": ((CT[0], 1.5, 37), (CT[0], 0, 0), 0.85),
+        "ties": ((CT[0], 1.5, max(37, L["regions"]["ties"]["r"] / math.tan(0.85 / 2) * 1.12)), (CT[0], 0, 0), 0.85),
         "fork": ((CT[0] + 2.5, CT[1] + 3, 15), nodes.get("x3d_mcp", {"p": CT})["p"], 0.85),
         "city": ((city_c[0], 19, city_c[2] + 25), (city_c[0], -4, city_c[2]), 0.85),
         "self": ((0, SELF_Y + 2.5, SELF_Z + 22), (0, SELF_Y, SELF_Z), 0.85),

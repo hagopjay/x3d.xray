@@ -77,6 +77,39 @@ function invCatalog(catalog) {
   }
   return result;
 }
+function invTimeFilter(value) {
+  if(value===null)return null;
+  if(!invPlain(value))invFail('invalid_time_filter');
+  const keys=Object.hasOwn(value,'unknown_time')?['at','time_mode','unknown_time']:['at','time_mode'];
+  invKeys(value,keys,'invalid_time_filter');
+  const mode=value.time_mode,unknown=Object.hasOwn(value,'unknown_time')?value.unknown_time:'exclude';
+  if(typeof mode!=='string'||!['observed_by','valid_at'].includes(mode)||typeof unknown!=='string'||!['exclude','include'].includes(unknown)||typeof value.at!=='string')invFail('invalid_time_filter');
+  const match=/^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,6}))?(Z|([+-])([0-9]{2}):([0-9]{2}))$/.exec(value.at);
+  if(!match)invFail('invalid_time_filter');
+  let year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
+  const hour=Number(match[4]),minute=Number(match[5]),second=Number(match[6]);
+  const leap=y=>y%4===0&&(y%100!==0||y%400===0);
+  const days=(y,m)=>[31,leap(y)?29:28,31,30,31,30,31,31,30,31,30,31][m-1];
+  if(year<1||year>9999||month<1||month>12||day<1||day>days(year,month)||hour>23||minute>59||second>59)invFail('invalid_time_filter');
+  let offset=0;
+  if(match[8]!=='Z') {
+    const oh=Number(match[10]),om=Number(match[11]);
+    if(oh>14||om>59||(oh===14&&om!==0))invFail('invalid_time_filter');
+    offset=(oh*60+om)*(match[9]==='+'?1:-1);
+  }
+  let clock=hour*60+minute-offset;
+  if(clock<0) {
+    clock+=1440;day--;
+    if(day===0){month--;if(month===0){year--;month=12;}day=days(year,month);}
+  } else if(clock>=1440) {
+    clock-=1440;day++;
+    if(day>days(year,month)){day=1;month++;if(month===13){year++;month=1;}}
+  }
+  if(year<1||year>9999)invFail('invalid_time_filter');
+  const pad=(n,size=2)=>String(n).padStart(size,'0'),fraction=(match[7]||'').replace(/0+$/,'');
+  const at=`${pad(year,4)}-${pad(month)}-${pad(day)}T${pad(Math.floor(clock/60))}:${pad(clock%60)}:${pad(second)}${fraction?'.'+fraction:''}Z`;
+  return {at,time_mode:mode,unknown_time:unknown};
+}
 function invEvent(event,known) {
   if(!invPlain(event)||typeof event.action!=='string')invFail('invalid_event_shape');
   const action=event.action,selections={select_entity:['entities','entity'],select_relation:['relations','relation'],run_mutation:['mutations','mutation'],inspect_finding:['findings','finding']};
@@ -92,6 +125,9 @@ function invEvent(event,known) {
     const from=invIdentifier(event.query.from_entity),to=invIdentifier(event.query.to_entity);
     if(!known.entities.has(from)||!known.entities.has(to))invFail('unknown_entity');
     normalized={action,query:{from_entity:from,to_entity:to}};
+  } else if(action==='set_time') {
+    invKeys(event,['action','time'],'invalid_event_shape');
+    normalized={action,time:invTimeFilter(event.time)};
   } else if(action==='set_lens') {
     invKeys(event,['action','lens'],'invalid_event_shape');
     const lens=event.lens;invKeys(lens,['predicates','direction','max_hops','grade'],'invalid_lens_shape');
@@ -109,12 +145,13 @@ function invEvent(event,known) {
   return normalized;
 }
 function invViewState() {
-  return {selected_entity:null,selected_relation:null,query:null,lens:{predicates:[],direction:'outgoing',max_hops:3,grade:'all'},requested_mutation:null,selected_finding:null};
+  return {selected_entity:null,selected_relation:null,query:null,time:null,lens:{predicates:[],direction:'outgoing',max_hops:3,grade:'all'},requested_mutation:null,selected_finding:null};
 }
 function invReduce(state,event) {
   if(event.action==='select_entity') { state.selected_entity=event.id;state.selected_relation=null; }
   else if(event.action==='select_relation') { state.selected_relation=event.id;state.selected_entity=null; }
   else if(event.action==='set_query')state.query={...event.query};
+  else if(event.action==='set_time')state.time=event.time===null?null:{...event.time};
   else if(event.action==='set_lens') { state.lens={...event.lens,predicates:[...event.lens.predicates]};state.requested_mutation=null;state.selected_finding=null; }
   else if(event.action==='run_mutation') { state.requested_mutation=event.id;state.selected_finding=null; }
   else if(event.action==='inspect_finding')state.selected_finding=event.id;

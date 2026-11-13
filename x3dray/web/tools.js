@@ -141,6 +141,74 @@ const ARCH_LIMITS = { max_nodes: 10000, max_records: 50000, max_hops: 6, max_ret
   relation_records_per_hop: 4, max_returned_records: 100, result_utf8_bytes: 14000 };
 const ARCH_SCOPE = 'Recorded typed relations under explicit predicates and direction; a static reference or curated association does not prove an executable dependency.';
 
+// Observation and validity are independent clocks. Parse the supported ISO
+// profile explicitly; Date.parse silently accepts calendar rollovers and loses
+// sub-millisecond distinctions. Arithmetic comparisons use exact microseconds.
+function architectureInstant(value) {
+  const match = typeof value === 'string' && /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,6}))?(Z|[+-][0-9]{2}:[0-9]{2})$/.exec(value);
+  if (!match || match[0] !== value) throw new Error('time: expected a timezone-qualified ISO datetime with at most six fractional digits');
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number), fraction = (match[7] || '').padEnd(6, '0');
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day); date.setUTCHours(hour, minute, second, Number(fraction.slice(0, 3)));
+  let offset = 0;
+  if (match[8] !== 'Z') {
+    const hours = Number(match[8].slice(1, 3)), minutes = Number(match[8].slice(4, 6));
+    if (hours > 14 || minutes > 59 || hours === 14 && minutes !== 0) throw new Error('time: invalid calendar datetime or UTC offset');
+    offset = (hours * 60 + minutes) * (match[8][0] === '+' ? 1 : -1);
+  }
+  if (year < 1 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day
+      || date.getUTCHours() !== hour || date.getUTCMinutes() !== minute || date.getUTCSeconds() !== second) throw new Error('time: invalid calendar datetime or UTC offset');
+  date.setTime(date.getTime() - offset * 60000);
+  if (date.getUTCFullYear() < 1 || date.getUTCFullYear() > 9999) throw new Error('time: invalid calendar datetime or UTC offset');
+  const micros = BigInt(date.getTime()) * 1000n + BigInt(fraction.slice(3));
+  const tail = (String(date.getUTCMilliseconds()).padStart(3, '0') + fraction.slice(3)).replace(/0+$/, '');
+  return { canonical: date.toISOString().slice(0, 19) + (tail ? '.' + tail : '') + 'Z', micros };
+}
+
+export function normalizeTimeFilter(value) {
+  if (value === null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.hasOwn(value, 'at') || !Object.hasOwn(value, 'time_mode')
+      || Object.keys(value).some(k => !['at', 'time_mode', 'unknown_time'].includes(k))) throw new Error('time: filter requires at and time_mode, with optional unknown_time');
+  const unknown = Object.hasOwn(value, 'unknown_time') ? value.unknown_time : 'exclude';
+  if (!['observed_by', 'valid_at'].includes(value.time_mode) || !['exclude', 'include'].includes(unknown)) throw new Error('time: unsupported temporal mode or unknown-time policy');
+  return { at: architectureInstant(value.at).canonical, time_mode: value.time_mode, unknown_time: unknown };
+}
+
+function architectureRecordTime(record) {
+  const observed = record.observed_at === undefined || record.observed_at === null ? null : architectureInstant(record.observed_at);
+  const raw = record.valid_time;
+  let valid = null;
+  if (raw !== undefined && raw !== null) {
+    if (typeof raw !== 'object' || Array.isArray(raw) || Object.keys(raw).length !== 2 || !Object.hasOwn(raw, 'start') || !Object.hasOwn(raw, 'end')) throw new Error('time: valid_time must be unknown or an explicit start/end interval');
+    valid = { start: architectureInstant(raw.start), end: architectureInstant(raw.end) };
+    if (valid.start.micros >= valid.end.micros) throw new Error('time: valid_time start must precede its exclusive end');
+  }
+  return { observed, valid };
+}
+
+function architectureTimeRecords(records, times, query) {
+  const ledger = { active: query !== null, candidate_records: records.length, eligible_records: 0, known_records: 0, unknown_records: 0,
+    included_known_records: 0, included_unknown_records: 0, excluded_known_records: 0, excluded_unknown_records: 0,
+    observed_time_known_records: 0, valid_time_known_records: 0 };
+  const selected = [], statuses = new Map(), point = query ? architectureInstant(query.at).micros : null;
+  for (const record of records) {
+    const { observed, valid } = times.get(record.id);
+    ledger.observed_time_known_records += Number(observed !== null); ledger.valid_time_known_records += Number(valid !== null);
+    if (!query) { selected.push(record); continue; }
+    const known = query.time_mode === 'observed_by' ? observed !== null : valid !== null;
+    ledger[known ? 'known_records' : 'unknown_records']++;
+    const include = !known ? query.unknown_time === 'include' : query.time_mode === 'observed_by' ? observed.micros <= point
+      : valid.start.micros <= point && point < valid.end.micros;
+    ledger[(include ? 'included_' : 'excluded_') + (known ? 'known_records' : 'unknown_records')]++;
+    if (include) { selected.push(record); statuses.set(record.id, known ? 'known_time' : 'provisional_unknown_time'); }
+  }
+  ledger.eligible_records = selected.length;
+  ledger.scope = !query ? 'No temporal filter; observation and valid-time fields were not used to infer availability.'
+    : query.time_mode === 'observed_by' ? 'Observation time <= at describes recorded visibility, not historical validity.'
+      : 'Claimed start <= at < end; this does not impose an observation-time knowledge cutoff. Unknown inclusion is provisional.';
+  return { selected, ledger, statuses };
+}
+
 function architectureOrder(a, b) {
   // Unicode code-point order matches Python's canonical ordering, independent
   // of the browser locale and unlike default UTF-16 ordering for astral names.
@@ -220,6 +288,8 @@ export function architectureQuery(B, q) {
     nodes.add(node.id);
   }
   const direction = q.direction || 'outgoing', depth = q.max_hops === undefined ? 3 : q.max_hops, limit = q.limit === undefined ? 12 : q.limit;
+  const temporalArgs = Object.fromEntries(['at', 'time_mode', 'unknown_time'].filter(k => Object.hasOwn(q, k)).map(k => [k, q[k]]));
+  const timeFilter = normalizeTimeFilter(Object.keys(temporalArgs).length ? temporalArgs : null);
   if (!['outgoing', 'incoming', 'association'].includes(direction)) throw new Error('architecture direction must be outgoing, incoming or association');
   if (!Number.isInteger(depth) || depth < 1 || depth > ARCH_LIMITS.max_hops) throw new Error('architecture max_hops must be an integer from 1 to 6');
   if (!Number.isInteger(limit) || limit < 1 || limit > ARCH_LIMITS.max_returned_paths) throw new Error('architecture limit must be an integer from 1 to 50');
@@ -227,17 +297,20 @@ export function architectureQuery(B, q) {
   if (predicates.length > 32 || predicates.some(p => p.length > 128) || utf8Bytes(predicates) > 2048) throw new Error('architecture predicate filter exceeds its budget');
   if (grades.some(g => !['C', 'L', 'S'].includes(g))) throw new Error('architecture grades must be C, L or S');
   const knownPredicates = new Set(Object.keys(graph.predicates || {}));
-  const ids = new Set();
+  const ids = new Set(), recordTimes = new Map();
   for (const r of graph.records) {
-    if (!r || typeof r.id !== 'string' || !r.id || r.id.length > 256 || ids.has(r.id) || !nodes.has(r.from) || !nodes.has(r.to)
+    if (!r || typeof r.id !== 'string' || !r.id || r.id.length > 256 || ids.has(r.id) || !nodes.has(r.from) || !nodes.has(r.to) || r.from === r.to
         || typeof r.predicate !== 'string' || !r.predicate || r.predicate.length > 128 || typeof r.directed !== 'boolean'
         || !['C', 'L', 'S'].includes(r.grade) || !Array.isArray(r.evidence) || !r.evidence.length
-        || !knownPredicates.has(r.predicate) || (typeof graph.predicates[r.predicate].directed === 'boolean' && graph.predicates[r.predicate].directed !== r.directed)) throw new Error('invalid typed relation graph record');
+        || !knownPredicates.has(r.predicate) || !graph.predicates[r.predicate] || typeof graph.predicates[r.predicate].directed !== 'boolean'
+        || graph.predicates[r.predicate].directed !== r.directed) throw new Error('invalid typed relation graph record');
     ids.add(r.id);
+    recordTimes.set(r.id, architectureRecordTime(r));
   }
   if (predicates.some(p => !knownPredicates.has(p))) throw new Error('unknown architecture predicate; use one declared in the typed graph');
   const a = architectureNode(B, nodes, q.from), b = q.to === undefined || q.to === '' ? null : architectureNode(B, nodes, q.to);
-  const selected = graph.records.filter(r => (!predicates.length || predicates.includes(r.predicate)) && (!grades.length || grades.includes(r.grade)));
+  const candidates = graph.records.filter(r => (!predicates.length || predicates.includes(r.predicate)) && (!grades.length || grades.includes(r.grade)));
+  const { selected, ledger: timeCoverage, statuses: timeStatuses } = architectureTimeRecords(candidates, recordTimes, timeFilter);
   const adj = new Map([...nodes].map(id => [id, new Map()]));
   const arc = (from, to, record) => {
     const neighbours = adj.get(from);
@@ -249,7 +322,8 @@ export function architectureQuery(B, q) {
     else if (direction === 'incoming') arc(r.to, r.from, r);
     else arc(r.from, r.to, r);
   }
-  for (const neighbours of adj.values()) for (const records of neighbours.values()) records.sort((x, y) => architectureOrder(x.id, y.id));
+  for (const neighbours of adj.values()) for (const records of neighbours.values()) records.sort((x, y) =>
+    Number(timeStatuses.get(x.id) === 'provisional_unknown_time') - Number(timeStatuses.get(y.id) === 'provisional_unknown_time') || architectureOrder(x.id, y.id));
   const distances = new Map([[a, 0]]), predecessors = new Map([[a, []]]), ways = new Map([[a, 1n]]), queue = [a];
   let head = 0, examinedArcs = 0;
   while (head < queue.length) {
@@ -271,6 +345,10 @@ export function architectureQuery(B, q) {
     direction_note: direction === 'association' ? 'Direction is intentionally ignored in this query.'
       : direction === 'incoming' ? 'Directed relations are walked in reverse; each record retains its original from/to.'
         : 'Directed relations follow from to to; symmetric relations are traversable both ways.' };
+  if (timeFilter) {
+    timeCoverage.candidate_scope = 'All supplied records matching the predicate and grade filters, before reachability and temporal filtering.';
+    out.time_filter = timeFilter; out.time_coverage = timeCoverage;
+  }
   if (b !== null) {
     const total = distances.has(b) ? ways.get(b) : 0n;
     out.hops = distances.has(b) ? distances.get(b) : null;
@@ -288,16 +366,24 @@ export function architectureQuery(B, q) {
     }
     if (total) {
       for (const path of forward(a)) {
-        out.paths.push({ nodes: path, hops: path.slice(1).map((to, i) => {
+        const item = { nodes: path, hops: path.slice(1).map((to, i) => {
           const from = path[i], records = adj.get(from).get(to), returned = records.slice(0, ARCH_LIMITS.relation_records_per_hop);
-          return { from, to, relations: returned, total_relations: records.length, returned_relations: returned.length, omitted_relations: records.length - returned.length };
-        }) });
+          const hop = { from, to, relations: returned, total_relations: records.length, returned_relations: returned.length, omitted_relations: records.length - returned.length };
+          if (timeFilter) {
+            hop.known_time_relations = records.filter(r => timeStatuses.get(r.id) === 'known_time').length;
+            hop.unknown_time_relations = records.length - hop.known_time_relations;
+            hop.time_status = hop.known_time_relations ? 'known_time' : 'provisional_unknown_time';
+          }
+          return hop;
+        }) };
+        if (timeFilter) item.time_status = item.hops.some(h => h.time_status === 'provisional_unknown_time') ? 'provisional_unknown_time' : 'known_time';
+        out.paths.push(item);
         if (out.paths.length >= limit) break;
       }
     }
     out.returned_paths = out.paths.length;
     out.omitted_paths = architectureCount(total - BigInt(out.returned_paths));
-    if (!total) out.note = 'No path within the selected predicates, grades, direction, hop limit and recorded snapshot; this is not evidence that no relationship exists.';
+    if (!total) out.note = 'No path within the selected predicates, grades, direction, temporal filter, hop limit and recorded snapshot; this is not evidence that no relationship exists.';
     return fitArchitectureResult(out);
   }
   const reached = [...distances].filter(([id]) => id !== a).map(([id, hops]) => ({ id, hops })).sort((x, y) => x.hops - y.hops || architectureOrder(x.id, y.id));
@@ -692,7 +778,7 @@ export function makeTools(B, scene) {
     });
 
   add('architecture',
-    'Traverse conservative typed relations from the recorded snapshot. outgoing follows directed from→to; incoming follows directed relations in reverse; association deliberately ignores direction. Symmetric relations work both ways. Filter explicit predicates and grades; a dependency_reference is a static reference, not proof of runtime dependency. Returns shortest node paths (parallel witnesses do not multiply paths), original relation records and explicit omissions. Without to, returns reachable nodes and their recorded subgraph. If typed relations were not computed, the answer is unavailable rather than inferred from associations.',
+    'Traverse conservative typed relations from the recorded snapshot. outgoing follows directed from→to; incoming reverses direction; association ignores direction. Symmetric relations work both ways. A dependency_reference is a static reference, not proof of runtime dependency. Returns shortest node paths with original records and omissions; parallel witnesses do not multiply paths. Without to, returns reachable nodes and their recorded subgraph. Optional at + time_mode: observed_by filters observation visibility, not validity; valid_at requires claimed start <= at < end on every hop and imposes no observation cutoff. Unknown time defaults to exclude; include is provisional. No temporal arguments preserves the recorded snapshot. Missing typed relations returns unavailable.',
     { type: 'object', additionalProperties: false, required: ['from'], properties: {
       from: { type: 'string', description: 'canonical repo/external node or configured repository alias' },
       to: { type: 'string', description: 'optional target; omit to inspect reachable neighbours' },
@@ -700,7 +786,10 @@ export function makeTools(B, scene) {
       predicates: { type: 'string', description: 'comma-separated declared predicates, such as declares_use,pins_revision; default all' },
       grades: { type: 'string', description: 'comma-separated C,L,S grades; default all' },
       max_hops: { type: 'integer', description: '1 to 6 (default 3)' },
-      limit: { type: 'integer', description: '1 to 50 returned node paths or neighbours (default 12)' }
+      limit: { type: 'integer', description: '1 to 50 returned node paths or neighbours (default 12)' },
+      at: { type: 'string', description: 'timezone-qualified ISO datetime, up to six fractional digits; requires time_mode' },
+      time_mode: { type: 'string', enum: ['observed_by', 'valid_at'], description: 'requires at; observation visibility or claimed half-open valid interval, respectively' },
+      unknown_time: { type: 'string', enum: ['exclude', 'include'], description: 'requires at and time_mode; default exclude; included unknown times are provisional' }
     } }, q => architectureQuery(B, q));
 
   add('concepts',

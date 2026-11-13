@@ -66,11 +66,12 @@ def cmd_harvest(a) -> int:
         cfg = json.load(fh)
     t0 = time.time()
     ds = harvest.harvest_family(cfg, a.root)
+    ds["harvested_at"] = a.stamp or _now()
     t1 = time.time()
     tie = ties.find_ties(cfg, ds)
     t2 = time.time()
     out = harvest.strip_internal(ds)
-    out["harvested_at"] = a.stamp or _now()
+    out["harvested_at"] = ds["harvested_at"]
     out["timing_s"] = {"harvest": round(t1 - t0, 1), "ties": round(t2 - t1, 1)}
     _write_json(os.path.join(a.data, "dataset.json"), out)
     _write_json(os.path.join(a.data, "ties.json"), tie)
@@ -224,7 +225,45 @@ def cmd_lab(a) -> int:
 
 def cmd_observatory(a) -> int:
     from . import prooflab
-    print("observatory: " + json.dumps(prooflab.build(a.out, a.xite, a.font, a.font_license)))
+    print("observatory: " + json.dumps(prooflab.build(a.out, a.xite, a.font, a.font_license, a.benchmark)))
+    return 0
+
+
+def cmd_fixture_sources(a) -> int:
+    from . import prooflab
+    cfg, dataset, found, _, _ = prooflab.fixture_inputs(a.out)
+    _write_json(os.path.join(a.out, "family.json"), cfg)
+    _write_json(os.path.join(a.out, "dataset.json"), dataset)
+    audit = found["locator_audit"]
+    _write_json(os.path.join(a.out, "source-audit.json"), audit)
+    for i, record in enumerate(audit["records"]):
+        _write_json(os.path.join(a.out, "witnesses", f"{i:04d}.json"), record["locator"])
+    print(json.dumps({"synthetic": True, "sources": a.out, "public_locators_checked": audit["checked"],
+                      "scope": "Four deterministic synthetic local Git repositories; no remote repositories are contacted."}))
+    return 0
+
+
+def cmd_verify_witness(a) -> int:
+    from .locators import MAX_BYTES, verify_locator
+    try:
+        if os.path.getsize(a.locator) > MAX_BYTES:
+            raise ValueError("locator input limit")
+        with open(a.locator, encoding="utf-8") as fh:
+            locator = json.load(fh)
+        result = verify_locator(a.repo, locator, repo_id=a.repo_id)
+    except (OSError, ValueError, TypeError) as exc:
+        result = {"ok": False, "error_type": type(exc).__name__, "scope": "Locator inputs could not be read"}
+    print(json.dumps(result, ensure_ascii=True, indent=1))
+    return 0 if result["ok"] else 1
+
+
+def cmd_scale(a) -> int:
+    from .scaling import benchmark
+    result = benchmark(sizes=tuple(a.sizes), topologies=tuple(a.topologies), repeats=a.repeats, warmups=a.warmups,
+                       output_dir=os.path.join(a.out, "scale-fixtures"), jsdom_modules=a.jsdom_modules)
+    path = os.path.join(a.out, "scale-benchmark.json")
+    _write_json(path, result)
+    print(json.dumps({"benchmark": path, "rows": len(result["rows"]), "disclosure": result["disclosure"]}))
     return 0
 
 
@@ -315,6 +354,18 @@ def main(argv=None) -> int:
     observatory.add_argument("--xite", default=None, help="optional local X_ITE distribution for offline 3D")
     observatory.add_argument("--font", default=None, help="optional local TTF for X3D text labels")
     observatory.add_argument("--font-license", default=None, help="font redistribution notice to include alongside a supplied font")
+    observatory.add_argument("--benchmark", default=None, help="measured scale-benchmark JSON to embed and copy associated fixtures")
+    sp("fixture-sources", cmd_fixture_sources, out)
+    witness = sp("verify-witness", cmd_verify_witness)
+    witness.add_argument("--repo", required=True, help="caller-bound local Git checkout")
+    witness.add_argument("--repo-id", required=True, help="expected canonical repository ID from a trusted checkout map")
+    witness.add_argument("--locator", required=True, help="immutable Git blob locator JSON")
+    scale = sp("scale", cmd_scale, out)
+    scale.add_argument("--sizes", nargs="+", type=int, default=[10, 100, 1000])
+    scale.add_argument("--topologies", nargs="+", choices=["chain", "modular", "branching"], default=["chain", "modular", "branching"])
+    scale.add_argument("--repeats", type=int, default=7)
+    scale.add_argument("--warmups", type=int, default=2)
+    scale.add_argument("--jsdom-modules", default=None, help="node_modules directory containing jsdom for disclosed SVG DOM timings")
     verify = sp("verify-scene", cmd_verify_scene)
     verify.add_argument("--scene", required=True)
     verify.add_argument("--plan", required=True, help="scene-plan JSON or layout.json")

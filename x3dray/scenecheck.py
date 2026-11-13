@@ -145,8 +145,104 @@ def _metadata(node, name):
         if not isinstance(text, str) or not isinstance(data, dict) or not isinstance(data.get("id"), str):
             raise ValueError
         return data
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         raise _Invalid("invalid_semantic_metadata") from None
+
+
+def _source_witness(record, source):
+    """Recognize the admitted source record, independently of its container's truthiness."""
+    evidence = record.get("evidence")
+    if not isinstance(evidence, list):
+        return False
+    for item in evidence:
+        if source == "curated" and isinstance(item, str) and item.strip():
+            return True
+        if isinstance(item, dict) and any(isinstance(item.get(k), str) and item[k].strip() for k in ("path", "text")):
+            return True
+    return False
+
+
+def _source_binding(record, source, private_names):
+    """Independent v1 public-sample/aggregate binding, not source authentication.
+
+    Locator shape normalization is shared with the locator reader, but source
+    projection and hash construction do not import producer helpers. The first
+    four qualifying display witnesses are bound; detector counts bind the full
+    declared detector population. Hidden private contents never enter the hash.
+    """
+    evidence = record.get("evidence", [])
+    if not isinstance(evidence, list):
+        raise _Invalid("invalid_source_binding")
+    if source == "machine":
+        kinds = record.get("kinds", {})
+        if not isinstance(kinds, dict):
+            raise _Invalid("invalid_source_binding")
+        kinds = {k: v for k, v in kinds.items() if isinstance(k, str) and type(v) is int and v > 0}
+    else:
+        kinds = {"curated_kind": record.get("kind", "")}
+    private = record.get("from") in private_names or record.get("to") in private_names
+    ledger = record.get("evidence_records")
+    total = ledger.get("total") if isinstance(ledger, dict) else None
+    if type(total) is not int or total < 0:
+        total = 0
+    total = max(total, len(evidence))
+    projected = []
+    if private:
+        if source == "curated":
+            kinds = {"curated_kind": "aggregate"}
+        else:
+            file_kinds = {"code", "tests", "docs", "web", "config", "notebook", "data", "x3d", "log", "other", "media", "ci"}
+            allowed = {"pin", "pin-weak", "uses", "fork_of", "shared_file", "session", "lineage", "second_account"}
+            allowed |= {"mention:"+kind for kind in file_kinds} | {"mention:url-"+kind for kind in file_kinds}
+            other = sum(value for key, value in kinds.items() if key not in allowed)
+            kinds = {key: value for key, value in kinds.items() if key in allowed}
+            if other:
+                kinds["other"] = other
+        projected = [{"count": total}]
+    else:
+        keys = ("kind", "path", "line", "text", "other_path", "locator", "locators", "observed_at", "valid_time")
+        for item in evidence:
+            if source == "curated" and isinstance(item, str) and item.strip():
+                projected.append(item[:160])
+            elif isinstance(item, dict) and any(isinstance(item.get(k), str) and item[k].strip() for k in ("path", "text")):
+                projected_item = {}
+                for key in keys:
+                    value = item.get(key)
+                    if value is None:
+                        continue
+                    if key == "locator":
+                        from .locators import normalize_source_locator
+                        value = normalize_source_locator(value)
+                        if value is None:
+                            continue
+                    elif key == "locators":
+                        from .locators import normalize_source_locator
+                        value = [v for v in (normalize_source_locator(v) for v in value) if v is not None] if isinstance(value, list) else []
+                        if not value:
+                            continue
+                    projected_item[key] = value[:160] if isinstance(value, str) else value
+                projected.append(projected_item)
+            if len(projected) == 4:
+                break
+    payload = {"schema_version": 1, "source": source, "from": record.get("from"), "to": record.get("to"),
+               "grade": record.get("grade"), "kinds": kinds,
+               "visibility": "aggregate_only" if private else "public", "evidence_count": total, "evidence": projected}
+    try:
+        canonical = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        return hashlib.sha256(canonical.encode("ascii")).hexdigest()
+    except (TypeError, ValueError, UnicodeError, RecursionError):
+        raise _Invalid("invalid_source_binding") from None
+
+
+def _source_id(record, source):
+    if source == "machine":
+        try:
+            return "machine:"+hashlib.sha256((record["from"]+"\0"+record["to"]).encode()).hexdigest()[:20]
+        except (KeyError, TypeError, UnicodeError):
+            raise _Invalid("invalid_source_tie") from None
+    if not isinstance(record.get("id"), str):
+        raise _Invalid("invalid_source_tie")
+    return "curated:"+record["id"]
 
 
 def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
@@ -226,6 +322,11 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
     if not isinstance(entities, list) or not isinstance(relations, list) or len(entities)+len(relations) > 100_000:
         fail("invalid_plan_records")
         return result()
+    binding_schema = plan.get("source_binding_schema")
+    modern = binding_schema is not None
+    if modern and (type(binding_schema) is not int or binding_schema != 1):
+        fail("unsupported_source_binding_schema")
+        return result()
     expected_entities, expected_relations = {}, {}
     for category, records, target in (("entity", entities, expected_entities), ("relation", relations, expected_relations)):
         for i, record in enumerate(records):
@@ -288,7 +389,10 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
         fail("invalid_source_repositories")
         repos = []
     source_nodes = {r["name"] for r in repos if isinstance(r, dict) and isinstance(r.get("name"), str)}
-    tie_sections = bundle.get("ties") or {}
+    repo_names = set(source_nodes)
+    private_names = {r["name"] for r in repos if isinstance(r, dict) and isinstance(r.get("name"), str) and r.get("visibility") == "private"}
+    display_sections = bundle.get("ties") or {}
+    tie_sections = bundle.get("scene_sources", display_sections) if modern else display_sections
     if not isinstance(tie_sections, dict):
         fail("invalid_source_ties")
         tie_sections = {}
@@ -297,31 +401,87 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
             fail("invalid_source_ties")
             continue
         for record in records:
-            if not isinstance(record, dict) or not all(isinstance(record.get(k), str) for k in ("from", "to", "grade")):
+            if (not isinstance(record, dict) or
+                    not all(isinstance(record.get(k), str) and record[k].strip() for k in ("from", "to")) or
+                    (not modern and not isinstance(record.get("grade"), str))):
                 fail("invalid_source_tie")
                 continue
-            if source == "machine":
-                try:
-                    token = hashlib.sha256((record["from"]+"\0"+record["to"]).encode()).hexdigest()[:20]
-                except UnicodeError:
-                    fail("invalid_source_tie")
-                    continue
-                identifier = "machine:"+token
-            else:
-                if not isinstance(record.get("id"), str):
-                    fail("invalid_source_tie")
-                    continue
-                identifier = "curated:"+record["id"]
+            try:
+                identifier = _source_id(record, source)
+            except _Invalid as exc:
+                fail(exc.code)
+                continue
             if identifier in source_records:
                 fail("duplicate_source_relation")
             source_records[identifier] = (source, record)
-            if record.get("evidence"):
+            if _source_witness(record, source):
                 source_nodes.update((record["from"], record["to"]))
     counts["source_relations"] = len(source_records)
+    display_records = {}
+    if modern:
+        if not isinstance(display_sections, dict):
+            fail("invalid_display_ties")
+        else:
+            for source in ("machine", "curated"):
+                records = display_sections.get(source, [])
+                if not isinstance(records, list):
+                    fail("invalid_display_ties")
+                    continue
+                for record in records:
+                    if not isinstance(record, dict):
+                        fail("invalid_display_tie")
+                        continue
+                    try:
+                        identifier = _source_id(record, source)
+                        if identifier in display_records:
+                            fail("duplicate_display_relation")
+                        display_records[identifier] = (source, record)
+                    except _Invalid as exc:
+                        fail(exc.code)
+
+        eligible, legitimately_omitted = set(), {}
+        for identifier, (source, record) in source_records.items():
+            reason = ("no_witness" if not _source_witness(record, source) else
+                      "self_relation" if record["from"] == record["to"] else
+                      "invalid_grade" if not isinstance(record.get("grade"), str) or record["grade"] not in GRADE_COLOURS else None)
+            if reason:
+                legitimately_omitted[identifier] = reason
+            else:
+                eligible.add(identifier)
+        if set(expected_relations) != eligible:
+            fail("source_relation_coverage_mismatch")
+        required_nodes = repo_names | {source_records[rid][1][k] for rid in eligible for k in ("from", "to")}
+        if set(expected_entities) != {"node:"+name for name in required_nodes}:
+            fail("source_entity_coverage_mismatch")
+        omissions = plan.get("omitted", [])
+        seen_omissions = set()
+        if not isinstance(omissions, list):
+            fail("invalid_omission_ledger")
+        else:
+            for omission in omissions:
+                if not isinstance(omission, dict) or not isinstance(omission.get("id"), str):
+                    fail("invalid_omission_record")
+                    continue
+                identifier = omission["id"]
+                if identifier in seen_omissions:
+                    fail("duplicate_omission_record")
+                seen_omissions.add(identifier)
+                if identifier not in source_records:
+                    fail("source_omission_unverifiable")
+                else:
+                    source, record = source_records[identifier]
+                    if (omission.get("reason") != legitimately_omitted.get(identifier) or
+                            any(omission.get(k) != record.get(k) for k in ("from", "to")) or omission.get("source") != source):
+                        fail("invalid_source_omission")
+        if seen_omissions != set(legitimately_omitted):
+            fail("source_omission_coverage_mismatch")
+        counts["eligible_source_relations"] = len(eligible)
+        counts["eligible_source_entities"] = len(required_nodes)
 
     actual_entities, actual_relations = {}, {}
     layer_occurrences = {entity_layer: 0, relation_layer: 0}
     unsupported = {"Billboard", "Switch", "LOD", "MatrixTransform", "GeoTransform", "ProtoInstance", "Inline", "StaticGroup"}
+    supported_scene_nodes = set(CONTAINERS) | {"X3D", "Scene"}
 
     def children(node, tag):
         matched = []
@@ -363,7 +523,7 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
                 matrix = _multiply(matrix, _transform(node))
             if node.get("visible", "true").lower() == "false":
                 raise _Invalid("invisible_semantic_geometry")
-            if depth and node.tag in unsupported:
+            if depth and node.tag not in {"Transform", "Group", "Shape", "TouchSensor"}:
                 raise _Invalid("unsupported_semantic_ancestor")
             if node.tag == "Shape":
                 shapes = [resolve(c) for c in node if c.tag in {"Sphere", "Box"}]
@@ -391,7 +551,10 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
             if id(node) in chain:
                 raise _Invalid("cyclic_scene_graph")
             world = _multiply(parent_world, _transform(node)) if node.tag == "Transform" else parent_world
-            bad = bad_ancestors + ((node.tag,) if node.tag in unsupported or node.get("visible", "true").lower() == "false" else ())
+            # Unknown grouping nodes may hide children or introduce their own
+            # coordinate system (CADLayer, HAnimJoint, GeoLocation, ...). A
+            # denylist cannot establish world geometry for arbitrary X3D.
+            bad = bad_ancestors + ((node.tag,) if node.tag in unsupported or node.tag not in supported_scene_nodes or node.get("visible", "true").lower() == "false" else ())
             if node.get("DEF") in layer_occurrences:
                 layer = node.get("DEF")
                 layer_occurrences[layer] += 1
@@ -522,15 +685,25 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
             if not source:
                 raise _Invalid("relation_has_no_source_record")
             source_type, source_record = source
-            if not source_record.get("evidence"):
+            if not _source_witness(source_record, source_type):
                 raise _Invalid("relation_has_no_source_witness")
             if any(record.get(k) != source_record.get(k) for k in ("from", "to", "grade")) or record.get("source") != source_type:
                 fail("relation_source_mismatch", i)
             if record.get("from_entity") != "node:"+source_record["from"] or record.get("to_entity") != "node:"+source_record["to"]:
                 fail("relation_source_endpoint_mismatch", i)
-            expected_meta = {k: record.get(k) for k in ("id", "from_entity", "to_entity", "grade", "source")}
+            keys = ("id", "from_entity", "to_entity", "grade", "source", "source_digest") if modern else ("id", "from_entity", "to_entity", "grade", "source")
+            expected_meta = {k: record.get(k) for k in keys}
             if actual["metadata"] != expected_meta:
                 fail("relation_metadata_mismatch", i)
+            if modern:
+                digest = _source_binding(source_record, source_type, private_names)
+                if record.get("source_digest") != digest:
+                    fail("relation_source_digest_mismatch", i)
+                display = display_records.get(record["id"])
+                if display is None:
+                    fail("drawn_relation_missing_from_display", i)
+                elif display[0] != source_type or _source_binding(display[1], display[0], private_names) != digest:
+                    fail("display_source_digest_mismatch", i)
             if actual["def"] != record.get("def"):
                 fail("relation_def_mismatch", i)
             points = record.get("points")
@@ -557,6 +730,9 @@ def verify_scene(xml: str, plan: dict, bundle: dict) -> dict:
         except _Invalid as exc:
             fail(exc.code, i)
     report = result()
+    report["source_binding"] = {"schema_version": 1 if modern else None,
+                                "mode": "public_sample_or_private_aggregate" if modern else "legacy_declared_subset",
+                                "source_authentication": "not verified"}
     # Only matching declared IDs are returned. Unknown XML metadata never gets
     # copied into diagnostics or overlays. Omission counts make this a bounded
     # inspection view rather than an implicit complete scene export.

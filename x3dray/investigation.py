@@ -114,6 +114,14 @@ def _event(event: dict, catalog: dict[str, frozenset[str]]) -> dict:
             endpoints[key] = ident
         # Equal endpoints intentionally describe a zero-hop query.
         normalized = {"action": action, "query": endpoints}
+    elif action == "set_time":
+        _keys(event, {"action", "time"}, "invalid_event_shape")
+        from .temporal import normalize_time_filter
+        try:
+            time = normalize_time_filter(event["time"])
+        except (ValueError, TypeError, OverflowError):
+            _fail("invalid_time_filter")
+        normalized = {"action": action, "time": copy.deepcopy(time)}
     elif action == "set_lens":
         _keys(event, {"action", "lens"}, "invalid_event_shape")
         lens = event["lens"]
@@ -146,7 +154,7 @@ def _event(event: dict, catalog: dict[str, frozenset[str]]) -> dict:
 
 
 def _view_state() -> dict:
-    return {"selected_entity": None, "selected_relation": None, "query": None, "lens": copy.deepcopy(DEFAULT_LENS),
+    return {"selected_entity": None, "selected_relation": None, "query": None, "time": None, "lens": copy.deepcopy(DEFAULT_LENS),
             "requested_mutation": None, "selected_finding": None}
 
 
@@ -158,6 +166,8 @@ def _reduce(state: dict, event: dict) -> None:
         state["selected_relation"], state["selected_entity"] = event["id"], None
     elif action == "set_query":
         state["query"] = copy.deepcopy(event["query"])
+    elif action == "set_time":
+        state["time"] = copy.deepcopy(event["time"])
     elif action == "set_lens":
         state["lens"] = copy.deepcopy(event["lens"])
         state["requested_mutation"], state["selected_finding"] = None, None
