@@ -1,0 +1,89 @@
+{
+ "ok": true,
+ "release_ready": false,
+ "ran_at": "2026-01-05T00:00:00Z",
+ "skipped": [
+  "xsd",
+  "loom",
+  "tools",
+  "live"
+ ],
+ "gates": {
+  "fact": {
+   "status": "pass",
+   "summary": "11 slots, 2 evidence-linked claims, 0 consistency problems",
+   "problems": [],
+   "scope": "Schema, slot/reference validity and current-input re-rendering; natural-language entailment is not proved."
+  },
+  "privacy": {
+   "status": "pass",
+   "summary": "0 findings in 7 registered owned assets",
+   "findings": [],
+   "scanned": [
+    "app.js",
+    "bundle.json",
+    "index.html",
+    "investigation.js",
+    "notebook.js",
+    "tools.js",
+    "xray.x3d"
+   ],
+   "vendored_attested": [
+    "fonts/UbuntuMono-R.ttf",
+    "x_ite/LICENSE.md",
+    "x_ite/assets/components/AnnotationComponent.min.js",
+    "x_ite/assets/components/CADGeometryComponent.min.js",
+    "x_ite/assets/components/CubeMapTexturingComponent.min.js",
+    "x_ite/assets/components/DISComponent.min.js",
+    "x_ite/assets/components/EventUtilitiesComponent.min.js",
+    "x_ite/assets/components/GaussianSplatsComponent.min.js",
+    "x_ite/assets/components/Geometry2DComponent.min.js",
+    "x_ite/assets/components/Geometry3DComponent.min.js",
+    "x_ite/assets/components/GeospatialComponent.min.js",
+    "x_ite/assets/components/HAnimComponent.min.js",
+    "x_ite/assets/components/KeyDeviceSensorComponent.min.js",
+    "x_ite/assets/components/LayoutComponent.min.js",
+    "x_ite/assets/components/NURBSComponent.min.js",
+    "x_ite/assets/components/ParticleSystemsComponent.min.js",
+    "x_ite/assets/components/PickingComponent.min.js",
+    "x_ite/assets/components/RigidBodyPhysicsComponent.min.js",
+    "x_ite/assets/components/ScriptingComponent.min.js",
+    "x_ite/assets/components/TextComponent.min.js",
+    "x_ite/assets/components/TextureProjectionComponent.min.js",
+    "x_ite/assets/components/Texturing3DComponent.min.js",
+    "x_ite/assets/components/VolumeRenderingComponent.min.js",
+    "x_ite/assets/components/WebXRComponent.min.js",
+    "x_ite/assets/components/X_ITEComponent.min.js",
+    "x_ite/assets/images/logo.svg",
+    "x_ite/assets/lib/mikktspace_bg.wasm",
+    "x_ite/assets/linetype/linetypes.png",
+    "x_ite/x_ite.css",
+    "x_ite/x_ite.min.js"
+   ]
+  },
+  "witness": {
+   "status": "pass",
+   "summary": "1 ties, each with a witness; 0 dropped for want of one; 0 drawn without a record; 3 concepts, sessions and bridge files drawn, each in the bundle; structure check clean; eda recomputed: 12 findings, 0 flagged commits; check clean",
+   "without_witness": [],
+   "drawn_without_record": [],
+   "structure": [],
+   "scope": "Scene presence and layout/bundle/source witnesses; independent scene geometry correspondence is not yet checked."
+  },
+  "xsd": {
+   "status": "skip",
+   "summary": "Not invoked by this synthetic pipeline smoke experiment"
+  },
+  "loom": {
+   "status": "skip",
+   "summary": "Not invoked by this synthetic pipeline smoke experiment"
+  },
+  "tools": {
+   "status": "skip",
+   "summary": "Not invoked by this synthetic pipeline smoke experiment"
+  },
+  "live": {
+   "status": "skip",
+   "summary": "Not invoked by this synthetic pipeline smoke experiment"
+  }
+ }
+}

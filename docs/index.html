@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>x3d.xray demos</title>
+<meta name="description" content="x3d.xray reads a family of Git repositories and draws what it finds as one X3D scene. Live demos on synthetic data, runnable examples, and the field guides.">
+<style>
+:root{--bg:#fafaf7;--fg:#1b1d21;--mute:#5b6270;--card:#fff;--line:#d9dce2;--acc:#0b6bcb;--pill:#e8f1fb}
+@media (prefers-color-scheme:dark){:root{--bg:#101215;--fg:#e6e8ec;--mute:#9aa3b2;--card:#171a1f;--line:#2b3038;--acc:#6db3ff;--pill:#1a2a3d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:64rem;margin:0 auto;padding:2.2rem 1rem 4rem}
+h1{font-size:2.1rem;margin:0 0 .3rem}
+h2{font-size:1.15rem;margin:2.2rem 0 .6rem;letter-spacing:.02em}
+a{color:var(--acc)}
+.lede{color:var(--mute);max-width:46rem;margin:.2rem 0 1.2rem}
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.5rem}
+.card h3{margin:0;font-size:1.1rem}
+.card p{margin:0;color:var(--mute)}
+.card img{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;display:block}
+.pill{display:inline-block;background:var(--pill);color:var(--acc);border-radius:99px;font-size:.78rem;padding:.05rem .6rem;margin-right:.3rem}
+.go{margin-top:auto;font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+td,th{border-top:1px solid var(--line);padding:.45rem .5rem;text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:500;border-top:0}
+small,.fine{color:var(--mute);font-size:.88rem}
+code{font:.9em ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<main>
+<h1>x3d.xray</h1>
+<p class="lede">x3d.xray reads a family of Git repositories, measures them with code rather than prose, and draws the result as a single X3D scene,
+with every sentence on the page tied to the number behind it. These demos run on <b>synthetic data only</b>: temporary Git repositories built for the demo, no real history.
+Source: <a href="https://github.com/hagopjay/x3d.xray">github.com/hagopjay/x3d.xray</a>.</p>
+
+<h2>Live demos</h2>
+<div class="grid">
+  <div class="card">
+    <picture>
+      <source media="(prefers-color-scheme:dark)" srcset="assets/shots/gallery-dark.png">
+      <img src="assets/shots/gallery-light.png" alt="The Looks view: twelve panels, one per declared look, each with effect, share-of-shuffles and q bars and four check cubes" width="1600" height="1000" loading="lazy">
+    </picture>
+    <h3>Explorer</h3>
+    <div><span class="pill">X_ITE 16.7.0</span><span class="pill">notebook</span><span class="pill">look gallery</span></div>
+    <p>The real page, built by the real pipeline from two synthetic repositories. Switch to <b>Looks</b> to see the twelve declared looks as small multiples inside the 3D scene.
+    Click a panel for its card, then take the look into the notebook, which logs it in a hash chain you can export and replay.</p>
+    <a class="go" href="demos/xray-explorer/v1/index.html">Open the Explorer &rarr;</a>
+  </div>
+  <div class="card">
+    <h3>Three examples of the exploratory stage</h3>
+    <div><span class="pill">runs offline</span><span class="pill">tested in CI</span></div>
+    <p>What does a Confirmed grade mean, and how often does pure noise earn one? What happens under Simpson's paradox? Why is the same answer worth less as the fortieth look than the thirteenth?
+    Each example is run when the page is built and its printed output sits beside its source.</p>
+    <a class="go" href="demos/eda-examples/v1/index.html">Read the examples &rarr;</a>
+  </div>
+</div>
+<p class="fine">Not shown here: the <b>Ask Claude</b> panel only answers when the Explorer is open inside Claude, so on this site it says so. Everything else works without an account.
+Rendering was checked in headless Chromium with software WebGL (SwiftShader); no GPU frame-rate claim is made.</p>
+
+<h2>Field guides and laboratories</h2>
+<p class="lede">Earlier passes, kept as they were published. Each one is a standalone file.</p>
+<table>
+<tr><th>Page</th><th>Pass</th><th>What it is</th></tr>
+<tr><td><a href="reports/X3D-Xray-Review.html">Review</a></td><td>before 1</td><td>Evidence Observatory review of upstream b3fec1f7307a: findings and a five-PR plan.</td></tr>
+<tr><td><a href="development-pass-1.html">Development field guide</a></td><td>1</td><td>Engineering walkthrough, limits, exercises.</td></tr>
+<tr><td><a href="labs/X3D-Xray-Bridge-Laboratory.html">Bridge Laboratory</a></td><td>1</td><td>57 synthetic observations; map and scores work offline.</td></tr>
+<tr><td><a href="development-pass-2.html">Architecture field guide</a></td><td>2</td><td>Typed relations, scene gate, mutation audit, staged roadmap.</td></tr>
+<tr><td><a href="labs/X3D-Xray-Architecture-Observatory.html">Architecture Observatory</a></td><td>2</td><td>4 synthetic Git repositories, 24 commits, 13 XML audit cases.</td></tr>
+<tr><td><a href="development-pass-3.html">Source, time and scale guide</a></td><td>3</td><td>Immutable Git witnesses, temporal semantics, a measured scale table.</td></tr>
+<tr><td><a href="labs/X3D-Xray-Continuum-Observatory.html">Continuum Observatory</a></td><td>3</td><td>Exact-source witnesses, time lenses, nine scale specimens.</td></tr>
+</table>
+<p class="fine">Raw outputs those guides cite are in <a href="https://github.com/hagopjay/x3d.xray/tree/main/docs/evidence">docs/evidence</a>. Hashes in the evidence detect a changed file; they do not authenticate who produced it.</p>
+
+<h2>Notes</h2>
+<p class="fine">Demos are versioned by folder (<code>demos/&lt;name&gt;/v1</code>) and earlier versions stay where they are.
+The Explorer ships X_ITE 16.7.0 (MIT licence, included beside it) and DejaVu Sans Mono for the scene labels (licence text included in its <code>fonts</code> folder).
+Rebuild the Explorer with <code>experiments/build_pages_explorer.py</code> and the examples page with <code>experiments/build_pages_examples.py</code>.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,658 @@
+{
+ "tool": "x3d.xray",
+ "version": "0.4.0.dev1",
+ "made_at": "2026-01-05T00:00:00Z",
+ "digest": "37b373ae734a231f0d8fa96de8bbe4cb19eb20738c365a0002b2329b0a6f3c30",
+ "gates": {
+  "ok": true,
+  "release_ready": false,
+  "ran_at": "2026-01-05T00:00:00Z",
+  "fact": "pass",
+  "privacy": "pass",
+  "witness": "pass",
+  "xsd": "skip",
+  "loom": "skip",
+  "tools": "skip",
+  "live": "skip"
+ },
+ "how": "sha256 over sorted 'role path sha256' lines of inputs, code, registered served assets and build controls, then gate verdicts; receipt.json is detached and excludes its own bytes",
+ "publication": {
+  "assets": [
+   "app.js",
+   "bundle.json",
+   "fonts/UbuntuMono-R.ttf",
+   "gates.json",
+   "index.html",
+   "investigation.js",
+   "notebook.js",
+   "tools.js",
+   "x_ite/LICENSE.md",
+   "x_ite/assets/components/AnnotationComponent.min.js",
+   "x_ite/assets/components/CADGeometryComponent.min.js",
+   "x_ite/assets/components/CubeMapTexturingComponent.min.js",
+   "x_ite/assets/components/DISComponent.min.js",
+   "x_ite/assets/components/EventUtilitiesComponent.min.js",
+   "x_ite/assets/components/GaussianSplatsComponent.min.js",
+   "x_ite/assets/components/Geometry2DComponent.min.js",
+   "x_ite/assets/components/Geometry3DComponent.min.js",
+   "x_ite/assets/components/GeospatialComponent.min.js",
+   "x_ite/assets/components/HAnimComponent.min.js",
+   "x_ite/assets/components/KeyDeviceSensorComponent.min.js",
+   "x_ite/assets/components/LayoutComponent.min.js",
+   "x_ite/assets/components/NURBSComponent.min.js",
+   "x_ite/assets/components/ParticleSystemsComponent.min.js",
+   "x_ite/assets/components/PickingComponent.min.js",
+   "x_ite/assets/components/RigidBodyPhysicsComponent.min.js",
+   "x_ite/assets/components/ScriptingComponent.min.js",
+   "x_ite/assets/components/TextComponent.min.js",
+   "x_ite/assets/components/TextureProjectionComponent.min.js",
+   "x_ite/assets/components/Texturing3DComponent.min.js",
+   "x_ite/assets/components/VolumeRenderingComponent.min.js",
+   "x_ite/assets/components/WebXRComponent.min.js",
+   "x_ite/assets/components/X_ITEComponent.min.js",
+   "x_ite/assets/images/logo.svg",
+   "x_ite/assets/lib/mikktspace_bg.wasm",
+   "x_ite/assets/linetype/linetypes.png",
+   "x_ite/x_ite.css",
+   "x_ite/x_ite.min.js",
+   "xray.x3d"
+  ],
+  "detached": "receipt.json"
+ },
+ "files": [
+  {
+   "role": "input",
+   "path": "bridges.json",
+   "sha256": "f217eb66b08d0ef0fcc584e434c69cfc0c4d64bf9e05984f1b1a4ff61dc1b8f5",
+   "bytes": 22166
+  },
+  {
+   "role": "input",
+   "path": "concepts.json",
+   "sha256": "ddda6e7b43ec5e22e9eee1e6fc12be0ae0bb7a6452661c8257b09ea2c9e83618",
+   "bytes": 12179
+  },
+  {
+   "role": "input",
+   "path": "dataset.json",
+   "sha256": "91870c2dacd5db0f20f520fb5d9730423cfc9847e159f06aa0fd5a4154ce21cf",
+   "bytes": 86350
+  },
+  {
+   "role": "input",
+   "path": "eda.json",
+   "sha256": "61ad2cc23e10e2783229bfbcd583ca06c53e6c4cbdf915545635b0f1f19a1fda",
+   "bytes": 46648
+  },
+  {
+   "role": "input",
+   "path": "profile.json",
+   "sha256": "7ab863a0bd1e764593485c13720e1ccaa6644bd681cc8f80f6e5d8a251eceb69",
+   "bytes": 20957
+  },
+  {
+   "role": "input",
+   "path": "self.json",
+   "sha256": "d577e4141674c618dd78e47b2781c33f769dc45a437a3bc3cd333ed320d5b33b",
+   "bytes": 128332
+  },
+  {
+   "role": "input",
+   "path": "spec.rendered.json",
+   "sha256": "3de455f3278dc429746462b9a5177900c53ccb8ef3c6d3df2dc84676a1bc1af4",
+   "bytes": 4656
+  },
+  {
+   "role": "input",
+   "path": "ties.json",
+   "sha256": "809faf5459425c2aa0d1c98b9510b7c3212912bd564aec9c04bc05ac89470bdb",
+   "bytes": 1946
+  },
+  {
+   "role": "code",
+   "path": "families/hagopjay-x3d.json",
+   "sha256": "463ea49ea2506590ad6829a85f39b242e0150a28ba95380a385c865b2ce1bfe2",
+   "bytes": 5734
+  },
+  {
+   "role": "code",
+   "path": "specs/hagopjay-x3d.json",
+   "sha256": "ac57e6ca4bd6f80173aed222e2e4b63705913a36e37f19760b7bb45619053b3c",
+   "bytes": 14773
+  },
+  {
+   "role": "code",
+   "path": "x3dray/__init__.py",
+   "sha256": "9e6de07a39537a9c8e979b4a555006dfa27d7d5c549cea6efd69d4618cd641e9",
+   "bytes": 252
+  },
+  {
+   "role": "code",
+   "path": "x3dray/__main__.py",
+   "sha256": "dbb5caea9892eb49fa9dc43f4829aae79a471d2c131bd49669fe7a0be3723057",
+   "bytes": 18149
+  },
+  {
+   "role": "code",
+   "path": "x3dray/centrality.py",
+   "sha256": "e51e30b2c6ae955182320a5ac9da57531d750a1585746d10094dd37592b60756",
+   "bytes": 12941
+  },
+  {
+   "role": "code",
+   "path": "x3dray/compiler.py",
+   "sha256": "95c34f44f0000680d1d8cd21fb07c67ee63e50f11544af36fd71a8dbe70af8a3",
+   "bytes": 66083
+  },
+  {
+   "role": "code",
+   "path": "x3dray/curated.py",
+   "sha256": "6a23162ded9caabb29822d2f93ed50b51bad582382be5a7592a922bbc3d40b82",
+   "bytes": 3984
+  },
+  {
+   "role": "code",
+   "path": "x3dray/eda.py",
+   "sha256": "825ce8498de1b4c819e086ece67ec66191c2b1ebdafcdb7147d51d1b4c5c7a12",
+   "bytes": 64219
+  },
+  {
+   "role": "code",
+   "path": "x3dray/fca.py",
+   "sha256": "28fa6e754867a098f1671b1aec79a37cafdef20a7eed7d0cad932ca40cea253e",
+   "bytes": 7366
+  },
+  {
+   "role": "code",
+   "path": "x3dray/gallery.py",
+   "sha256": "4389a70c363077d12ce3a43f273343f19c7c57ef1b6be71bea6b485c13c074b3",
+   "bytes": 11258
+  },
+  {
+   "role": "code",
+   "path": "x3dray/gallerycheck.py",
+   "sha256": "f0fd3c5bf28d974f84f96fbd1004ac6ae6bf704bf536f22bf4cf06939d2c499b",
+   "bytes": 18123
+  },
+  {
+   "role": "code",
+   "path": "x3dray/gates.py",
+   "sha256": "94867a3f96e905ba8ada3b02a52106b7496f68fe388114382a115e1bbcce06ec",
+   "bytes": 28490
+  },
+  {
+   "role": "code",
+   "path": "x3dray/gitio.py",
+   "sha256": "89c48039b334dfe1becb6799778538b11fc9b838750c938efe9437f77d00bd22",
+   "bytes": 7230
+  },
+  {
+   "role": "code",
+   "path": "x3dray/harvest.py",
+   "sha256": "b7fa4cac6d43e5bddac6dc4f6d94b3b92b577ffef37e51d3b4244cead0d63f91",
+   "bytes": 16784
+  },
+  {
+   "role": "code",
+   "path": "x3dray/investigation.py",
+   "sha256": "787a3decd79721ef64152556f869a24a9672f217572e549ce2f084910388e69b",
+   "bytes": 23790
+  },
+  {
+   "role": "code",
+   "path": "x3dray/lab.py",
+   "sha256": "cde610e483390bfcb01f0b7f5921145beb17eef4d0ee56441ecb7857e444bc75",
+   "bytes": 10594
+  },
+  {
+   "role": "code",
+   "path": "x3dray/lab_web/index.html",
+   "sha256": "ae94595a17880a33080a103a5597d04fba421ea04530d0a5556f5b7e3a187d96",
+   "bytes": 6147
+  },
+  {
+   "role": "code",
+   "path": "x3dray/lab_web/lab.css",
+   "sha256": "5a79176ecec5f565539e044358bd3422fb876ffa5fc18c723d4c59634e78190e",
+   "bytes": 11404
+  },
+  {
+   "role": "code",
+   "path": "x3dray/lab_web/lab.js",
+   "sha256": "e589d0127f542e6c22f6ff8fa821472b96339665c116caf67288e415a822f746",
+   "bytes": 21065
+  },
+  {
+   "role": "code",
+   "path": "x3dray/lab_web/start_lab.py",
+   "sha256": "2f529984dcf5b8ab81ac95a82054e6a15ad42c42d6e85f5fde1aff377430616b",
+   "bytes": 3651
+  },
+  {
+   "role": "code",
+   "path": "x3dray/locators.py",
+   "sha256": "e0376df2145548bb8c9e52a3762cc786df26f5c48306697adc16c287357b8ecf",
+   "bytes": 15958
+  },
+  {
+   "role": "code",
+   "path": "x3dray/looks.py",
+   "sha256": "dbb5c135ad210c33cf7b550c28bc4db8e025a228bcc79a253afe67a5d70cb110",
+   "bytes": 39033
+  },
+  {
+   "role": "code",
+   "path": "x3dray/page.py",
+   "sha256": "3de439ef198ad096e325621c4d4afe71646f7e32bb7affc6aa37c381712134aa",
+   "bytes": 20234
+  },
+  {
+   "role": "code",
+   "path": "x3dray/profile.py",
+   "sha256": "3cd0d781354809cda2e25ddad71f7585238747e85534ae60aac845cb17bd0c6b",
+   "bytes": 31435
+  },
+  {
+   "role": "code",
+   "path": "x3dray/proof_web/index.html",
+   "sha256": "7258ed3b1101f5a79c76f339158122b70249a3f451ed2b8ef1daaf90dbcb7c9d",
+   "bytes": 10292
+  },
+  {
+   "role": "code",
+   "path": "x3dray/proof_web/investigation.js",
+   "sha256": "ed5ef18ee6a4ca3af69459217f1078febe351ce79a5df29f66d823e42523e888",
+   "bytes": 22875
+  },
+  {
+   "role": "code",
+   "path": "x3dray/proof_web/proof.css",
+   "sha256": "93123bc687d6af347dfaff10dc86c438a1874212ea3b85ff370d3135cab1a6da",
+   "bytes": 14647
+  },
+  {
+   "role": "code",
+   "path": "x3dray/proof_web/proof.js",
+   "sha256": "bed45213a5ddc4a63567c20c5a3427cc4297b70ec47271ea81b09f5ca62e1243",
+   "bytes": 30150
+  },
+  {
+   "role": "code",
+   "path": "x3dray/prooflab.py",
+   "sha256": "3684fb2237ecb2e2081d733a019cf8a19fdeaaa0d9e37e46f47243b1d0bdb734",
+   "bytes": 20762
+  },
+  {
+   "role": "code",
+   "path": "x3dray/publication.py",
+   "sha256": "a6ff6bb1c25df93e56aab88367b89b394b97e58ff8729e89d021526b920c0481",
+   "bytes": 5475
+  },
+  {
+   "role": "code",
+   "path": "x3dray/receipt.py",
+   "sha256": "c1e7eb16a6d4cfa7906d6c9740a797c72ace3d4b20eff515fab95e40c4c27557",
+   "bytes": 4648
+  },
+  {
+   "role": "code",
+   "path": "x3dray/relations.py",
+   "sha256": "61c0628b3edc4b08bd15346683f21f63311d354fbc584ea1a166bb34a89de385",
+   "bytes": 30863
+  },
+  {
+   "role": "code",
+   "path": "x3dray/scaling.py",
+   "sha256": "5035ff08fefba9243b48d53247a1105f141dcf2f8de0b9973045f942819440df",
+   "bytes": 21673
+  },
+  {
+   "role": "code",
+   "path": "x3dray/scene_mutations.py",
+   "sha256": "5c6ae115a5264386338c4e1bfb9aed3f616d820651360c6e6e30069350519dda",
+   "bytes": 6948
+  },
+  {
+   "role": "code",
+   "path": "x3dray/scenecheck.py",
+   "sha256": "a2a524293dd0645a36682b03060bfc29d87384da690d2c726f6eebac3c069ada",
+   "bytes": 37786
+  },
+  {
+   "role": "code",
+   "path": "x3dray/selfdesc.py",
+   "sha256": "c760349ca45dfce7f202b8bcdeb05e3ed487858cfdde3721f5effd4a8779d742",
+   "bytes": 22614
+  },
+  {
+   "role": "code",
+   "path": "x3dray/spec.py",
+   "sha256": "5b9e90b37e4f89fd93a354b36c782a504f8cc5c4096d3035b635a539647bd78b",
+   "bytes": 18801
+  },
+  {
+   "role": "code",
+   "path": "x3dray/staging.py",
+   "sha256": "6dca49e9cc1cb4ec4382a927cfecfead6a7b8b7dec53a18a2e54a271c7764831",
+   "bytes": 5092
+  },
+  {
+   "role": "code",
+   "path": "x3dray/stats.py",
+   "sha256": "305571f9a6c5e16411c8624aac6fe9006e7f5ecc89f19650afe2040a46bd3a25",
+   "bytes": 12491
+  },
+  {
+   "role": "code",
+   "path": "x3dray/structure.py",
+   "sha256": "fd883765304dfef2e22fbe56adb44d6d63bd8750d2c3301bd9563edf928bc487",
+   "bytes": 56310
+  },
+  {
+   "role": "code",
+   "path": "x3dray/temporal.py",
+   "sha256": "36587e26fc93e369a79742bc402553dc6ce4d7efdb7db61c6951f605341de513",
+   "bytes": 5977
+  },
+  {
+   "role": "code",
+   "path": "x3dray/ties.py",
+   "sha256": "98f1944b772dd53a76c5731b6d4aaa4afe020763bffd771efde44e01d619915f",
+   "bytes": 23263
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/app.js",
+   "sha256": "fa4d7b9c0bcdf8897a709d41f42b0cd670d6d1aad2898aaa5e1092d19a62a469",
+   "bytes": 56564
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/live_gate.cjs",
+   "sha256": "278141e3887e0a6b25108d637aa1cbf66c13d3436b005019f2616561a8100192",
+   "bytes": 23591
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/mcp.mjs",
+   "sha256": "26a10ff061567834c23f454990e0004e3caa99f957815f0c945604b9f29020da",
+   "bytes": 8836
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/notebook.js",
+   "sha256": "9684c6bf0edbeb6386149d93c8ca04f58e72139002e7834d4f64ddf3e7b53aec",
+   "bytes": 25598
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/page.css",
+   "sha256": "ebfd344a72e3c72b26d72bd65da4b1f676009927ce737c5fb47f8610d42bcec6",
+   "bytes": 18222
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/scale_benchmark.cjs",
+   "sha256": "fec38100746c8b51b9e31507d8274b39697b7b10dc13a89ec4ce73c88b9da10e",
+   "bytes": 6747
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/selftest.mjs",
+   "sha256": "109bad80736109cd51dcb4334b2c20d7e1421ae6999ca74236bcbf9206dda95a",
+   "bytes": 37387
+  },
+  {
+   "role": "code",
+   "path": "x3dray/web/tools.js",
+   "sha256": "2c3950e7d94be0ae264ffa89790f285823ceb7e79757af3401004a92b77804cf",
+   "bytes": 167822
+  },
+  {
+   "role": "code",
+   "path": "x3dray/witness_contract.py",
+   "sha256": "6323c27aaec6d25bae1699ebc77814bc663416edee5a0c94f50fd32e66c5f3c1",
+   "bytes": 5135
+  },
+  {
+   "role": "output",
+   "path": "app.js",
+   "sha256": "fa4d7b9c0bcdf8897a709d41f42b0cd670d6d1aad2898aaa5e1092d19a62a469",
+   "bytes": 56564
+  },
+  {
+   "role": "output",
+   "path": "bundle.json",
+   "sha256": "e41a2811a0d0bfa423fc8f54a44e1893cf5fb6d859dbe9c7d1fc154d7ccdfb9b",
+   "bytes": 211770
+  },
+  {
+   "role": "vendored",
+   "path": "fonts/UbuntuMono-R.ttf",
+   "sha256": "c805f9436dbc268644c1d9584f01a601a653e028e08fd74b9b949f6cf8304d88",
+   "bytes": 343140
+  },
+  {
+   "role": "output",
+   "path": "gates.json",
+   "sha256": "a6193183c181793872374d989fc43c0b8720debe8f0ae796fa9660ae1882b55b",
+   "bytes": 3190
+  },
+  {
+   "role": "output",
+   "path": "index.html",
+   "sha256": "aac39456e770f9a883e2d484a625202bfc52196e41331a4d8c6f07b9b85151df",
+   "bytes": 23755
+  },
+  {
+   "role": "output",
+   "path": "investigation.js",
+   "sha256": "ed5ef18ee6a4ca3af69459217f1078febe351ce79a5df29f66d823e42523e888",
+   "bytes": 22875
+  },
+  {
+   "role": "output",
+   "path": "notebook.js",
+   "sha256": "9684c6bf0edbeb6386149d93c8ca04f58e72139002e7834d4f64ddf3e7b53aec",
+   "bytes": 25598
+  },
+  {
+   "role": "output",
+   "path": "tools.js",
+   "sha256": "2c3950e7d94be0ae264ffa89790f285823ceb7e79757af3401004a92b77804cf",
+   "bytes": 167822
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/LICENSE.md",
+   "sha256": "4b4a56dafaa360d8541ed5425e9e891cb678e6cd5eaf71bfe7ef25514db01695",
+   "bytes": 2793
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/AnnotationComponent.min.js",
+   "sha256": "3a084458eb8edcbd123ab62825638157e8667de9686bd6147d21244f3da4c2fb",
+   "bytes": 6036
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/CADGeometryComponent.min.js",
+   "sha256": "5f6e49d285039f5a8d5d2ce8a6b6d0a1755cd982914661c7cdf442b1f39c3edd",
+   "bytes": 11473
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/CubeMapTexturingComponent.min.js",
+   "sha256": "8a0a528ac118b9983b285ad1358bc9e102702b1abecbc4e371273edc993f1ae5",
+   "bytes": 16587
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/DISComponent.min.js",
+   "sha256": "4e6ac49209d0998b6c378d1661370e9f2b87b3856e98f46f6c24459e5d037e5f",
+   "bytes": 18583
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/EventUtilitiesComponent.min.js",
+   "sha256": "83f8a24a8a903b220ed6434d6b4b5f5c2d04295509f5e3f68a49d60a7bab6c7d",
+   "bytes": 7603
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/GaussianSplatsComponent.min.js",
+   "sha256": "f03ca228a5abbbf3319e3dd641cb20744b52dc15d4964da95c35d87861eda43d",
+   "bytes": 24515
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/Geometry2DComponent.min.js",
+   "sha256": "8d0d006c4c8f09dac31b89beebf98eb53c14dc1399254154e8988cd838254bc7",
+   "bytes": 16156
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/Geometry3DComponent.min.js",
+   "sha256": "8ff66a292d3ccc1fc0cb9239c84af960ba6238efccfc5b428f36552db0ee93ec",
+   "bytes": 780
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/GeospatialComponent.min.js",
+   "sha256": "9510ca8acafcda8ff55d40d2e16c9f9cfb17fdd1406d28fdc07ec13088fd0bbf",
+   "bytes": 40253
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/HAnimComponent.min.js",
+   "sha256": "0accf755de5f5305e07827f303855794d733538251e635c56e1c7d1edf2a7201",
+   "bytes": 45034
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/KeyDeviceSensorComponent.min.js",
+   "sha256": "b7f90c45993278a4d8374f7587ad621282e4a8fc64cb716eb009d73b3d3bd3f4",
+   "bytes": 7521
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/LayoutComponent.min.js",
+   "sha256": "088d9f06d4e3deccef10b5b8cb5163901ec4b7960f5d2eb49070c436bb4218ae",
+   "bytes": 17272
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/NURBSComponent.min.js",
+   "sha256": "15315bc7737e790433b4f8b74c7c17c730de07d8e7d38a0ec263c4b4468a863c",
+   "bytes": 58603
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/ParticleSystemsComponent.min.js",
+   "sha256": "5f66ea5fd5513ecf63c918cc4793371b2314bb82d5c08c7e2e7e8db9e0682d66",
+   "bytes": 69880
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/PickingComponent.min.js",
+   "sha256": "b51eec81faa294502323cc41b4945df5cdc275efd0620edb0a0e48854b5303d9",
+   "bytes": 24532
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/RigidBodyPhysicsComponent.min.js",
+   "sha256": "c4a3efe1430a42362053242ae3e464b04059d47f524edfa6f9fd0e2385046443",
+   "bytes": 1746099
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/ScriptingComponent.min.js",
+   "sha256": "9289954b366d83e8189b0577c0c23920751bab35aa6f41e5ac9078045bf9fa88",
+   "bytes": 9716
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/TextComponent.min.js",
+   "sha256": "0118c18a4c84ec2894a8422e5c46185df9b36db029c32c17593db03685f2d0e3",
+   "bytes": 262880
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/TextureProjectionComponent.min.js",
+   "sha256": "6a69aaa84dd33160e135e55cfdeb765e1cb2a2f98b291c74affc91265f4aa7b7",
+   "bytes": 12112
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/Texturing3DComponent.min.js",
+   "sha256": "d2bd283a1fbff4d9bb007e7f2c562f03ef301795931c017eeae57b303e187dac",
+   "bytes": 1484341
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/VolumeRenderingComponent.min.js",
+   "sha256": "24403818c25b877aef07d2f8079e3832adb0816d7831859ca12ea15602fb93e7",
+   "bytes": 60857
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/WebXRComponent.min.js",
+   "sha256": "63f4c7470f3422334abe7e64c8a1815bc566329ca7d7270b18369e340c51325f",
+   "bytes": 11162
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/components/X_ITEComponent.min.js",
+   "sha256": "0c2a6fa7d90809fed23f7dfc9573026d2595638c6ec240076149960a411cf964",
+   "bytes": 64887
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/images/logo.svg",
+   "sha256": "32957ec5753338f88dfc512b750b835ec024a80501e0b92701afb62be93a49dd",
+   "bytes": 414
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/lib/mikktspace_bg.wasm",
+   "sha256": "d734e040ae6480a0d00ba08b8aaae29c2eb59c8705c38b7bc120885fc94c54e2",
+   "bytes": 44694
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/assets/linetype/linetypes.png",
+   "sha256": "824a23ce80644950a9957bba5f879dc72cb36c86964bcb750d7e17e56c3fca1b",
+   "bytes": 138
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/x_ite.css",
+   "sha256": "e8af335cd9e46cbc1d88605a841c89a3ef18a40f161a836bc8dcbbcc107dcb8e",
+   "bytes": 15832
+  },
+  {
+   "role": "vendored",
+   "path": "x_ite/x_ite.min.js",
+   "sha256": "b7df063e8cb14919887563506f6c5f386b3066b65768de1856320a54ec68725f",
+   "bytes": 1306961
+  },
+  {
+   "role": "output",
+   "path": "xray.x3d",
+   "sha256": "7b6e27621512b504c70b6e45b219bff1d86feb66009463ff57a400a057e2aa9d",
+   "bytes": 244576
+  },
+  {
+   "role": "build-control",
+   "path": "layout.json",
+   "sha256": "a43258c88d4f126f04637597baaae588fcd72c7e5ef229438b6df5b76e9f0315",
+   "bytes": 28680
+  },
+  {
+   "role": "build-control",
+   "path": ".publication-assets.json",
+   "sha256": "344fecfc521a36e2a0e7d0de91831d5a988cde9372a01f049d5f548bfd1d134f",
+   "bytes": 6885
+  }
+ ]
+}

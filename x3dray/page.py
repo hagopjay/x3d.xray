@@ -235,7 +235,13 @@ def page_html(css: str, xite_version: str = "local distribution") -> str:
 """
 
 
-def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: dict | None = None) -> dict:
+STANDALONE_HEAD = '<!doctype html>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+
+
+def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: dict | None = None,
+               standalone: bool = False) -> dict:
+    # standalone=True prefixes a doctype, charset and viewport, for hosting where nothing wraps the page (GitHub Pages).
+    # The Artifact export leaves them off because the Artifact host adds its own document skeleton.
     # Validate the selected dependency before writing any page assets. Missing
     # components used to be silently omitted and produced a broken export.
     required = ["x_ite.min.js", "x_ite.css", "LICENSE.md", "assets/linetype/linetypes.png",
@@ -274,7 +280,7 @@ def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: di
     with open(os.path.join(WEB, "page.css"), encoding="utf-8") as fh:
         css = fh.read()
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as fh:
-        fh.write(page_html(css, bundle["meta"]["x_ite"]))
+        fh.write((STANDALONE_HEAD if standalone else "") + page_html(css, bundle["meta"]["x_ite"]))
     for f in ("app.js", "tools.js", "notebook.js"):
         shutil.copyfile(os.path.join(WEB, f), os.path.join(out_dir, f))
     # the notebook records its looks with the same hash-chain code the proof page uses; one source file, copied
