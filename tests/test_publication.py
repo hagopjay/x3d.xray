@@ -93,6 +93,24 @@ class PublicationBoundary(unittest.TestCase):
             page.build_page(str(self.data), str(self.out), str(xite), str(self.root / "missing.ttf"), {})
         self.assertEqual(before, {p.name for p in self.out.iterdir()})
 
+    def test_standalone_flag_adds_document_head_and_artifact_export_does_not(self):
+        xite = self.root / "dist"
+        for rel in ["x_ite.min.js", "x_ite.css", "LICENSE.md", "assets/linetype/linetypes.png",
+                    "assets/lib/mikktspace_bg.wasm", "assets/images/logo.svg", "assets/components/Text.min.js"]:
+            target = xite / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"/* X_ITE v16.7.0 synthetic fixture */")
+        font = self.root / "f.ttf"
+        font.write_bytes(b"synthetic font bytes")
+        heads = {}
+        for standalone in (False, True):
+            with mock.patch.object(page, "make_bundle", return_value={"meta": {}}):
+                page.build_page(str(self.data), str(self.out), str(xite), str(font), {}, standalone=standalone)
+            heads[standalone] = (self.out / "index.html").read_text(encoding="utf-8")
+        self.assertTrue(heads[False].startswith("<title>"))
+        self.assertTrue(heads[True].startswith("<!doctype html>\n<meta charset=\"utf-8\">"))
+        self.assertEqual(heads[True][len(page.STANDALONE_HEAD):], heads[False])
+
     def test_page_registers_exact_dependencies_and_normalizes_font_url(self):
         xite = self.root / "dist"
         required = ["x_ite.min.js", "x_ite.css", "LICENSE.md", "assets/linetype/linetypes.png",
