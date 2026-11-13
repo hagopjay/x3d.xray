@@ -224,6 +224,7 @@ def page_html(css: str, xite_version: str = "local distribution") -> str:
       <button id="stopBtn" type="button" hidden>Stop</button><button id="askBtn" type="submit">Ask</button></form>
   </section>
 </main>
+<section id="notebook" class="notebook" aria-label="Notebook"></section>
 <footer>
   <p><b>Data.</b> The git history and tip trees of the family's repos, harvested with no model. Lines changed come from git numstat, so vendored and generated files count in full.</p>
   <p><b>Privacy.</b> Private repos show only commit times, identity classes and sizes. Emails never leave the harvester, Claude-Session URLs become short hashes, and personal names in the config are hashes.</p>
@@ -274,8 +275,10 @@ def build_page(data_dir: str, out_dir: str, xite: str, font: str, family_cfg: di
         css = fh.read()
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as fh:
         fh.write(page_html(css, bundle["meta"]["x_ite"]))
-    for f in ("app.js", "tools.js"):
+    for f in ("app.js", "tools.js", "notebook.js"):
         shutil.copyfile(os.path.join(WEB, f), os.path.join(out_dir, f))
+    # the notebook records its looks with the same hash-chain code the proof page uses; one source file, copied
+    shutil.copyfile(os.path.join(os.path.dirname(WEB), "proof_web", "investigation.js"), os.path.join(out_dir, "investigation.js"))
     # X_ITE: the script, its stylesheet, every component it may import, the line-type texture, the wasm it asks for, its licence
     xo = os.path.join(out_dir, "x_ite")
     if os.path.isdir(xo):

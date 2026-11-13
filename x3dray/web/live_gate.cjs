@@ -106,7 +106,7 @@ const LABELS = () => {   // every Text in the scene, and how many X_ITE has laid
   const srv = await serve(), base = 'http://127.0.0.1:' + srv.address().port + '/';
   const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } : undefined;
   const b = await chromium.launch({ executablePath: CHROME, proxy, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8') + fs.readFileSync(path.join(SITE, 'app.js'), 'utf8') + fs.readFileSync(path.join(SITE, 'tools.js'), 'utf8');
+  const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8') + fs.readFileSync(path.join(SITE, 'app.js'), 'utf8') + fs.readFileSync(path.join(SITE, 'tools.js'), 'utf8') + fs.readFileSync(path.join(SITE, 'notebook.js'), 'utf8') + fs.readFileSync(path.join(SITE, 'investigation.js'), 'utf8');
   const out = { csp: CSP, chromium: b.version(), static: { eval_or_function: /\beval\s*\(|new\s+Function\b/.test(html) }, runs: [], ok: true };
   fs.mkdirSync(FR, { recursive: true });
   const RUNS = [{ name: 'desktop-dark', viewport: { width: 1600, height: 1000 }, scheme: 'dark', stub: true },

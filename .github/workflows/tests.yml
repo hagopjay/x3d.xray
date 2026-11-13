@@ -18,11 +18,12 @@ jobs:
           node-version: "24"
       - run: python -m pip install --no-deps .
       - run: python -m unittest discover -s tests -v
-      - run: node --check x3dray/web/tools.js && node --check x3dray/web/mcp.mjs && node --check x3dray/lab_web/lab.js
+      - run: node --check x3dray/web/tools.js && node --check x3dray/web/notebook.js && node --check x3dray/web/mcp.mjs && node --check x3dray/lab_web/lab.js
       - run: node --check x3dray/web/selftest.mjs && node --check x3dray/web/live_gate.cjs
       - run: python -m x3dray lab --out /tmp/x3dray-bridge-lab
       - run: npm install --prefix /tmp/lab-dom-tests --no-audit --no-fund jsdom@31.0.0
       - run: NODE_PATH=/tmp/lab-dom-tests/node_modules node experiments/test_lab_dom.cjs /tmp/x3dray-bridge-lab/index.html
+      - run: REQUIRE_JSDOM=1 NODE_PATH=/tmp/lab-dom-tests/node_modules python -m unittest tests.test_notebook_dom -v
       - run: node --check x3dray/proof_web/proof.js && node --check x3dray/proof_web/investigation.js
       - run: python -m x3dray scale --out /tmp/x3dray-scale --sizes 10 --topologies modular --repeats 5 --warmups 1 --jsdom-modules /tmp/lab-dom-tests/node_modules
       - run: python -m x3dray observatory --out /tmp/x3dray-observatory --benchmark /tmp/x3dray-scale/scale-benchmark.json

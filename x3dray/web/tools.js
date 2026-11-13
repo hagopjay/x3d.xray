@@ -1563,12 +1563,13 @@ function edaCompare(B, E, q, looks, compared) {
   if (!EDA_MEASURES_ALL.includes(measure)) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; measures: ${EDA_MEASURES_ALL.join(', ')}`);
   if (!Array.isArray(L.findings) || L.findings.length !== I.DECLARED.length) throw new Error('compare counts the 12 declared looks in its family, and this build has no stored looks');
   const ga = edaGroup(B, q.a, 'a'), gb = edaGroup(B, q.b, 'b'), sm = I.sample(edaRows(B), ga.idx, gb.idx, measure, fork), key = 'cmp|' + sm.label;
+  const look = { kind: 'compare', selector: edaCompareSelector(B, ga.echo, gb.echo, fork, measure) };       // what a host records; names no repo
   let rec = compared.get(key);
   if (!rec) {
     if (compared.size >= I.LIMITS.ADHOC_LOOKS) throw new Error(`this tool set has already taken ${compared.size} comparisons, the most it takes: every one raises the number of looks behind q`);
     rec = { ...I.compare(sm, measure), measure, fork };
     compared.set(key, rec);
-    looks.note({ kind: 'compare', selector: edaCompareSelector(B, ga.echo, gb.echo, fork, measure) });      // after every refusal, once per question
+    looks.note(look);      // after every refusal, once per question
   }
   // The family: the 12 declared looks (their stored p, or 1 when not run), every comparison taken so far, and every other look asked, which counts through m with p = 1.
   const declared = L.findings.map(f => {
@@ -1587,7 +1588,7 @@ function edaCompare(B, E, q, looks, compared) {
   const text = `${A.label} vs ${Bg.label}, ${I.MEASURE_PHRASE[measure]}: ${eff}; ${rec.k_ge} of ${rec.M} label shuffles were at least as extreme (p ${pText}, q ${qText} over m = ${m} looks); ungraded.`;
   const [an, ad] = I.T.ALPHA, [tn, td] = I.T.Q_BH;
   const taken = [...compared].map(([k, r], n) => ({ n: n + 1, id: 'cmp-' + I.sha256Text(k).slice(0, 8), measure: r.measure, fork: r.fork, p: r.p, q: qs.get(k) }));
-  return { route: 'compute', topic: 'compare', summary: text, text,
+  return { route: 'compute', topic: 'compare', summary: text, text, look,
     question: { a: A.filter, b: Bg.filter, fork, measure, note: 'the question is the sample: (a, b) and (b, a), or two spellings of one group, draw one stream' },
     groups: { a: { label: A.label, n: na }, b: { label: Bg.label, n: nb } }, effect: shownEffect,
     null_model: { name: I.NULL_NAME, M: rec.M, k_ge: rec.k_ge, seed: rec.seed, p: rec.p, p_text: pText, draws: rec.draws, draws_cap: I.LIMITS.ADHOC_CAP },

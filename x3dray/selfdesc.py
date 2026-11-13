@@ -66,7 +66,7 @@ PIPELINE = [
      "outputs": ["xray.x3d", "layout.json"], "model": None,
      "does": "Writes one X3D 4.0 scene: the time helix, the tie constellation, the code city, the concept lattice, the bridges, and the tool's own pipeline, with viewpoints for the tour."},
     {"stage": "page", "module": "x3dray/page.py + x3dray/relations.py", "entry": "build_page", "inputs": ["xray.x3d", "layout.json", "all JSON above", "x3dray/web/*"],
-     "outputs": ["index.html", "bundle.json", "app.js", "tools.js", "page.css", "x_ite/", "fonts/", "publish.json"], "model": None,
+     "outputs": ["index.html", "bundle.json", "app.js", "tools.js", "notebook.js", "investigation.js", "page.css", "x_ite/", "fonts/", "publish.json"], "model": None,
      "does": "Projects witnessed ties into conservative typed relation records, then assembles the Artifact folder: vendored X_ITE, the label font, the scene, the data bundle and the page code."},
     {"stage": "gates", "module": "x3dray/gates.py + x3dray/scenecheck.py + x3dray/web/selftest.mjs + x3dray/web/live_gate.cjs", "entry": "run_all", "inputs": ["the page folder"], "outputs": ["gates.json", "frames/"], "model": None,
      "does": "XSD, the Loom gate with the fork validator, the fact gate (no digit outside a slot, every claim backed), the privacy gate, the witness gate (no tie without evidence; the concepts, bridges and eda sections recomputed and re-derived from the commits), the scene gate (independent static constellation geometry, source witnesses and grade encoding), the tool gate (every tool runs under 32 KB, aliases resolve, unknown names are refused, the MCP server answers), and a live X_ITE run under a strict content policy in which Ask runs against a stand-in for the sample runtime."},
