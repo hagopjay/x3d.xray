@@ -156,6 +156,18 @@
       }
     },
     {
+      "id": "gallery",
+      "label": "Looks",
+      "caption": "Each panel is one of the {eda_findings.declared} declared looks, in order. Bars: effect, share of label shuffles at least as extreme, and q, all on one scale. Cubes: fork, leave-one-repo-out, repo and halves checks, hollow if one could not run. {eda_findings.confirmed} Confirmed, {eda_findings.likely} Likely, {eda_findings.suspected} Suspected, {eda_findings.without_grade} ungraded, {eda_findings.not_run} not run.",
+      "claim": {
+        "text": "{eda_findings.declared} looks were declared before any were run, and {eda_findings.confirmed} of them are Confirmed.",
+        "backs": [
+          "eda_findings"
+        ],
+        "basis": "git"
+      }
+    },
+    {
       "id": "self",
       "label": "The tool",
       "caption": "This row is x3d.xray: one block per stage of the pipeline that drew this page, with its modules and their code hashes. Grey stages run no model; coral stages are where Claude writes. Commits of x3d.xray in the data it drew: {self:in_its_own_data.commits_in_data}.",

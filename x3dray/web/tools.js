@@ -1387,16 +1387,48 @@ function edaFlagRow(B, c, priv) {
   return r;
 }
 
+// An ad hoc look as the closed, name-free object x3dray/investigation.py records: repos are ordinals of B.repos, a grade is explicit, nothing is
+// free text. Built after the filter was accepted, so every value is already known to be valid. Its insertion order is fixed, so JSON.stringify
+// of it is one text per distinct look.
+function edaSelector(B, p) {
+  const s = {};
+  if (p.repo && p.repo.length) s.repo = p.repo.map(n => B.repos.findIndex(r => r.name === n)).sort((a, b) => a - b);
+  if (p.who && p.who.length) s.who = p.who.slice().sort();
+  for (const k of ['from', 'to', 'day', 'session']) if (p[k]) s[k] = p[k];
+  if (p.rule) { s.rule = p.rule; s.grade = (p.grade || 'S').toUpperCase(); }
+  for (const k of ['hour', 'weekday', 'min_lines', 'max_lines']) if (p[k] !== null && p[k] !== undefined) s[k] = p[k];
+  if (p.fork) { s.fork = p.fork; s.measure = p.measure; }
+  return s;
+}
+
+// The distinct looks of one tool set, as an object with note(look) and the number asked. look is {kind: 'declared', id} (a stored look read
+// through the finding topic: not counted in asked, as before), or {kind: 'slice'|'rows', selector}. A host that keeps them elsewhere, the
+// investigation chain, passes its own object through makeTools(B, scene, {looks}) and the count then comes from the chain; this default keeps
+// them in memory for this tool set only.
+function edaLookSet() {
+  const seen = new Set();
+  let asked = 0;
+  return {
+    note(look) {
+      const key = look.kind === 'declared' ? 'declared:' + look.id : look.kind + ':' + JSON.stringify(look.selector);
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (look.kind !== 'declared') asked++;
+    },
+    get asked() { return asked; },
+  };
+}
+
 // A request to query_commits, activity or highlight that carries an hour, weekday, size or flag filter is a look at the data
-// just as a slice is, so it joins the same set; plain navigation (a repo, a day, words) does not. The key is the filter in one
-// spelling and has no fork or measure, so it never collides with a slice's key. Call it after the filter has been accepted.
-function edaNoteLook(B, q, asked) {
+// just as a slice is, so it joins the same set; plain navigation (a repo, a day, words) does not. Its kind is 'rows', so it never collides
+// with a slice. Call it after the filter has been accepted.
+function edaNoteLook(B, q, looks) {
   const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday), flag = str(q.flag);
   const lo = edaWhole(q.min_lines, 'min_lines', 0, Infinity), hi = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
   if (hour === null && weekday === null && lo === null && hi === null && !flag) return;
-  asked.add(JSON.stringify({ via: 'rows', repo: str(q.repo) ? repoList(B, q.repo).slice().sort() : [], who: str(q.who) ? kindsOf(q.who).slice().sort() : [],
-    from: str(q.from), to: str(q.to), day: str(q.day), session: str(q.session), flag, flag_grade: flag ? str(q.flag_grade) || 'S' : '', hour, weekday,
-    min_lines: lo, max_lines: hi }));
+  looks.note({ kind: 'rows', selector: edaSelector(B, { repo: str(q.repo) ? repoList(B, q.repo) : [], who: str(q.who) ? kindsOf(q.who) : [],
+    from: str(q.from), to: str(q.to), day: str(q.day), session: str(q.session) ? sessionId(B, q.session) : '', rule: flag, grade: str(q.flag_grade),
+    hour, weekday, min_lines: lo, max_lines: hi }) });
 }
 
 const EDA_ASKED_NOTE = 'distinct eda slices and compare questions plus query_commits, activity and highlight calls that carry an hour, weekday, size or flag filter; plain lookups are not counted';
@@ -1410,7 +1442,7 @@ function edaFilterEcho(B, q) {
     ...(lo !== null ? { min_lines: lo } : {}), ...(hi !== null ? { max_lines: hi } : {}) };
 }
 
-function edaSlice(B, E, q, asked) {
+function edaSlice(B, E, q, looks) {
   const fork = str(q.fork) || 'no_merge', measure = str(q.measure) || 'lines';
   if (!EDA_FORKS.includes(fork)) throw new Error(`unknown fork ${JSON.stringify(fork.slice(0, 40))}; forks: ${EDA_FORKS.join(', ')}`);
   if (!EDA_MEASURES[measure]) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; measures: ${Object.keys(EDA_MEASURES).join(', ')}`);
@@ -1420,12 +1452,16 @@ function edaSlice(B, E, q, asked) {
   const pass = commitFilter(B, filter);
   // Echoed in one spelling (a weekday as its number) so that two spellings of one slice count once in looks_asked_this_session.
   const echo = edaFilterEcho(B, q);
-  asked.add(JSON.stringify({ ...echo, repo: (echo.repo || []).slice().sort(), who: (echo.who || []).slice().sort(), fork, measure }));
+  const look = { kind: 'slice', selector: edaSelector(B, { repo: echo.repo, who: echo.who, from: echo.from, to: echo.to, day: echo.day,
+    session: str(q.session) ? sessionId(B, q.session) : '', rule: echo.rule, grade: echo.grade, hour: echo.hour === undefined ? null : echo.hour,
+    weekday: echo.weekday === undefined ? null : echo.weekday, min_lines: echo.min_lines === undefined ? null : echo.min_lines,
+    max_lines: echo.max_lines === undefined ? null : echo.max_lines, fork, measure }) };
   const matched = B.commits.filter(pass);
   if (matched.length > 50000) throw new Error(`the filter matches ${matched.length} commits; a slice takes at most 50000, so narrow it`);
+  looks.note(look);        // after the refusals: a request that returns no answer is not a look
   const members = matched.filter(c => edaInFork(c, fork));
   const out = { route: 'compute', summary: '', topic: 'slice', filter: echo, fork, measure, matched: matched.length, members: members.length, statistics: null,
-    grade: null, grade_note: 'descriptive and ungraded: outside the declared family of 12 looks', looks_asked_this_session: asked.size,
+    grade: null, grade_note: 'descriptive and ungraded: outside the declared family of 12 looks', looks_asked_this_session: looks.asked,
     looks_asked_note: EDA_ASKED_NOTE,
     declared_looks: ((E.looks || {}).ledger || {}).declared || 12, computed_by: 'edaSummarize (twin of x3dray/stats.py summarize)' };
   const priv = edaPrivateRepos(B);
@@ -1512,26 +1548,36 @@ function edaShowGroup(B, E, echo) {
   return { filter: shown, label: parts.join(', ').slice(0, 160) };
 }
 
-function edaCompare(B, E, q, asked, compared) {
+// A comparison as the closed, name-free look x3dray/investigation.py records: both groups as selectors (repos are ordinals), written in one
+// canonical order so that (a, b) and (b, a) are one look, with the fork and the measure.
+function edaCompareSelector(B, ea, eb, fork, measure) {
+  const group = e => edaSelector(B, { repo: e.repo, who: e.who, from: e.from, to: e.to, day: e.day, hour: e.hour, weekday: e.weekday,
+    min_lines: e.min_lines, max_lines: e.max_lines });
+  const [x, y] = [group(ea), group(eb)].sort((p, r) => { const u = EDA_INFER.canon(p), v = EDA_INFER.canon(r); return u < v ? -1 : u > v ? 1 : 0; });
+  return { a: x, b: y, fork, measure };
+}
+
+function edaCompare(B, E, q, looks, compared) {
   const I = EDA_INFER, L = E.looks || {}, fork = str(q.fork) || 'all', measure = str(q.measure) || 'lines';
   if (!EDA_FORKS.includes(fork)) throw new Error(`unknown fork ${JSON.stringify(fork.slice(0, 40))}; forks: ${EDA_FORKS.join(', ')}`);
   if (!EDA_MEASURES_ALL.includes(measure)) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; measures: ${EDA_MEASURES_ALL.join(', ')}`);
   if (!Array.isArray(L.findings) || L.findings.length !== I.DECLARED.length) throw new Error('compare counts the 12 declared looks in its family, and this build has no stored looks');
   const ga = edaGroup(B, q.a, 'a'), gb = edaGroup(B, q.b, 'b'), sm = I.sample(edaRows(B), ga.idx, gb.idx, measure, fork), key = 'cmp|' + sm.label;
+  const look = { kind: 'compare', selector: edaCompareSelector(B, ga.echo, gb.echo, fork, measure) };       // what a host records; names no repo
   let rec = compared.get(key);
   if (!rec) {
     if (compared.size >= I.LIMITS.ADHOC_LOOKS) throw new Error(`this tool set has already taken ${compared.size} comparisons, the most it takes: every one raises the number of looks behind q`);
     rec = { ...I.compare(sm, measure), measure, fork };
     compared.set(key, rec);
+    looks.note(look);      // after every refusal, once per question
   }
-  asked.add(key);
   // The family: the 12 declared looks (their stored p, or 1 when not run), every comparison taken so far, and every other look asked, which counts through m with p = 1.
   const declared = L.findings.map(f => {
     const p = f.status === 'evaluated' && f.null_model ? f.null_model.p : [1, 1];
     if (!Array.isArray(p) || p.length !== 2 || !p.every(Number.isInteger) || !(p[0] > 0 && p[0] <= p[1])) throw new Error(`stored p of ${str(f.id).slice(0, 40)} is not a pair of integers`);
     return [f.id, p];
   });
-  const m = I.DECLARED.length + asked.size, qs = I.bhQ(declared.concat([...compared].map(([k, r]) => [k, r.p])), m), qv = qs.get(key);
+  const m = I.DECLARED.length + looks.asked, qs = I.bhQ(declared.concat([...compared].map(([k, r]) => [k, r.p])), m), qv = qs.get(key);
   const effect = sm.swapped ? I.flipEffect(rec.effect) : rec.effect, [na, nb] = sm.swapped ? [rec.n_second, rec.n_first] : [rec.n_first, rec.n_second];
   const A = edaShowGroup(B, E, ga.echo), Bg = edaShowGroup(B, E, gb.echo), priv = edaPrivateRepos(B);
   const binPriv = measure === 'repo' && priv.has(effect.dominant_bin);
@@ -1542,17 +1588,17 @@ function edaCompare(B, E, q, asked, compared) {
   const text = `${A.label} vs ${Bg.label}, ${I.MEASURE_PHRASE[measure]}: ${eff}; ${rec.k_ge} of ${rec.M} label shuffles were at least as extreme (p ${pText}, q ${qText} over m = ${m} looks); ungraded.`;
   const [an, ad] = I.T.ALPHA, [tn, td] = I.T.Q_BH;
   const taken = [...compared].map(([k, r], n) => ({ n: n + 1, id: 'cmp-' + I.sha256Text(k).slice(0, 8), measure: r.measure, fork: r.fork, p: r.p, q: qs.get(k) }));
-  return { route: 'compute', topic: 'compare', summary: text, text,
+  return { route: 'compute', topic: 'compare', summary: text, text, look,
     question: { a: A.filter, b: Bg.filter, fork, measure, note: 'the question is the sample: (a, b) and (b, a), or two spellings of one group, draw one stream' },
     groups: { a: { label: A.label, n: na }, b: { label: Bg.label, n: nb } }, effect: shownEffect,
     null_model: { name: I.NULL_NAME, M: rec.M, k_ge: rec.k_ge, seed: rec.seed, p: rec.p, p_text: pText, draws: rec.draws, draws_cap: I.LIMITS.ADHOC_CAP },
     q: qv, q_text: qText, p_at_most_alpha: ad * rec.p[0] <= an * rec.p[1], q_at_most_q_threshold: td * qv[0] <= tn * qv[1],
-    family: { declared: I.DECLARED.length, comparisons: compared.size, other_looks: asked.size - compared.size, m,
+    family: { declared: I.DECLARED.length, comparisons: compared.size, other_looks: Math.max(0, looks.asked - compared.size), m,
       note: 'q is Benjamini-Hochberg over the 12 declared looks (stored p), every comparison taken so far, and every other look asked (p = 1); the next look raises m',
       counted_in: 'this tool set only: a page reload or a new MCP process counts again from 12' },
     taken, grade: null, grade_note: 'ungraded: a grade needs the declared robustness checks, which exist only for the 12 declared looks; read p and q as description',
     say_at_most: 'a difference in these recorded commits that the label shuffle did or did not reproduce; not a graded finding, not causal', scope: I.SCOPE,
-    looks_asked_this_session: asked.size, looks_asked_note: EDA_ASKED_NOTE, declared_looks: I.DECLARED.length,
+    looks_asked_this_session: looks.asked, looks_asked_note: EDA_ASKED_NOTE, declared_looks: I.DECLARED.length,
     declared_p_source: edaRecomputed.has(E) && edaRecomputed.get(E).paths.length === 0 ? 'recomputed in this runtime and matching the stored section' : 'stored in bundle.eda (the Python witness gate recomputes them; the recompute topic does it here)',
     computed_by: 'EDA_INFER.compare (twin of x3dray/looks.py compare)', wording: EDA_WORDING };
 }
@@ -1573,7 +1619,7 @@ function edaRefuseUnusedArgs(topic, q) {
   if (unused.length) throw new Error(`topic ${topic} does not use ${unused.join(', ')}; it takes ${takes.length ? takes.join(', ') : 'no arguments'}`);
 }
 
-function edaRun(B, q, asked, compared) {
+function edaRun(B, q, looks, compared) {
   const E = B.eda;
   if (!E) return { route: 'lookup', status: 'unavailable', summary: 'eda unavailable: eda was not computed for this build', reason: 'eda was not computed for this build' };
   const topic = str(q.topic), L = E.looks || {}, lim = edaLimit(q);
@@ -1585,13 +1631,14 @@ function edaRun(B, q, asked, compared) {
       n_a: f.groups ? f.groups.a.n : null, n_b: f.groups ? f.groups.b.n : null, p_text: f.null_model ? f.null_model.p_text : null,
       q_text: f.q_text, text: f.text }));
     return edaList({ route: 'lookup', summary: `${K.declared} declared looks: ${K.evaluated} evaluated, ${K.not_run} not run; Confirmed ${g.C || 0}, Likely ${g.L || 0}, Suspected ${g.S || 0}, ungraded ${g.none || 0}`,
-      topic, ledger: K, looks_asked_this_session: asked.size, looks_asked_note: EDA_ASKED_NOTE,
+      topic, ledger: K, looks_asked_this_session: looks.asked, looks_asked_note: EDA_ASKED_NOTE,
       pair: pair ? pair.map(c => lab[c] || c) : null, pair_reason: (E.classes || {}).pair_reason || null, grade_rule: L.grade_rule,
       scope: L.scope, say_at_most: L.say_at_most, bh_note: K.bh_note, wording: EDA_WORDING }, 'findings', rows, 40);
   }
   if (topic === 'finding') {
     const ids = (L.findings || []).map(f => f.id), id = str(q.id), f = (L.findings || []).find(x => x.id === id);
     if (!f) throw new Error(`${id ? 'no look ' + JSON.stringify(id.slice(0, 60)) : 'finding needs an id'}; known: ${ids.join(', ')}`);
+    looks.note({ kind: 'declared', id: f.id });
     return { route: 'lookup', summary: `${f.id}: ${f.grade ? 'grade ' + f.grade : 'no grade'} (${f.grade_reason})`, topic, finding: f, grade_rule: L.grade_rule, wording: EDA_WORDING };
   }
   if (topic === 'audit') {
@@ -1642,16 +1689,16 @@ function edaRun(B, q, asked, compared) {
     return { route: 'lookup', summary: `thresholds, forks and rules of the eda stage (schema ${E.schema_version})`, topic, kernel: M.kernel, rounding: M.rounding, quantile: M.quantile,
       thresholds: M.thresholds, forks: M.forks, seed_label: M.seed_label, code_sha256: M.code_sha256, limitations: (E.audit || {}).limitations, grade_rule: L.grade_rule, wording: EDA_WORDING };
   }
-  if (topic === 'slice') return edaSlice(B, E, q, asked);
+  if (topic === 'slice') return edaSlice(B, E, q, looks);
   if (topic === 'recompute') return edaRecompute(B, E);
-  if (topic === 'compare') return edaCompare(B, E, q, asked, compared);
+  if (topic === 'compare') return edaCompare(B, E, q, looks, compared);
   throw new Error('unknown topic; topics: ' + EDA_TOPICS.join(', '));
 }
 
 // ---------------------------------------------------------------- tools
-export function makeTools(B, scene) {
+export function makeTools(B, scene, opts) {
   const T = [];
-  const edaAsked = new Set();       // the distinct looks asked in this tool set (slices, comparisons and filtered row tools), so multiplicity is visible
+  const edaAsked = (opts && opts.looks) || edaLookSet();       // the distinct looks asked in this tool set (slices, comparisons and filtered row tools), so multiplicity is visible
   const edaCompared = new Map();    // comparison key -> its result, so asking again repeats the answer and does not draw again
   const add = (name, description, inputSchema, execute) => T.push({ name, description, inputSchema, execute: (input = {}, ctx) => {
     validateInput(inputSchema, input);
@@ -2078,7 +2125,7 @@ export function makeTools(B, scene) {
     concept: { type: 'string', description: 'kinds of author such as "you,ai": that concept in the file lattice' },
   };
   add('show',
-    'Move the camera. Give a view (overview, helix, burst, peak, rhythm, claude, ties, fork, city, hotspots, concepts, bridges, self) or a target to fly to (repo, sha, day, file, tie, session or concept). Returns what is now in view.',
+    'Move the camera. Give a view (overview, helix, burst, peak, rhythm, claude, ties, fork, city, hotspots, concepts, bridges, gallery, self) or a target to fly to (repo, sha, day, file, tie, session or concept). Returns what is now in view.',
     { type: 'object', properties: { view: { type: 'string' }, ...target, place: { type: 'string', enum: ['helix', 'ties', 'city', 'bridges'], description: 'for a repo: which view to find it in (default ties; bridges is the session graph)' } } },
     q => scene.show(q));
   add('highlight',

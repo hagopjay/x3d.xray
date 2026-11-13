@@ -13,7 +13,7 @@ import json
 from pathlib import Path, PurePosixPath
 
 REGISTRY = ".publication-assets.json"
-GENERATED = ("index.html", "bundle.json", "app.js", "tools.js", "xray.x3d")
+GENERATED = ("index.html", "bundle.json", "app.js", "tools.js", "notebook.js", "investigation.js", "xray.x3d")
 REPORTS = ("gates.json", "receipt.json")
 TYPES = {".html": "text/html", ".x3d": "application/xml", ".json": "application/json", ".js": "text/javascript", ".mjs": "text/javascript",
          ".ttf": "font/ttf", ".png": "image/png", ".txt": "text/plain", ".md": "text/markdown", ".css": "text/css", ".wasm": "application/wasm",

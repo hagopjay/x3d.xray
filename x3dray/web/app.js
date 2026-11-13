@@ -1,6 +1,7 @@
 // x3d-ray page: loads the bundle and the X3D scene (X_ITE), draws the readouts, runs the tour, and wires Claude in
 // through the Artifact's sample capability, with the same tools the MCP server serves plus four that move the scene.
 import { makeTools, digest, matchCommits, resolveRepo, sessionId, kindsOf, splitFile, CLASS_NAMES, kindsName } from './tools.js';
+import { startNotebook } from './notebook.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -17,7 +18,7 @@ const REPO_HUES = ['#5ac8e0', '#f0b443', '#e8795d', '#a4bf7a', '#a68fdc', '#e0a3
 const SIGNAL_VIEW = { family_span: 'helix', who_commits: 'claude', busiest_month: 'burst', busiest_day: 'peak', births: 'helix', ai_share_by_repo: 'claude',
   weekly_mix: 'claude', bot_identity: 'helix', rhythm: 'rhythm', pairing: 'claude', largest_commits: 'helix', sessions: 'claude', tests: 'city',
   x3d_assets: 'city', hotspots: 'hotspots', branches: 'helix', pins: 'fork', ties_machine: 'ties', ties_curated: 'ties', idle_forks: 'ties', second_account: 'ties',
-  concepts_files: 'concepts', concepts_rules: 'concepts', bridges_sessions: 'bridges', bridges_files: 'bridges' };
+  concepts_files: 'concepts', concepts_rules: 'concepts', bridges_sessions: 'bridges', bridges_files: 'bridges', eda_findings: 'gallery' };
 const SIGNAL_HI = { bot_identity: { who: 'bot' }, pairing: { trailer: true, who: 'you' }, who_commits: { who: 'ai' }, sessions: { who: 'ai' } };
 
 function hex3(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
@@ -37,6 +38,9 @@ async function boot() {
   B.gates = gates; B.receipt = receipt;
   X.B = B; X.L = B.layout;
   renderHeader(B); renderKpis(B); renderSignals(B); renderRepos(B); renderCharts(B); renderTour(B); renderViews(B);
+  // One tool set is shared by the notebook and Ask Claude, so the looks Claude takes are counted and listed beside yours.
+  try { X.notebook = await startNotebook(B, { root: $('notebook'), scene: sceneApi, onTools: t => { askState.tools = t; } }); log('notebook: ' + X.notebook.mode + (X.notebook.reason ? ' (' + X.notebook.reason + ')' : '')); }
+  catch (e) { X.notebook = null; $('notebook').hidden = true; log('notebook: failed ' + (e && e.message)); }
   initAsk(B);
   startScene();
 }
@@ -271,6 +275,9 @@ function pick(view, p) {
     const items = L.concepts.files.map(c => ({ kind: 'files', ...c })).concat(L.concepts.repos.map(c => ({ kind: 'repos', ...c })));
     const n = nearest(items, p, q => q.p); return n && n.d < items[n.i].r + 1.2 ? { type: 'concept', of: items[n.i].kind, i: items[n.i].i } : null;
   }
+  if (view === 'gallery' && L.gallery) {
+    const n = nearest(L.gallery.panels, p, q => q.p); return n && n.d < 6 ? { type: 'look', id: L.gallery.panels[n.i].id } : null;
+  }
   if (view === 'bridges' && L.bridges) {
     const items = Object.entries(L.bridges.repos).map(([k, v]) => ({ type: 'brepo', name: k, ...v })).concat(Object.entries(L.bridges.sessions).map(([k, v]) => ({ type: 'session', name: k, ...v })),
       L.bridges.files.map(b => ({ type: 'bfile', b, p: b.p, r: 0.3 })));
@@ -281,7 +288,7 @@ function pick(view, p) {
 }
 function wirePicking() {
   const tag = $('tag');
-  [['TS_helix', 'helix'], ['TS_ties', 'ties'], ['TS_city', 'city'], ['TS_self', 'self'], ['TS_concepts', 'concepts'], ['TS_bridges', 'bridges']].forEach(([def, view]) => {
+  [['TS_helix', 'helix'], ['TS_ties', 'ties'], ['TS_city', 'city'], ['TS_self', 'self'], ['TS_concepts', 'concepts'], ['TS_bridges', 'bridges'], ['TS_gallery', 'gallery']].forEach(([def, view]) => {
     const ts = node(def); if (!ts) return;
     let hp = null, over = false, raf = 0;
     ts.addFieldCallback('xr', 'hitPoint_changed', v => {
@@ -306,8 +313,10 @@ function titleOf(it) {
   if (it.type === 'brepo') return it.name + ' · session graph';
   if (it.type === 'session') return 'Claude session ' + it.name;
   if (it.type === 'bfile') return `${it.b.repo} · ${it.b.variant} · ${it.b.file}`;
+  if (it.type === 'look') { const f = lookOf(it.id); return f ? `${f.id} · ${f.status === 'evaluated' ? (f.grade ? 'grade ' + f.grade : 'no grade') : 'not run'}` : ''; }
   return '';
 }
+function lookOf(id) { const L = X.B.eda && X.B.eda.looks; return L ? (L.findings || []).find(f => f.id === id) : null; }
 function conceptOf(it) { const C = X.B.concepts; if (!C) return null; return (it.of === 'repos' ? C.repos_by_author_class : C.files_by_author_class).concepts[it.i]; }
 
 function ghFile(repo, path) { const r = X.B.repos.find(x => x.name === repo); return r && r.github ? r.github + '/blob/HEAD/' + path.split('/').map(encodeURIComponent).join('/') : null; }
@@ -346,6 +355,12 @@ function showCard(it) {
     h = `<p class="ck">x3d.xray stage · ${p.model ? 'AI takes part' : 'no model'}</p><h3>${esc(p.stage)}</h3><p class="mono small">${esc(p.module)} · ${fmt(p.lines)} lines · ${esc(Object.values(p.sha256 || {}).join(' '))}</p><p>${esc(p.does)}</p>` +
       (p.model ? `<p class="ai">${esc(p.model)}</p>` : '');
     ask = `How does the ${p.stage} stage of x3d.xray work, and what checks it?`;
+  } else if (it.type === 'look') {
+    const f = lookOf(it.id);
+    h = `<p class="ck">declared look · ${f.status === 'evaluated' ? (f.grade ? 'grade ' + f.grade : 'no grade') : 'not run'}</p><h3 class="mono">${esc(f.id)}</h3><p>${esc(f.text)}</p>` +
+      (f.status === 'evaluated' ? `<dl><dt>why this grade</dt><dd>${esc(f.grade_reason)}</dd><dt>q</dt><dd class="mono">${esc(f.q_text)}</dd></dl>` : `<p class="small">${esc(f.reason || '')}</p>`) +
+      `<p class="small">${esc(f.scope || '')}</p>` + (X.notebook && X.notebook.mode !== 'none' ? `<button type="button" class="askthis" data-take="${esc(f.id)}">Take this look in the notebook</button>` : '');
+    ask = `What does the ${f.id} look say, and which of its checks held?`;
   } else if (it.type === 'concept') {
     const c = conceptOf(it), C = B.concepts, name = kindsName(c.intent, it.of === 'repos' ? 'every repo' : 'every file');
     if (it.of === 'files') {
@@ -386,6 +401,7 @@ function showCard(it) {
 }
 $('cardClose').addEventListener('click', () => { $('card').hidden = true; });
 $('cardAsk').addEventListener('click', () => { const q = $('cardAsk').dataset.q; if (q) { $('q').value = q; askNow(); } });
+$('cardBody').addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-take]'); if (b && X.notebook) X.notebook.take(b.dataset.take); });
 
 // scene API: what the tools and the UI call
 function setXray(on) { X.xray = on; $('xray').setAttribute('aria-pressed', String(on)); applyColors(); }
@@ -576,7 +592,7 @@ async function initAsk(B) {
   askState.toolsOk = !!(lim && lim.tools);
   askState.maxTools = lim && lim.tools ? lim.tools.maxCount : 0;
   if (lim && lim.modelTiers) document.querySelectorAll('input[name="tier"]').forEach(r => { r.disabled = !lim.modelTiers.includes(r.value); });
-  askState.tools = makeTools(B, sceneApi);
+  askState.tools = X.notebook ? X.notebook.tools : makeTools(B, sceneApi);
   askState.on = true;
   $('askState').hidden = true; $('q').disabled = false; $('askBtn').disabled = false;
   document.querySelectorAll('.qchip').forEach(b => { b.disabled = false; });
