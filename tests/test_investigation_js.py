@@ -82,6 +82,7 @@ class BrowserInvestigationParity(unittest.TestCase):
     def test_genesis_and_all_event_hashes_match_python(self):
         events = [{"action": "select_entity", "id": "中文.py"},
                   {"action": "set_query", "query": {"from_entity": "alpha", "to_entity": "😀.x3d"}},
+                  {"action": "set_time", "time": {"at": "2024-02-29T23:59:59.123456-00:30", "time_mode": "valid_at"}},
                   {"action": "set_lens", "lens": {"predicates": ["😀", "\ue000", "uses"], "direction": "incoming", "max_hops": 6, "grade": "L"}},
                   {"action": "select_relation", "id": "alpha-uses-scene"},
                   {"action": "run_mutation", "id": "move-node"},
@@ -90,7 +91,8 @@ class BrowserInvestigationParity(unittest.TestCase):
         genesis, actual = self.js([self.task("new"), self.task("chain", events=events)])
         self.assertEqual(genesis, {"ok": True, "value": inv.new_log(FIXTURE, ANALYSIS)})
         self.assertEqual(actual, {"ok": True, "value": expected})
-        self.assertEqual(expected["log"]["events"][2]["event"]["lens"]["predicates"], ["uses", "\ue000", "😀"])
+        recorded_lens = next(e["event"]["lens"] for e in expected["log"]["events"] if e["event"]["action"] == "set_lens")
+        self.assertEqual(recorded_lens["predicates"], ["uses", "\ue000", "😀"])
 
     def test_both_runtimes_replay_each_others_unicode_logs(self):
         for ident in ["😀.x3d", "e\u0301", "é"]:
@@ -216,6 +218,64 @@ class BrowserInvestigationParity(unittest.TestCase):
             expected.append(err.exception.code)
         actual = self.js([self.task("append", log=base, event={"action": "set_query", "query": query}) for query in queries])
         self.assertEqual([r["code"] for r in actual], expected)
+
+    def test_time_normalization_matches_python_without_losing_microseconds(self):
+        vectors = [("2026-11-12T10:15:20+05:30", "2026-11-12T04:45:20Z"),
+                   ("2024-02-29T23:59:59.123456-00:30", "2024-03-01T00:29:59.123456Z"),
+                   ("2000-03-01T00:00:00.100000+14:00", "2000-02-29T10:00:00.1Z"),
+                   ("1900-03-01T00:15:00+01:00", "1900-02-28T23:15:00Z"),
+                   ("0001-01-01T00:00:00Z", "0001-01-01T00:00:00Z"),
+                   ("9999-12-31T23:59:59.999999Z", "9999-12-31T23:59:59.999999Z"),
+                   ("2026-01-01T00:00:00.000000-00:00", "2026-01-01T00:00:00Z")]
+        tasks, expected = [], []
+        for raw, normalized in vectors:
+            event = {"action": "set_time", "time": {"at": raw, "time_mode": "observed_by"}}
+            value = self.python_chain([event])
+            self.assertEqual(value["state"]["time"], {"at": normalized, "time_mode": "observed_by", "unknown_time": "exclude"})
+            tasks.append(self.task("chain", events=[event])); expected.append(value)
+        actual = self.js(tasks)
+        self.assertEqual(actual, [{"ok": True, "value": value} for value in expected])
+
+    def test_temporal_clear_and_reset_match_python_and_do_not_extend_lens(self):
+        initial = {"action": "set_time", "time": {"at": "2026-11-12T00:00:00.000010Z", "time_mode": "valid_at", "unknown_time": "include"}}
+        tasks, expected = [], []
+        for end in [{"action": "set_time", "time": None}, {"action": "reset"}]:
+            events = [initial, end]
+            tasks.append(self.task("chain", events=events)); expected.append(self.python_chain(events))
+        actual = self.js(tasks)
+        self.assertEqual(actual, [{"ok": True, "value": v} for v in expected])
+        self.assertTrue(all(r["value"]["state"]["time"] is None for r in actual))
+        event = {"action": "set_lens", "lens": {"predicates": [], "direction": "outgoing", "max_hops": 3, "grade": "all", "at": "2026-11-12T00:00:00Z"}}
+        self.assertEqual(self.js([self.task("append", log=inv.new_log(FIXTURE, ANALYSIS), event=event)])[0]["code"], "invalid_lens_shape")
+
+    def test_invalid_temporal_filters_match_python_rejection(self):
+        values = [{"at": at, "time_mode": "valid_at"} for at in [
+            "2026-11-12", "2026-11-12T12:34:56", "2026-11-12T12:34Z", "2026-11-12 12:34:56Z",
+            "1900-02-29T00:00:00Z", "2023-02-29T00:00:00Z", "2024-02-30T00:00:00Z", "2026-00-01T00:00:00Z",
+            "2026-13-01T00:00:00Z", "2026-01-00T00:00:00Z", "2026-01-01T24:00:00Z", "2026-11-12T12:34:60Z",
+            "2026-11-12T12:34:56.1234567Z", "2026-11-12T12:34:56.Z", "2026-11-12T12:34:56+14:01",
+            "2026-11-12T12:34:56+15:00", "2026-11-12T12:34:56+01:60", "0000-01-01T00:00:00Z",
+            "0001-01-01T00:00:00+00:01", "9999-12-31T23:59:59-00:01"]]
+        values += [{}, {"at": "2026-11-12T00:00:00Z"}, {"at": "2026-11-12T00:00:00Z", "time_mode": "bad"},
+                   {"at": "2026-11-12T00:00:00Z", "time_mode": "valid_at", "unknown_time": "guess"},
+                   {"at": "2026-11-12T00:00:00Z", "time_mode": "valid_at", "extra": True}, True, []]
+        base = inv.new_log(FIXTURE, ANALYSIS); expected = []
+        for value in values:
+            with self.assertRaises(inv.InvestigationError) as err:
+                inv.append_event(base, {"action": "set_time", "time": value}, CATALOG)
+            expected.append(err.exception.code)
+        actual = self.js([self.task("append", log=base, event={"action": "set_time", "time": value}) for value in values])
+        self.assertEqual([r["code"] for r in actual], expected)
+
+    def test_equivalent_timestamps_share_hashes_but_serialized_events_must_be_canonical(self):
+        a = {"action": "set_time", "time": {"at": "2026-11-12T10:15:20.100000+05:30", "time_mode": "valid_at"}}
+        b = {"action": "set_time", "time": {"at": "2026-11-12T04:45:20.1Z", "time_mode": "valid_at", "unknown_time": "exclude"}}
+        expected = self.python_chain([a])
+        actual = self.js([self.task("chain", events=[a]), self.task("chain", events=[b])])
+        self.assertEqual(actual, [{"ok": True, "value": expected}] * 2)
+        bad = copy.deepcopy(expected["log"])
+        bad["events"][0]["event"]["time"]["at"] = a["time"]["at"]
+        self.assertEqual(self.js([self.task("replay", log=bad)])[0]["code"], "noncanonical_event")
 
 
 if __name__ == "__main__":

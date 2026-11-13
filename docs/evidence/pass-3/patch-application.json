@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "upstream_base": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+  "pass2_tree": "9af447dd191a5b4998c3cafbd323490f7e67b596",
+  "compared_files": 81,
+  "routes": [
+    "upstream+cumulative",
+    "upstream+pass2cumulative+pass3delta"
+  ],
+  "patches": [
+    {
+      "path": "X3D-Xray-Architecture-Pass-3.patch",
+      "bytes": 579463,
+      "sha256": "7ca476b807553b4866cb4cc9b15958c389db2655b151ac4cf6df4a7d677b1971"
+    },
+    {
+      "path": "X3D-Xray-Architecture-Cumulative.patch",
+      "bytes": 1215146,
+      "sha256": "5ac41f9cc25bb5d8496cf6a8373f80377085f6e6ce57ec87d85e47044172657e"
+    }
+  ]
+}

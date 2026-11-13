@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "python_tests": 442,
+  "DOM_checks": 23,
+  "schema_cases": 11,
+  "HTTP_probes": 10,
+  "measured_scale_rows": 9,
+  "scale_sizes": [
+    10,
+    100,
+    1000
+  ],
+  "scale_topologies": [
+    "chain",
+    "modular",
+    "branching"
+  ],
+  "samples_per_stage": 7,
+  "warmups": 2,
+  "query_oracle_comparisons": 54,
+  "immutable_Git_file_witnesses": 4,
+  "real_synthetic_Git_repos": 4,
+  "synthetic_harvested_commits": 24,
+  "glyph_overlap_pairs_at_1000_before": 7936,
+  "glyph_overlap_pairs_at_1000_after": 0,
+  "source_fingerprints_matched": 13,
+  "fixture_digest": "3c5287b1c72239587c6410072950d8eea4d78f56f7765fb0dee1fe75ff70e2c0",
+  "analysis_digest": "0e8404a34519d9f6919d496023d934fc6ae06b6499b6b333cd440bb8aa7d8256",
+  "patch_application": {
+    "ok": true,
+    "upstream_base": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+    "pass2_tree": "9af447dd191a5b4998c3cafbd323490f7e67b596",
+    "compared_files": 81,
+    "routes": [
+      "upstream+cumulative",
+      "upstream+pass2cumulative+pass3delta"
+    ],
+    "patches": [
+      {
+        "path": "X3D-Xray-Architecture-Pass-3.patch",
+        "bytes": 579463,
+        "sha256": "7ca476b807553b4866cb4cc9b15958c389db2655b151ac4cf6df4a7d677b1971"
+      },
+      {
+        "path": "X3D-Xray-Architecture-Cumulative.patch",
+        "bytes": 1215146,
+        "sha256": "5ac41f9cc25bb5d8496cf6a8373f80377085f6e6ce57ec87d85e47044172657e"
+      }
+    ]
+  },
+  "limitations": [
+    "Synthetic scale observations are not thousands of harvested Git repositories.",
+    "No actual browser layout, X_ITE pixels, GPU memory or frame-rate measurements.",
+    "DOM construction harness is distinct from the production workbench and paint.",
+    "Local byte verification does not authenticate a remote owner or detector claim.",
+    "Validity queries do not implicitly impose a historical knowledge cutoff.",
+    "Real-family full eight-gate release readiness remains separately required."
+  ]
+}

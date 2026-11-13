@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "matched": [
+    "x3dray/scaling.py",
+    "x3dray/compiler.py",
+    "x3dray/scenecheck.py",
+    "x3dray/relations.py",
+    "x3dray/web/tools.js",
+    "x3dray/web/scale_benchmark.cjs",
+    "x3dray/witness_contract.py",
+    "x3dray/locators.py",
+    "x3dray/temporal.py",
+    "x3dray/gitio.py",
+    "x3dray/structure.py",
+    "experiments/benchmark_architecture_scale.py",
+    "experiments/benchmark_architecture_scale.cjs"
+  ],
+  "scope": "Measured implementation and harness bytes still match final source."
+}

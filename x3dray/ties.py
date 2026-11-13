@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import collections
 import bisect
+import hashlib
 import os
 import re
 
-from . import gitio
+from . import gitio, locators
 from .harvest import classify_path
+from .temporal import normalize_instant
 
 HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{7,64}(?![0-9a-fA-F])", re.I)
 MANIFESTS = {
@@ -115,6 +117,76 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
     pats = _alias_patterns(cfg)
     repos = {r["name"]: r for r in dataset["repos"]}
     private = {n for n, r in repos.items() if r.get("visibility") == "private"}
+    try:
+        observed_at = normalize_instant(dataset.get("harvested_at"))
+    except ValueError:
+        observed_at = None
+
+    locator_cache = {}
+
+    def file_locator(src, path, blob, size, detector, line=None, data=None):
+        """Record the already-pinned public source, never a mutable HEAD read."""
+        key = (src, path, blob, detector, line)
+        if key in locator_cache:
+            return locator_cache[key]
+        unavailable = lambda reason: {"locator_status": "unavailable", "locator_unavailable_reason": reason}
+        r = repos[src]
+        fmt, revision = r.get("object_format"), r.get("head")
+        if src in private:
+            result = {"locator_status": "withheld_private"}
+        elif fmt not in {"sha1", "sha256"} or not isinstance(revision, str) or not re.fullmatch(r"[0-9a-fA-F]{40}" if fmt == "sha1" else r"[0-9a-fA-F]{64}", revision):
+            result = unavailable("no_public_pinned_revision")
+        elif size > locators.MAX_BYTES:
+            result = unavailable("unsupported_blob_size")
+        else:
+            try:
+                path.encode("utf-8", errors="strict")
+            except UnicodeError:
+                result = unavailable("source_not_utf8_path")
+            else:
+                mode = r.get("_blob_modes", {}).get(path)
+                if mode not in {"100644", "100755", "120000"}:
+                    result = unavailable("source_content_unavailable")
+                else:
+                    if data is None:
+                        data = gitio.cat_blob(r["_path"], blob)
+                    if len(data) != size:
+                        result = unavailable("source_content_unavailable")
+                    else:
+                        kwargs = {"line_start": line, "line_end": line} if line is not None else {}
+                        try:
+                            locator = locators.locator_from_blob(r.get("repo_id", "repo:" + src), revision, fmt, blob, path, data,
+                                detector_id=detector, mode=mode, **kwargs)
+                        except ValueError:
+                            # A detector can inspect replacement-decoded text.
+                            # Preserve the exact raw LF line as bytes if the
+                            # source is not valid UTF-8; never claim text proof.
+                            if line is not None:
+                                a = 0
+                                for _ in range(1, line):
+                                    a = data.find(b"\n", a)
+                                    if a < 0:
+                                        break
+                                    a += 1
+                                if 0 <= a < len(data):
+                                    newline = data.find(b"\n", a)
+                                    b = len(data) if newline < 0 else newline + 1
+                                    try:
+                                        locator = locators.locator_from_blob(r.get("repo_id", "repo:" + src), revision, fmt, blob, path, data,
+                                            detector_id=detector, mode=mode, byte_start=a, byte_end=b)
+                                    except ValueError:
+                                        locator = None
+                                else:
+                                    locator = None
+                            else:
+                                locator = None
+                            actual = hashlib.new(fmt, b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+                            reason = "invalid_blob_identity" if actual != blob.lower() else "line_span_unavailable" if line is not None else "source_content_unavailable"
+                            result = {"locator_status": "recorded", "locator": locator} if locator else unavailable(reason)
+                        else:
+                            result = {"locator_status": "recorded", "locator": locator}
+        locator_cache[key] = result
+        return result
 
     # Full object IDs are retained internally by the harvester until ties are
     # found. Old datasets with abbreviated sha fields remain usable, but cannot
@@ -139,12 +211,14 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
             pairs[key] = {"from": a, "to": b, "kinds": collections.Counter(), "evidence": [], "_evidence_records": 0}
         return pairs[key]
 
-    def add_ev(p: dict, kind: str, path: str, line_no: int | None, text: str | None, src: str):
+    def add_ev(p: dict, kind: str, path: str, line_no: int | None, text: str | None, src: str, blob: str, size: int, data: bytes):
         p["kinds"][kind] += 1
         if src in private:
             _retain_evidence(p, {"kind": kind, "path": "[private repo]", "line": None, "text": None})
         else:
-            _retain_evidence(p, {"kind": kind, "path": path, "line": line_no, "text": (text or "").strip()[:200]})
+            locator = ({"locator_status": "withheld_private"} if p["from"] in private or p["to"] in private
+                       else file_locator(src, path, blob, size, kind, line_no, data))
+            _retain_evidence(p, {"kind": kind, "path": path, "line": line_no, "text": (text or "").strip()[:200], **locator})
 
     # The observer effect: the tool's own repo names every repo it reads (its config, spec, tests, docs, layout), by construction.
     # Those mentions and hash-shaped strings are set aside and counted, and only the uses its config declares become ties.
@@ -201,7 +275,7 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                 for k, cnt in kinds_here.items():
                     ml[k] += cnt
                 _, best, ln_no, win = best_hit
-                add_ev(p, "mention:" + best, path, ln_no, win, n)
+                add_ev(p, "mention:" + best, path, ln_no, win, n, blob, size, data)
             # commit hashes of other repos written here
             for m in HEX_RE.finditer(text):
                 tok = m.group(0).lower()
@@ -225,7 +299,7 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                     strong = len(tok) >= 12 or bool(PIN_CONTEXT.search(win))
                     line_no = bisect.bisect_left(newlines, m.start()) + 1
                     pp = pair(n, other)
-                    add_ev(pp, "pin" if strong else "pin-weak", path, line_no, _window(text, m.start(), m.end()), n)
+                    add_ev(pp, "pin" if strong else "pin-weak", path, line_no, _window(text, m.start(), m.end()), n, blob, size, data)
                     if strong:
                         pp.setdefault("pin_targets", collections.Counter())[sha] += 1
 
@@ -244,7 +318,17 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
                 p["shared_bytes"] += pa[2]
                 pa_path = "[private repo]" if a in private else pa[1]
                 pb_path = "[private repo]" if b in private else pb[1]
-                _retain_evidence(p, {"kind": "shared_file", "path": pa_path, "other_path": pb_path, "bytes": pa[2], "line": None, "text": None})
+                if a in private or b in private:
+                    source = {"locator_status": "withheld_private"}
+                else:
+                    source_a = file_locator(a, pa[1], blob, pa[2], "shared_file")
+                    source_b = file_locator(b, pb[1], blob, pb[2], "shared_file")
+                    if all(s.get("locator_status") == "recorded" for s in (source_a, source_b)):
+                        source = {"locator_status": "recorded", "locators": [source_a["locator"], source_b["locator"]]}
+                    else:
+                        reason = next(s["locator_unavailable_reason"] for s in (source_a, source_b) if s.get("locator_status") == "unavailable")
+                        source = {"locator_status": "unavailable", "locator_unavailable_reason": reason}
+                _retain_evidence(p, {"kind": "shared_file", "path": pa_path, "other_path": pb_path, "bytes": pa[2], "line": None, "text": None, **source})
 
     # one Claude session committing to two repos
     sess = collections.defaultdict(lambda: collections.defaultdict(list))
@@ -294,6 +378,15 @@ def find_ties(cfg: dict, dataset: dict) -> dict:
 
     out = []
     for p in pairs.values():
+        for evidence in p["evidence"]:
+            evidence["observed_at"], evidence["valid_time"] = observed_at, None
+            if p["from"] in private or p["to"] in private:
+                evidence.pop("locator", None)
+                evidence.pop("locators", None)
+                evidence.pop("locator_unavailable_reason", None)
+                evidence["locator_status"] = "withheld_private"
+            elif "locator_status" not in evidence:
+                evidence.update(locator_status="unavailable", locator_unavailable_reason="non_file_provenance")
         total = p.pop("_evidence_records")
         p["evidence_records"] = {"total": total, "returned": len(p["evidence"]), "omitted": total - len(p["evidence"]),
                                  "limit": MAX_EVIDENCE * 4, "per_kind_limit": MAX_EVIDENCE}

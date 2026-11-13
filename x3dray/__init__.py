@@ -4,4 +4,4 @@ Pipeline: loaders -> profiler (no model) -> spec (the only place an AI may write
 -> compiler (plain code, writes X3D) -> gates -> receipt -> viewer.
 """
 
-__version__ = "0.3.0.dev1"
+__version__ = "0.4.0.dev1"

@@ -262,6 +262,11 @@ def gate_scene(out_dir: str) -> dict:
             return {"status": "skip", "summary": "No static scene plan; regenerate with the current compiler", "scope": "No geometry verification performed"}
         if (bundle.get("layout") or {}).get("scene_plan") != plan:
             return {"status": "fail", "summary": "Served and build-control scene plans differ"}
+        if not isinstance(plan, dict):
+            return {"status": "fail", "summary": "Static scene plan is malformed"}
+        if type(plan.get("source_binding_schema")) is not int or plan["source_binding_schema"] != 1:
+            return {"status": "skip", "summary": "Legacy scene plan lacks the current source-binding contract; regenerate before release",
+                    "scope": "Legacy geometry inspection remains available through verify-scene; modern source coverage was not established"}
         path = os.path.join(out_dir, "xray.x3d")
         if os.path.getsize(path) > MAX_XML_BYTES:
             return {"status": "fail", "summary": "Scene exceeds the bounded static verifier input size"}

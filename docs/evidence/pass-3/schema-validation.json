@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "case": "baseline",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "equivalent_nested_transforms",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "chain-10",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "chain-100",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "chain-1000",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "modular-10",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "modular-100",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "modular-1000",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "branching-10",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "branching-100",
+      "valid": true,
+      "errors": []
+    },
+    {
+      "case": "branching-1000",
+      "valid": true,
+      "errors": []
+    }
+  ],
+  "schema_sha256": "d01ac41b4ac218acb989d6692e749a5e652ddde3a91ac5d6d3cb0af03c1afbe2",
+  "scope": "Official Web3D X3D4.0 schema+imports resolved from local cache. Schema validity does not certify runtime appearance."
+}

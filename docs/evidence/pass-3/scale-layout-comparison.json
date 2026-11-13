@@ -1,0 +1,80 @@
+{
+  "scope": "World-space production glyph packing before scale-aware layout change; labels, edge crossings and screen-space readability unmeasured.",
+  "before": {
+    "scope": "World-space production glyph packing before scale-aware layout change; labels, edge crossings and screen-space readability unmeasured.",
+    "compiler_sha256": "03f81474ef717693b387e12d05ac3572c2c885016b2ed6ba8a9b16e1b08aeb58",
+    "rows": [
+      {
+        "size": 10,
+        "topology": "chain",
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 4.799999999999997,
+        "closest_pair_surface_gap": 4.159999999999997,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      {
+        "size": 100,
+        "topology": "chain",
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.8188491924646415,
+        "closest_pair_surface_gap": 0.17884919246464148,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      },
+      {
+        "size": 1000,
+        "topology": "chain",
+        "glyph_overlap_pairs": 7936,
+        "closest_center_distance": 0.07507329751649199,
+        "closest_pair_surface_gap": -0.5649267024835081,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment."
+      }
+    ]
+  },
+  "after": {
+    "compiler_sha256": "161ae63a2b49d749201eafa669b33834c563a1d10f9295d23de167b13536775d",
+    "rows": [
+      {
+        "size": 10,
+        "topology": "chain",
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 4.799999999999997,
+        "closest_pair_surface_gap": 4.159999999999997,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment.",
+        "layout_policy": {
+          "id": "adaptive-concentric-v1",
+          "min_glyph_spacing": 0.99,
+          "scope": "World-space glyph bounds; labels, edge crossings and screen-space legibility are unverified."
+        },
+        "region_radius": 13.82
+      },
+      {
+        "size": 100,
+        "topology": "chain",
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9913969941451302,
+        "closest_pair_surface_gap": 0.3513969941451301,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment.",
+        "layout_policy": {
+          "id": "adaptive-concentric-v1",
+          "min_glyph_spacing": 0.99,
+          "scope": "World-space glyph bounds; labels, edge crossings and screen-space legibility are unverified."
+        },
+        "region_radius": 14.81
+      },
+      {
+        "size": 1000,
+        "topology": "chain",
+        "glyph_overlap_pairs": 0,
+        "closest_center_distance": 0.9896837878837856,
+        "closest_pair_surface_gap": 0.34968378788378557,
+        "scope": "World-space glyph bounds only; no labels, edge crossings or screen-space layout assessment.",
+        "layout_policy": {
+          "id": "adaptive-concentric-v1",
+          "min_glyph_spacing": 0.99,
+          "scope": "World-space glyph bounds; labels, edge crossings and screen-space legibility are unverified."
+        },
+        "region_radius": 22.73
+      }
+    ]
+  }
+}

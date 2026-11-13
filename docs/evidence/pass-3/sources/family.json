@@ -1,0 +1,77 @@
+{
+ "family": "architecture-observatory",
+ "title": "Synthetic Architecture Observatory",
+ "owner": "synthetic",
+ "identities": [
+  {
+   "label": "Fixture Author",
+   "class": "you",
+   "match_names": [
+    "Fixture Author"
+   ]
+  },
+  {
+   "label": "Fixture Assistant",
+   "class": "ai",
+   "match_names": [
+    "Fixture Assistant"
+   ]
+  }
+ ],
+ "default_identity": {
+  "label": "Unmapped",
+  "class": "upstream"
+ },
+ "repos": [
+  {
+   "name": "ingest",
+   "dir": "ingest",
+   "kind": "own",
+   "visibility": "public",
+   "aliases": [
+    "ingest_api"
+   ],
+   "role": "Synthetic ingest boundary"
+  },
+  {
+   "name": "evidence",
+   "dir": "evidence",
+   "kind": "own",
+   "visibility": "public",
+   "aliases": [
+    "evidence_core"
+   ],
+   "role": "Synthetic evidence boundary"
+  },
+  {
+   "name": "render",
+   "dir": "render",
+   "kind": "own",
+   "visibility": "public",
+   "aliases": [
+    "render_view"
+   ],
+   "role": "Synthetic render boundary"
+  },
+  {
+   "name": "review",
+   "dir": "review",
+   "kind": "own",
+   "visibility": "public",
+   "aliases": [
+    "review_inspector"
+   ],
+   "role": "Synthetic review boundary",
+   "uses": {
+    "render": "The synthetic family configuration declares the review viewer."
+   },
+   "observer": true
+  }
+ ],
+ "lineage": [
+  "ingest",
+  "evidence",
+  "render"
+ ],
+ "lineage_source": "Synthetic owner statement about conceptual development order, not Git ancestry."
+}

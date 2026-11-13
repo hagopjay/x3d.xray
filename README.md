@@ -212,6 +212,35 @@ Investigation logs bind query endpoints, filters, selections and requested mutat
 
 DOM integration (requires `jsdom@31.0.0`) is exercised by `experiments/test_observatory_dom.cjs`; it includes a renderer stand-in for scene reuse. Actual WebGL, layout and full-family release gates still require their own environment and evidence.
 
+## Immutable witnesses, time and measured scale
+
+The Continuum Observatory extends the same lab with exact public Git file locators, independent observation/validity lenses and recorded scale experiments. Python 3.10+, Git with `--no-lazy-fetch` support, and Node are required for the complete workflow. Missing Git object/capability checks return `unavailable`; they never trigger a promisor fetch. Optional jsdom 31.0.0 adds explicitly labelled SVG DOM construction measurements.
+
+```sh
+python3 -m x3dray fixture-sources --out synthetic-sources
+python3 -m x3dray verify-witness --repo synthetic-sources/evidence --repo-id github:synthetic/evidence --locator synthetic-sources/witnesses/0000.json
+python3 -m x3dray scale --out scale-evidence --jsdom-modules path/to/node_modules
+python3 -m x3dray observatory --out out/continuum --benchmark scale-evidence/scale-benchmark.json
+python3 out/continuum/start_lab.py
+```
+
+Use an empty source output directory. The four fixture repositories are synthetic and local. Locators name a canonical caller-bound repository ID, full commit and blob IDs with object format, raw content SHA-256, exact byte/line span and span SHA-256, and detector/version. The local verifier rehashes the commit/tree/blob chain with replacement and lazy fetching disabled. Moving HEAD or modifying the worktree does not change the addressed evidence. Caller identity, remote ownership and the detector's interpretation remain separate trust questions. Non-file assertions state that no immutable file locator is available. Private-touching relations export aggregates, with no private content hashes or locators.
+
+The `architecture` query accepts paired `at` (timezone-qualified ISO timestamp) and `time_mode`, plus `unknown_time` (`exclude` default, or `include`):
+
+| time mode | meaning |
+| --- | --- |
+| `observed_by` | supplied observation time ≤ query instant; makes no lifetime claim |
+| `valid_at` | explicit claimed start ≤ instant < end; every hop uses the same instant |
+
+Unknown-time paths are labelled provisional when included. Public explicit `observed_at` and `{start,end}` `valid_time` fields survive curated import. Commit author dates and legacy `first_date` are never converted into lifetimes. A validity query can use later-recorded assertions about the past; combining validity with a historical knowledge cutoff is a separate future query mode. `set_time` investigation events save and replay these choices with strict UTC/microsecond normalization.
+
+The benchmark generates 10/100/1,000 entities for chain, modular and branching graphs, with long Unicode IDs, parallel typed observations and isolated nodes. These are generated source records, not thousands of harvested repositories. It runs the production constellation compiler, independent verifier, typed projection, Python queries and shared JavaScript tool against an independent path oracle. Seven measured repetitions follow two warmups by default; raw samples, nearest-rank p95, source fingerprints, environment, budget refusals and clearly scoped memory probes are retained. The packaged JavaScript harness works from an installed wheel.
+
+The fixed-radius layout produced 7,936 overlapping glyph pairs at 1,000 entities. Adaptive concentric rings reduce that fixture's glyph overlaps to zero and resize its region/viewpoint. This establishes world-space glyph separation; labels, edge crossings, screen readability and GPU performance need separate checks. All 1,000 glyphs are verified even though the independent observed-detail export is capped at 200 records. The lab's full plan preview discloses this distinction.
+
+Modern scene plans also bind a formal source digest: first four substantive public witnesses, display strings capped at 160 characters, complete normalized locators and aggregate counts. A complete `scene_sources` ledger explains omitted inputs. The independent checker detects altered source samples and coordinated removals from XML/plan; private hashes depend on aggregate counts only. A retained trusted receipt binds the entire exported bytes beyond this bounded sample. Neither mechanism authenticates the publisher. Legacy geometry plans remain inspectable with verify-scene, but cannot satisfy the current release gate until regenerated with source binding.
+
 ## Layout
 
 ```
