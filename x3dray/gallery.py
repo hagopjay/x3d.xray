@@ -64,7 +64,7 @@ def _esc(s: str) -> str:
 
 def _meta(name: str, record: dict) -> str:
     payload = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    return f"<MetadataString name='{name}' value='{_esc(json.dumps(payload, ensure_ascii=True))}'/>"
+    return f"<MetadataString containerField='metadata' name='{name}' value='{_esc(json.dumps(payload, ensure_ascii=True))}'/>"
 
 
 def _mf(lines: list[str]) -> str:

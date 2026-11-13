@@ -34,6 +34,13 @@ def metadata(element, name):
 
 
 class ConstellationPlanTests(unittest.TestCase):
+    def test_every_metadata_string_names_its_container_field(self):
+        # default containerField for MetadataString in X3D 4.0 is 'value'; inside Transform/Shape it must be 'metadata'
+        xml, _ = region(pairs=[machine()])
+        marks = [e for e in ET.fromstring(xml).iter("MetadataString")]
+        self.assertTrue(marks)
+        self.assertTrue(all(e.get("containerField") == "metadata" for e in marks))
+
     def test_generic_family_has_only_declared_repository_nodes(self):
         xml, layout = region()
         self.assertEqual(set(layout["nodes"]), {"alpha", "beta"})
