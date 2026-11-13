@@ -27,10 +27,11 @@ import shutil
 import subprocess
 
 from .page import EMAIL, SECRET, SESSION_URL, write_publish_map
+from . import publication
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
-OURS = ("index.html", "bundle.json", "app.js", "tools.js", "xray.x3d", "gates.json", "receipt.json")
+REQUIRED_RELEASE_GATES = ("xsd", "loom", "fact", "privacy", "witness", "tools", "live")
 
 
 def _run(cmd: list[str], env: dict | None = None, timeout: int = 900) -> tuple[int, str, str]:
@@ -78,20 +79,33 @@ def gate_fact(data_dir: str) -> dict:
     sp = os.path.join(data_dir, "spec.rendered.json")
     if not os.path.exists(sp):
         return {"status": "fail", "summary": "no rendered spec"}
-    r = json.load(open(sp, encoding="utf-8"))
-    probs = r.get("problems", [])
-    slots = sum(len(v.get("slots", [])) + len((v.get("claim") or {}).get("slots", [])) for v in r["views"]) + sum(len(t.get("slots", [])) for t in r["tour"])
-    claims = sum(1 for v in r["views"] if v.get("claim"))
-    return {"status": "pass" if not probs else "fail", "summary": f"{slots} slots filled by code, {claims} claims backed, {len(probs)} problems",
-            "problems": probs[:20]}
+    from .spec import verify_rendered_spec
+    probs = verify_rendered_spec(data_dir)
+    # Counts are a readout only; the verdict comes from re-rendering the saved
+    # source spec against current profile/self inputs, not a cached problem list.
+    try:
+        with open(sp, encoding="utf-8") as fh:
+            r = json.load(fh)
+        views = [v for v in r.get("views", []) if isinstance(v, dict)] if isinstance(r, dict) else []
+        tour = [t for t in r.get("tour", []) if isinstance(t, dict)] if isinstance(r, dict) else []
+        slots = sum(len(v.get("slots") or []) + len((v.get("claim") or {}).get("slots") or []) for v in views)
+        slots += sum(len(t.get("slots") or []) for t in tour)
+        claims = sum(1 for v in views if v.get("claim"))
+    except (ValueError, TypeError, AttributeError):
+        slots, claims = 0, 0
+    return {"status": "pass" if not probs else "fail", "summary": f"{slots} slots, {claims} evidence-linked claims, {len(probs)} consistency problems",
+            "problems": probs[:20], "scope": "Schema, slot/reference validity and current-input re-rendering; natural-language entailment is not proved."}
 
 
 def gate_privacy(out_dir: str) -> dict:
     hits = []
-    for name in OURS:
-        p = os.path.join(out_dir, name)
-        if not os.path.exists(p):
-            continue
+    try:
+        selected = publication.assets(out_dir)
+    except (ValueError, OSError, json.JSONDecodeError):
+        return {"status": "fail", "summary": "invalid publication asset registry", "findings": ["publication asset validation failed"], "scanned": []}
+    scanned = [a["path"] for a in selected if a["role"] == "owned"]
+    for name in scanned:
+        p = publication.safe_path(out_dir, name)
         with open(p, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
         for rx, what in ((EMAIL, "address"), (SESSION_URL, "session URL"), (SECRET, "secret-shaped string")):
@@ -110,8 +124,9 @@ def gate_privacy(out_dir: str) -> dict:
                                {s for c in b["commits"] for s in (c.get("s") or [])})       # the graphs' nodes, from the commits
     for sec in ("concepts", "bridges"):
         hits += [f"bundle.json: {t}" for t in _itemised(b.get(sec) or {}, priv, sec, nodes)][:10]
-    return {"status": "pass" if not hits else "fail", "summary": f"{len(hits)} findings in {len([n for n in OURS if os.path.exists(os.path.join(out_dir, n))])} files we wrote",
-            "findings": hits[:20], "scanned": [n for n in OURS if os.path.exists(os.path.join(out_dir, n))]}
+    return {"status": "pass" if not hits else "fail", "summary": f"{len(hits)} findings in {len(scanned)} registered owned assets",
+            "findings": hits[:20], "scanned": scanned,
+            "vendored_attested": [a["path"] for a in selected if a["role"] == "vendored"]}
 
 
 def _itemised(x, priv: set, trail: str, nodes=frozenset()) -> list[str]:
@@ -122,7 +137,7 @@ def _itemised(x, priv: set, trail: str, nodes=frozenset()) -> list[str]:
     return structure.itemised(x, priv, trail, nodes)
 
 
-FIXED_TEXT = ("checks", "csp", "chromium", "caveat", "scanned")   # the gates' own words: check names, the page's CSP, versions
+FIXED_TEXT = ("checks", "csp", "chromium", "caveat", "scanned", "vendored_attested")   # the gates' own words: check names, the page's CSP, versions
 
 
 def _guard(g: dict, priv: set) -> list[str]:
@@ -160,7 +175,8 @@ def _structure_witness(b: dict, L: dict, data_dir: str | None) -> tuple[list[str
     from . import structure
     probs = []
     if data_dir and os.path.exists(os.path.join(data_dir, "dataset.json")):
-        rows = structure.commit_rows(json.load(open(os.path.join(data_dir, "dataset.json"), encoding="utf-8")))
+        with open(os.path.join(data_dir, "dataset.json"), encoding="utf-8") as fh:
+            rows = structure.commit_rows(json.load(fh))
         try:
             probs += structure.verify(con, bri, rows)
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as e:
@@ -168,7 +184,11 @@ def _structure_witness(b: dict, L: dict, data_dir: str | None) -> tuple[list[str
         fresh = json.loads(json.dumps({"concepts.json": structure.concepts(rows), "bridges.json": structure.bridges(rows)}))
         for name, sec in (("concepts.json", con), ("bridges.json", bri)):
             p = os.path.join(data_dir, name)
-            if not os.path.exists(p) or json.load(open(p, encoding="utf-8")) != sec:
+            disk = None
+            if os.path.exists(p):
+                with open(p, encoding="utf-8") as fh:
+                    disk = json.load(fh)
+            if disk != sec:
                 probs.append(f"the bundle's {name[:-5]} differ from {name} in the data folder")
             elif fresh[name] != sec:
                 probs.append(f"{name} is stale: a fresh run of the stage on dataset.json gives something else")
@@ -190,8 +210,13 @@ def _structure_witness(b: dict, L: dict, data_dir: str | None) -> tuple[list[str
 
 
 def gate_witness(out_dir: str, data_dir: str | None = None) -> dict:
-    b = json.load(open(os.path.join(out_dir, "bundle.json"), encoding="utf-8"))
-    L = json.load(open(os.path.join(out_dir, "layout.json"), encoding="utf-8"))
+    if not os.path.isfile(os.path.join(out_dir, "xray.x3d")):
+        return {"status": "fail", "summary": "xray.x3d is missing", "without_witness": [], "drawn_without_record": [], "structure": [],
+                "scope": "Requires an emitted scene; semantic correspondence below is checked against layout metadata."}
+    with open(os.path.join(out_dir, "bundle.json"), encoding="utf-8") as fh:
+        b = json.load(fh)
+    with open(os.path.join(out_dir, "layout.json"), encoding="utf-8") as fh:
+        L = json.load(fh)
     bad = [f"{t['from']} -> {t['to']}" for t in b["ties"]["machine"] if not t.get("evidence")]
     bad += [t["id"] for t in b["ties"]["curated"] if not t.get("evidence")]
     have = {(t["from"], t["to"]) for t in b["ties"]["machine"]}
@@ -203,7 +228,8 @@ def gate_witness(out_dir: str, data_dir: str | None = None) -> dict:
     ok = not bad and not drawn and not sprobs
     return {"status": "pass" if ok else "fail",
             "summary": f"{n} ties, each with a witness; {b['ties'].get('dropped_without_witness', 0)} dropped for want of one; {len(drawn)} drawn without a record; {ssum}",
-            "without_witness": bad[:10], "drawn_without_record": drawn[:10], "structure": sprobs[:20]}
+            "without_witness": bad[:10], "drawn_without_record": drawn[:10], "structure": sprobs[:20],
+            "scope": "Scene presence and layout/bundle/source witnesses; independent scene geometry correspondence is not yet checked."}
 
 
 def gate_tools(out_dir: str) -> dict:
@@ -263,10 +289,13 @@ def run_all(data_dir: str, out_dir: str, onto: str | None = None, fork: str | No
     g["witness"] = gate_witness(out_dir, data_dir)
     g["tools"] = gate_tools(out_dir)
     g["live"] = gate_live(out_dir) if live else {"status": "skip", "summary": "skipped with --no-live"}
-    b = json.load(open(os.path.join(out_dir, "bundle.json"), encoding="utf-8"))
+    with open(os.path.join(out_dir, "bundle.json"), encoding="utf-8") as fh:
+        b = json.load(fh)
     _guard(g, {r["name"] for r in b["repos"] if r.get("visibility") == "private"})
     ok = all(v["status"] != "fail" for v in g.values())
-    res = {"ok": ok, "ran_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    ready = all(g.get(k, {}).get("status") == "pass" for k in REQUIRED_RELEASE_GATES)
+    res = {"ok": ok, "release_ready": ready, "required_release_gates": list(REQUIRED_RELEASE_GATES),
+           "ran_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "skipped": [k for k, v in g.items() if v["status"] == "skip"], "gates": g}
     with open(os.path.join(out_dir, "gates.json"), "w", encoding="utf-8") as fh:
         json.dump(res, fh, indent=1)

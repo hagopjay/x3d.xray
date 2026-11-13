@@ -1,0 +1,655 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Source-based x3d.xray teardown, verified reproductions, architecture, creative roadmap and release-audit scaffold."><title>x3d.xray | Evidence Observatory Review</title><style>
+:root{--bg:#09141c;--panel:#10212c;--paper:#eff4f2;--ink:#1a303b;--muted:#526773;--line:#d2deda;--teal:#78d6cc;--coral:#ee987e;--gold:#f0cd81}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.65}a{color:#12666e;text-underline-offset:3px;overflow-wrap:anywhere}a:hover{color:#a0442c}aside{position:fixed;top:0;bottom:0;left:0;width:275px;padding:28px 20px;overflow:auto;color:#bbced5;border-right:1px solid #24404d;background:#0c1a24}.brand{font-size:23px;color:#f0f6f6;font-weight:750;letter-spacing:-1px}.brand em{font-style:normal;color:var(--teal)}.issue{font:11px ui-monospace,monospace;letter-spacing:2px;color:#81a7b6;margin:10px 0 25px}nav a{display:block;color:#b8ced6;text-decoration:none;font-size:12px;line-height:1.35;padding:10px 0;border-bottom:1px solid #1d3542}nav a:hover{color:var(--teal)}nav span{display:inline-block;width:25px;color:#678b9b;font:11px ui-monospace,monospace}.sidebar-note{font-size:11px;line-height:1.5;color:#84a3af;margin-top:26px}main{margin-left:275px;max-width:1500px}.hero{padding:58px 6.5% 42px;color:#e4eff1;background:radial-gradient(ellipse at 86% 5%,#25414a 0,transparent 50%),linear-gradient(155deg,#0f2836,#09141c)}.eyebrow{font:11px ui-monospace,monospace;letter-spacing:2px;color:var(--teal);margin:0 0 18px}h1{font-size:clamp(35px,4.1vw,62px);letter-spacing:-2px;line-height:1.09;margin:0 0 22px;max-width:920px}h1 span{color:var(--teal)}.dek{font-size:18px;line-height:1.65;color:#bed2d9;max-width:800px;margin:0 0 20px}.stamp{font:11px ui-monospace,monospace;color:#8eafbb;overflow-wrap:anywhere}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:35px 0 0}.metric{border:1px solid #355361;border-radius:9px;padding:15px;background:#0a1c2680}.metric b{font-size:28px;font-weight:650;display:block;color:#eaf3f1;line-height:1.2}.metric small{color:#a6c0cb;font-size:11px}.main-content{background:var(--paper);padding:24px 6.5% 70px}article{max-width:1050px;margin:auto}h2{font-size:27px;line-height:1.25;letter-spacing:-.6px;padding-top:42px;margin:15px 0 22px;border-top:1px solid var(--line)}h3{font-size:19px;line-height:1.35;margin:32px 0 14px;letter-spacing:-.2px}p{font-size:15px;margin:14px 0}li{font-size:15px;margin:8px 0}strong{font-weight:700}ul,ol{padding-left:24px}.table-wrap{overflow:auto;margin:23px 0;border:1px solid #cad8d4;border-radius:9px;background:#f8fbf9}table{border-collapse:collapse;width:100%;font-size:12.5px;line-height:1.6;text-align:left;min-width:580px}thead{background:#173846;color:#edf4f3}th{font-weight:600;padding:13px 14px}td{padding:12px 14px;vertical-align:top;border-top:1px solid #d7e1de}tbody tr:nth-child(even){background:#e9f0ed}td:first-child{font-weight:600}code{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;background:#dfeae6;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}pre{background:#102b37;color:#d6ecee;border-radius:9px;padding:23px;overflow:auto;line-height:1.65}pre code{background:none;padding:0;color:inherit;overflow-wrap:normal}.architecture{background:#0c202b;padding:22px;border-radius:12px;margin:25px 0}.architecture svg{width:100%;height:auto;display:block}.architecture figcaption{font-size:11px;color:#9ebbc6;margin:10px 0 0}.architecture .eyebrow{margin-bottom:0}.toolbar{display:flex;gap:10px;margin-top:24px}button{background:#1b4455;color:#e6f0f0;padding:9px 14px;border:1px solid #4b7381;border-radius:5px;font:12px system-ui;cursor:pointer}button:hover{background:#2c5868}footer{color:#90aeba;font-size:11px;padding:20px 6.5%}.print-only{display:none}::selection{background:#b5e2d5;color:#12343d}
+@media(min-width:1700px){main{margin-right:auto}}@media(max-width:1050px){aside{width:220px;padding:25px 14px}main{margin-left:220px}.hero,.main-content{padding-left:5%;padding-right:5%}.metrics{gap:8px}.metric{padding:12px}}@media(max-width:760px){aside{position:relative;width:auto;max-height:none;padding:18px 5%}.brand{font-size:21px}.issue{margin-bottom:0}nav{display:none}.sidebar-note{display:none}main{margin:0}.hero{padding:35px 5% 30px}.main-content{padding:10px 5% 40px}h1{letter-spacing:-1px}h2{font-size:24px}.metrics{grid-template-columns:repeat(2,1fr);margin-top:25px}.dek{font-size:16px}.architecture{padding:12px}.architecture svg{min-width:600px}.architecture{overflow:auto}.architecture figcaption{min-width:550px}}
+@media print{html{scroll-behavior:auto}body{background:white}aside,.toolbar{display:none}main{margin:0;max-width:none}.hero{background:#173846!important;padding:25px;color:white;print-color-adjust:exact}.hero h1{font-size:34px;max-width:none}.hero .dek{font-size:13px}.metrics{margin-top:15px}.metric b{font-size:22px}.main-content{padding:0 12px;background:white}.main-content p,.main-content li{font-size:10pt}h2{font-size:20px;break-after:avoid}h3{break-after:avoid}table{font-size:8pt;min-width:0}.table-wrap{overflow:visible}thead{display:table-header-group}tr{break-inside:avoid}pre{white-space:pre-wrap;font-size:8pt}.architecture{break-inside:avoid}footer{color:#555}a{color:#19475c}.print-only{display:block}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style></head><body>
+<aside><div class="brand">x3d.<em>xray</em></div><div class="issue">DEVELOPMENT REVIEW / 01</div><nav aria-label="Report sections"><a href="#1-what-was-actually-checked"><span>01</span>What was actually checked</a><a href="#2-what-is-unusually-good-preserve-it"><span>02</span>What is unusually good — preserve it</a><a href="#3-the-current-architecture-and-its-real-boundary"><span>03</span>The current architecture and its real boundary</a><a href="#4-findings-to-fix-first"><span>04</span>Findings to fix first</a><a href="#5-ingestion-the-most-important-source-of-quiet-errors"><span>05</span>Ingestion: the most important source of quiet errors</a><a href="#6-proposed-architecture-explicit-contracts-same-simple-runtime"><span>06</span>Proposed architecture: explicit contracts, same simple runtime</a><a href="#7-give-the-graphs-richer-semantics"><span>07</span>Give the graphs richer semantics</a><a href="#8-performance-measured-pressure-points-and-a-disciplined-path"><span>08</span>Performance: measured pressure points and a disciplined path</a><a href="#9-creative-directions-that-make-this-a-distinctive-instrument"><span>09</span>Creative directions that make this a distinctive instrument</a><a href="#10-a-concrete-five-pr-development-plan"><span>10</span>A concrete five-PR development plan</a><a href="#11-tests-debugging-and-release-evidence"><span>11</span>Tests, debugging and release evidence</a><a href="#12-companion-kit-and-how-to-use-it"><span>12</span>Companion kit and how to use it</a><a href="#13-heuristics-to-carry-into-every-iteration"><span>13</span>Heuristics to carry into every iteration</a><a href="#14-source-map-and-external-technical-references"><span>14</span>Source map and external technical references</a></nav><p class="sidebar-note">Source snapshot<br>b3fec1f7307a<br><br>Observed findings and proposed work are separated throughout. Includes a runnable companion kit.</p></aside>
+<main><header class="hero"><div class="eyebrow">ARCHITECTURE · EVIDENCE · CREATIVE DEVELOPMENT</div><h1>Build the <span>evidence<br>observatory.</span></h1><p class="dek">An X3D world that can explain every claim, reveal architectural relationships, and replay how a discovery was made.</p><div class="stamp">SOURCE REVIEW / b3fec1f7307a / NOVEMBER 12, 2026</div><div class="metrics"><div class="metric"><b>77</b><small>repository tests passed</small></div><div class="metric"><b>14</b><small>prioritized findings</small></div><div class="metric"><b>5</b><small>concrete pull-request milestones</small></div><div class="metric"><b>7</b><small>companion scaffold tests passed</small></div></div><div class="toolbar"><button type="button" onclick="window.print()">Print / Save PDF</button><button type="button" onclick="document.getElementById('10-a-concrete-five-pr-development-plan').scrollIntoView()">Jump to implementation plan</button></div></header>
+<div class="main-content"><article>
+<p><strong>A technical and creative teardown, with an executable next step.</strong> Reviewed November 12, 2026. Source snapshot: <a href="https://github.com/hagopjay/x3d.xray/tree/b3fec1f7307a08a830bb82cf7693fad9537965ae"><code>b3fec1f7307a08a830bb82cf7693fad9537965ae</code></a>.</p>
+<p>The most valuable thing in this repository is its approach to knowledge: witnessed relationships, declared exclusions, inspectable computation, and a visual distinction between counted facts and interpretation. That is a compelling basis for an <strong>evidence observatory for the X3D ecosystem</strong>. Its next major advance should be making these promises enforceable across ingestion, publication and interaction, then extending the kinds of architecture it can reveal.</p>
+<p>My recommendation is to develop three tightly connected capabilities: <strong>trustworthy snapshots, typed architectural relationships, and replayable investigations</strong>. Keep the lightweight Python analytical kernel and X3D scene. Extract the contracts already implicit in the code before adding another framework or service.</p>
+<h2 id="1-what-was-actually-checked">1. What was actually checked</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Review evidence</th>
+<th>Limits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repository</td>
+<td>Default-branch source cloned and inspected at the exact commit above</td>
+<td>Source snapshot review; no exhaustive historical or issue-tracker audit</td>
+</tr>
+<tr>
+<td>Python tests</td>
+<td><code>python3 -m unittest discover -s tests -v</code>: <strong>77 passed</strong>, about <strong>0.67 seconds</strong> in the primary run</td>
+<td>Passing tests establish their tested cases; no coverage percentage was measured</td>
+</tr>
+<tr>
+<td>Ingestion</td>
+<td>Six real, temporary Git-fixture probes reproduced filename, sparse-data, worktree and fork-fallback issues</td>
+<td>Synthetic repositories, not a fresh harvest of the whole configured family</td>
+</tr>
+<tr>
+<td>Runtime tools</td>
+<td>Isolated Python and Node probes reproduced publication, size-limit, MCP-envelope and witness-check gaps</td>
+<td>Full tools self-test against the actual family bundle was not run</td>
+</tr>
+<tr>
+<td>Mathematical core</td>
+<td>Existing independent random/small-graph oracles inspected; synthetic tie and scaling probes run</td>
+<td>Timings are observations on this host, not hardware-independent capacity guarantees</td>
+</tr>
+<tr>
+<td>Graphics</td>
+<td>Compiler, picking, recolouring and live-test code inspected</td>
+<td><strong>No finished family scene was rendered.</strong> Generated family data, vendored X_ITE and font assets were not supplied in the checkout</td>
+</tr>
+<tr>
+<td>Companion scaffold</td>
+<td><strong>7 tests passed</strong> for the proposed publication-boundary checker</td>
+<td>This is an additive proposal, not an upstream fix or a replacement for XSD/Loom/semantic checks</td>
+</tr>
+</tbody>
+</table></div>
+<p>The upstream repository and review checkout were left unchanged. The companion contains synthetic reproductions and a separate scaffold. None of the findings below asserts that real private information was already published.</p>
+<h2 id="2-what-is-unusually-good-preserve-it">2. What is unusually good — preserve it</h2>
+<p><strong>The evidence has a vocabulary.</strong> “Unknown is not zero,” “no recorded session link,” and “no witness, no tie” are useful analytical constraints. Many dashboards obscure the distinction between absence, exclusion and unmeasured data; this repository has already made that distinction central.</p>
+<p><strong>The agent and the human use the same tools.</strong> <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/tools.js"><code>web/tools.js</code></a> serves both the page and MCP. This is a good foundation for parity tests and reproducible investigations. Preserve one implementation of analytical operations as transport adapters multiply.</p>
+<p><strong>The mathematics has independent tests.</strong> The FCA tests compare concepts against their mathematical definition. Centrality tests compare results against brute-force small-graph oracles, including weighted graphs. Rational distances avoid treating genuine path ties as unequal because of floating-point noise. This is substantially better evidence than snapshots of whichever answer the implementation happens to return.</p>
+<p><strong>The analyzer considers its observer effect.</strong> <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/ties.py#L110"><code>ties.py:110</code></a> sets aside the observer repository's incidental mentions rather than discovering dependencies created by its own configuration and documentation. Extend this into an explicit detector policy.</p>
+<p><strong>The presentation has a coherent visual grammar.</strong> Helix, constellation, city, lattice, bridges and pipeline are complementary views of the same history. Boxes versus merge spheres, author colours, heat roofs and fog are meaningful encodings. Retain their analytical meaning as visual richness grows.</p>
+<p><strong>The system can explain its own construction.</strong> Source hashes, definitions, stage descriptions and signal code give <code>how_built</code> real substance. The next step is binding those explanations to the exact immutable build being viewed.</p>
+<h2 id="3-the-current-architecture-and-its-real-boundary">3. The current architecture and its real boundary</h2>
+<p>The pipeline is a small in-process build system: Git/configuration → dataset and ties → concepts/bridges → profile → narrative slots/self-description → scene/layout → web bundle → gates → receipt. The web page and MCP server then read the same exported data. This is a sensible topology for the present scale.</p>
+<p>There are two different products inside it:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Reusable core</th>
+<th>Family-specific exhibition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Git ingestion, identity mapping, FCA, centrality, exclusions, evidence records, tools</td>
+<td>Named repositories, focal hub, lineage arrangement, author labels, cameras, example questions and some gate fixtures</td>
+</tr>
+</tbody>
+</table></div>
+<p>The distinction is currently implicit. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/compiler.py#L608"><code>compiler.py:608</code></a> enumerates particular repositories for constellation rings; lines 619–620 always create <code>x3d_mcp</code> and upstream nodes. A new arbitrary configured repository can appear in the city without entering the constellation. Several frontend self-tests also assume this exact family.</p>
+<p><strong>Make the exhibition a theme.</strong> A <code>FamilyTheme</code> should contain display names, colours, aliases, focal roles, layout anchors, optional external entities and preferred viewpoints. All unanchored dataset entities should still receive deterministic placement. Preserve the current handcrafted composition as the HagopJay theme; add a tiny alpha/beta fixture to prove the core's portability.</p>
+<p>Do this gradually. Extract one region builder at a time from the roughly thousand-line compiler. Introduce a renderer-neutral scene plan before considering a renderer replacement. No microservice or distributed graph database is justified by the evidence collected here.</p>
+<h2 id="4-findings-to-fix-first">4. Findings to fix first</h2>
+<p>Priorities below are development priorities. P1 means address before treating generated exports as reliably sealed or broadening use; P2 is important correctness, portability or scale work; P3 is a bounded helper defect.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Finding and reproduced effect</th>
+<th>Concrete repair</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td><strong>Publication set differs from the scanned and attested set.</strong> An unexpected supported-extension JSON file is published while privacy passes; changing it leaves the receipt digest unchanged.</td>
+<td>Explicit registered-output manifest; one file set for scanning, hashing and publishing; clean staging and final promotion.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Fact and scene witness gates do less than their names suggest.</strong> A tampered rendered caption with <code>problems=[]</code> passes fact; witness passes with the scene missing because it checks layout metadata.</td>
+<td>Re-render from authoritative inputs; independently parse the actual X3D; state verification scope.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Required checks can be skipped while aggregate <code>ok</code> is true.</strong> Current aggregate means no gate failed.</td>
+<td>Separate development completeness from release readiness; required release gates must be <code>pass</code>.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Git filename representation corrupts history linkage.</strong> One-line Unicode/tab filenames acquire zero churn while an ASCII peer correctly gets one.</td>
+<td>Parse NUL-delimited byte records and use one path representation throughout ingestion.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Small valid datasets crash.</strong> Empty family raises <code>IndexError</code>; one-commit family reaches <code>max()</code> on an empty qualified set.</td>
+<td>Explicit insufficient-data signal states and informative empty scenes.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Active-fork fallback has a second identity definition and empty-tree bug.</strong> Configured Pat/you disappears; a retained Claude commit can have touched paths but zero tree files.</td>
+<td>Reuse configured identity resolution; repair touched-path/tree intersection or mark unavailable.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>A display evidence cap changes grading.</strong> 47 docs then a manifest yields C; 48 docs then the same manifest yields L.</td>
+<td>Grade from complete detector summaries; retain bounded best witnesses for display.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><strong>Curated exclusion does not cover commit series.</strong> Excluded nodes/edges vanish while their series can retain identity and short SHAs.</td>
+<td>Apply one publication/exclusion policy recursively to every exported record.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>The tool byte cap is not a byte cap.</strong> 12,000 Chinese characters produced 36,013 UTF-8 bytes; a scalar result returned 50,128 bytes with a truncation claim.</td>
+<td>UTF-8 size checks, bounded strings, per-tool pagination, final envelope assertion.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>MCP <code>null</code> input kills the process.</strong> Valid JSON of the wrong shape is destructured before validation.</td>
+<td>Validate envelope and argument shapes before dispatch; return errors and continue serving.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>Valid linked worktrees are treated as absent.</strong> <code>.git</code> is a file there, while discovery requires a directory.</td>
+<td>Detect repositories through Git plumbing and define bare-repository policy.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>Passage-point computation grows steeply.</strong> A synthetic 121-node bipartite chain took about seven seconds for <code>_bipartite()</code> alone.</td>
+<td>Build a block-cut forest once and query paths; retain the old routine as a small-fixture oracle.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>A full commit token is validated against a shortened prefix.</strong> A fabricated longer token with the stored 12-character prefix can become a C pin.</td>
+<td>Keep full object IDs internally, compare full tokens fully, reject ambiguous abbreviations.</td>
+</tr>
+<tr>
+<td>P3</td>
+<td><strong><code>cochange_graph()</code> consumes an iterable twice.</strong> Iterator input loses singleton nodes; list input preserves them.</td>
+<td>Add nodes during the first traversal. This helper is not the current production bridges path.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="the-publication-gap-is-one-architectural-problem-not-three-unrelated-bugs">The publication gap is one architectural problem, not three unrelated bugs</h3>
+<p><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/page.py#L259"><code>page.py:259</code></a> discovers publishable files by walking the output directory. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gates.py#L33"><code>gates.py:33</code></a> defines a smaller static set to scan. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/receipt.py#L51"><code>receipt.py:51</code></a> hashes a fixed set of generated outputs plus vendor trees. These are three definitions of a release.</p>
+<p>The controlled reproduction placed only synthetic canaries in an extra JSON file. That file entered the publication map, privacy returned pass, the receipt omitted it, and mutating it did not change the receipt digest. The appropriate fix is a <strong>single registered set of released bytes</strong>. Merely adding another filename to a scanner leaves the underlying mismatch.</p>
+<p>Use a fresh staging directory for each build. Register each emitted asset with path, role, content type and source stage. Refuse unexpected files and escaping paths. Validate and scan the registered set, including the reports produced by gates. Hash the final asset bytes into a detached receipt. Exclude the receipt's own hash explicitly; self-hashing cannot be solved by including itself. Verify a sealed manifest and promote the staging directory only when the release policy passes. Keep the manifest independent of absolute machine paths for portable content identity.</p>
+<p>The companion <code>release_audit.py</code> demonstrates a narrow independent boundary: reviewed asset allowlist, path/source consistency, mandatory gates, owned-text canaries and receipt byte coverage. It remains read-only and supplements the existing gates. Its regex checks are a limited detector, not a proof that all sensitive information has been removed. Trusted vendor assets must be explicitly pinned and reviewed rather than silently exempting any folder named “vendor.”</p>
+<h3 id="fact-integrity-has-several-different-meanings">Fact integrity has several different meanings</h3>
+<p>The slot system is useful, but slot resolution does not establish the truth of a sentence. A synthetic claim saying “All {family_span.commits} commits are defect free” renders as “All 2 commits are defect free” with no reported problems, although the signal counts commits and says nothing about defects. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/spec.py#L153"><code>spec.py:153</code></a> validates references, basis and the presence of a slot, not entailment.</p>
+<p>Separately, <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gates.py#L78"><code>gate_fact():78</code></a> trusts saved rendering problems instead of recalculating from the raw spec/current profile. A stale or edited rendered object can therefore pass. The declared JSON schema is also not applied: <code>render_spec({})</code> accepts a structurally empty spec without reporting required-field errors.</p>
+<p>Report four scopes independently: <strong>shape validity, numeric/reference validity, evidence relationship, and human interpretation</strong>. Use deterministic claim forms for claims that can be verified exactly: comparisons, counts, extrema, scope and denominators. Keep free prose as interpretation, with evidence links and review status. An LLM may critique an interpretation, but its endorsement should not become a deterministic fact verdict.</p>
+<h3 id="witness-checks-need-an-independent-representation">Witness checks need an independent representation</h3>
+<p><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gates.py#L192"><code>gates.py:192</code></a> checks the layout's records rather than reading scene semantics. A passing XSD gate can establish syntax/type conformance; it cannot establish that a line connects the repositories asserted in the bundle. A missing XSD dependency can also be skipped under today's aggregate rule.</p>
+<p>Attach stable entity/evidence IDs to scene objects through appropriate X3D metadata and a scene plan. Independently parse the emitted X3D, then check entity existence, type, edge endpoints, grade, ID uniqueness and bundle correspondence. Mutate the actual scene in tests while retaining a valid layout: injected edge, wrong endpoint, removed node, altered grade, absent scene. This verifies the rendered artifact rather than two copies of its intended metadata.</p>
+<h2 id="5-ingestion-the-most-important-source-of-quiet-errors">5. Ingestion: the most important source of quiet errors</h2>
+<p>The filename reproduction is an instructive failure: <code>git log --numstat</code> quotes some paths, while <code>ls-tree -z</code> supplies actual paths. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gitio.py#L58"><code>gitio.py:58</code></a> parses line/tab-separated display text. The harvester then joins different keys. Later FCA, graphs, profile and gates can all agree perfectly with the same inaccurate dataset. <strong>Agreement downstream is weaker than fidelity at the source.</strong></p>
+<p>Implement byte-safe NUL-delimited parsing for the documented Git record format, including metadata delimiters and filename boundaries. Handle Unicode, tabs, newlines, quotes and backslashes; choose an explicit reversible policy for non-UTF-8 paths. Do not fix this only with <code>core.quotePath=false</code>: control characters and arbitrary Git path bytes still need a real parser.</p>
+<p>Create a <code>RepositorySnapshot</code> with exact ref→OID map, selected default ref, shallow status, object format, upstream availability, effective author/history filters, author-versus-committer clock and read outcomes. <code>%at</code> currently supplies author time, while some prose describes when commits “landed.” Store both clocks and name the selected one. Missing upstream history should be partial knowledge, not an implicit change in the definition of the family's identities.</p>
+<p>Use typed outcomes for blob reads: measured text, binary, too large, unavailable, failed. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gitio.py#L109"><code>gitio.py:109</code></a> currently turns a failed blob read into empty bytes. Line totals also combine measured values with unmeasured large/media files as if the latter contributed zero. Attach coverage denominators to line totals: measured files/bytes, skipped categories and failures.</p>
+<p>Pin the ref set before the harvest, or reject/retry a changed snapshot. Avoid a tree measured after history has moved to a different revision. For performance, stream history instead of capturing the complete log string and use a persistent <code>git cat-file --batch</code> process plus blob-OID caching rather than one subprocess per file.</p>
+<h2 id="6-proposed-architecture-explicit-contracts-same-simple-runtime">6. Proposed architecture: explicit contracts, same simple runtime</h2><figure class="architecture"><div class="eyebrow">PROPOSED SYSTEM BOUNDARY</div>
+<svg viewBox="0 0 920 385" role="img" aria-labelledby="arch-title arch-desc"><title id="arch-title">Immutable observations feed analysis, scene and query exports through one release seal.</title><desc id="arch-desc">Snapshot, evidence and typed relations produce a scene plan and a query bundle. X3D and bundle assets share a publication manifest, mandatory gates and receipt. Page and MCP consume the sealed release.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="none" stroke="#5f8999"/></marker></defs>
+<g fill="none" stroke="#5f8999" stroke-width="2" marker-end="url(#arrow)"><path d="M264 64H328"/><path d="M584 64H648"/><path d="M776 101V134H623V160"/><path d="M776 101V134H270V160"/><path d="M270 230V266H394V286"/><path d="M623 230V266H520V286"/><path d="M590 321H655"/></g>
+<g font-family="system-ui,sans-serif"><g fill="#102a36" stroke="#325464"><rect x="8" y="27" width="256" height="74" rx="12"/><rect x="328" y="27" width="256" height="74" rx="12"/><rect x="648" y="27" width="256" height="74" rx="12"/><rect x="136" y="160" width="268" height="70" rx="12"/><rect x="488" y="160" width="270" height="70" rx="12"/><rect x="312" y="286" width="278" height="70" rx="12"/><rect x="655" y="286" width="249" height="70" rx="12"/></g>
+<g text-anchor="middle" fill="#e8f2f4" font-size="17" font-weight="600"><text x="136" y="59">Immutable snapshot</text><text x="456" y="59">Typed analysis</text><text x="776" y="59">Evidence-linked plan</text><text x="270" y="189">X3D scene</text><text x="623" y="189">Query bundle</text><text x="451" y="315">One release seal</text><text x="780" y="315">Page + MCP</text></g>
+<g text-anchor="middle" fill="#a7c5d1" font-size="13"><text x="136" y="81">refs · OIDs · coverage · clocks</text><text x="456" y="81">relations · metrics · parameters</text><text x="776" y="81">stable IDs · claims · scene plan</text><text x="270" y="211">semantic metadata + picking IDs</text><text x="623" y="211">shared deterministic tools</text><text x="451" y="337">manifest · gates · byte hashes</text><text x="780" y="337">same snapshot, same evidence</text></g></g></svg>
+<figcaption>A proposed extraction of the current code into explicit boundaries. This is architecture scaffolding, not a depiction of already implemented contracts.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Contract or boundary</th>
+<th>Responsibilities</th>
+<th>First extraction point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RepositorySnapshot</code></td>
+<td>Immutable refs, full OIDs, completeness, clock, identity-policy digest</td>
+<td><code>gitio.py</code>, <code>harvest.py</code></td>
+</tr>
+<tr>
+<td><code>Coverage</code></td>
+<td>Measured / partial / unavailable / failed, denominator, reasons</td>
+<td><code>profile.py</code> and current exclusion ledgers</td>
+</tr>
+<tr>
+<td><code>Evidence</code></td>
+<td>Source snapshot, locator, detector/version, observed value, visibility</td>
+<td><code>ties.py</code>, <code>structure.py</code>, curated import</td>
+</tr>
+<tr>
+<td><code>Relation</code></td>
+<td>Predicate, endpoints, direction, evidence IDs, grade basis, validity</td>
+<td>Current machine/curated ties</td>
+</tr>
+<tr>
+<td><code>Metric</code></td>
+<td>Value, units, graph variant, population, parameters, verification scope</td>
+<td>Signals and centrality summaries</td>
+</tr>
+<tr>
+<td><code>Claim</code></td>
+<td>Deterministic assertion or interpretation, references, review state</td>
+<td>Spec renderer and Ask outputs</td>
+</tr>
+<tr>
+<td><code>ScenePlan</code></td>
+<td>Semantic IDs, region geometry, picking bounds, labels and omissions</td>
+<td>Compiler layout generation</td>
+</tr>
+<tr>
+<td><code>FamilyTheme</code></td>
+<td>Presentation names, anchors, roles and preferred views</td>
+<td>Compiler constants and frontend labels</td>
+</tr>
+<tr>
+<td><code>PublicationPolicy</code></td>
+<td>Visibility transformation and explicit released file set</td>
+<td>Page builder, gates and receipt</td>
+</tr>
+<tr>
+<td><code>InferencePort</code> / <code>ScenePort</code></td>
+<td>Host capability discovery, cancellation, tool dispatch / camera-selection commands</td>
+<td>Existing Artifact <code>sample</code> adapter and <code>sceneApi</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Keep these as modules and typed records in one package. Start with schema versions and validation at stage boundaries. A stage record should contain input content digests, algorithm/parameter version, output digest and verification scopes. Refuse stale optional artifacts whose parent digest differs; skipping <code>curated</code> must not silently reuse a previous <code>curated.json</code> merely because it exists.</p>
+<p>Separate two identities: a <strong>content identity</strong> over normalized source snapshots, configuration, parameters, code/dependencies, narrative, theme and assets; an <strong>execution record</strong> containing timestamps, elapsed timings, platform and actual gate runs. The existing receipt mixes changing run data into its digest. That is useful run traceability but should not be advertised as identical semantic content producing an identical digest across runs.</p>
+<p>An evidence example, deliberately schematic:</p>
+<pre><code class="language-json">{
+  &quot;schema_version&quot;: &quot;1&quot;,
+  &quot;id&quot;: &quot;evidence:example-manifest-use&quot;,
+  &quot;kind&quot;: &quot;manifest_dependency&quot;,
+  &quot;snapshot_id&quot;: &quot;snapshot:content-digest&quot;,
+  &quot;repo_id&quot;: &quot;repo:alpha&quot;,
+  &quot;source&quot;: {&quot;commit_oid&quot;: &quot;FULL_OBJECT_ID&quot;, &quot;path&quot;: &quot;package.json&quot;, &quot;line&quot;: 14},
+  &quot;detector&quot;: {&quot;id&quot;: &quot;manifest-dependency&quot;, &quot;version&quot;: &quot;1&quot;},
+  &quot;visibility&quot;: &quot;public&quot;,
+  &quot;supports&quot;: [&quot;relation:alpha-uses-beta&quot;]
+}
+</code></pre>
+<p>Full object IDs stay internal; display abbreviation is a separate concern. Hashes of known names or session identifiers are pseudonymous identifiers, not an automatic guarantee of anonymity. Enforce disclosure choices through publication policy, not through assumptions about hash opacity.</p>
+<h2 id="7-give-the-graphs-richer-semantics">7. Give the graphs richer semantics</h2>
+<p>The current constellation combines several kinds of connection: imports, manifest mentions, CI use, shared files, sessions, forks and asserted lineage. They answer different questions. <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/tools.js#L417"><code>tools.js:417</code></a> explicitly walks ties in both directions while also recommending the tool for dependency questions. A documentation mention or session path cannot establish a directed executable dependency.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Relation</th>
+<th>Direction</th>
+<th>What it supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>imports</code>, <code>declares_dependency</code>, <code>uses_validator</code></td>
+<td>Directed</td>
+<td>Recorded code/build use under a named extraction method</td>
+</tr>
+<tr>
+<td><code>pins_revision</code></td>
+<td>Directed</td>
+<td>A source artifact identifies an exact validated target revision</td>
+</tr>
+<tr>
+<td><code>shares_blob</code></td>
+<td>Symmetric</td>
+<td>Identical content; by itself no proof of origin or execution</td>
+</tr>
+<tr>
+<td><code>participated_in_session</code></td>
+<td>Entity→session membership</td>
+<td>Recorded session overlap; no automatic dataflow claim</td>
+</tr>
+<tr>
+<td><code>fork_of</code></td>
+<td>Directed</td>
+<td>Recorded repository ancestry</td>
+</tr>
+<tr>
+<td><code>claims_lineage_from</code></td>
+<td>Directed, attributed</td>
+<td>The owner's account of conceptual lineage</td>
+</tr>
+<tr>
+<td><code>mentions</code></td>
+<td>Directed</td>
+<td>Lexical association under a detector rule</td>
+</tr>
+</tbody>
+</table></div>
+<p>Add traversal filters for predicate, direction, evidence grade, snapshot and maximum hops. Surface relation types along each path. Preserve the existing association graph as its own useful lens. Do not convert C/L/S categories into numerical probabilities or multiply grades into a path confidence without a calibrated model.</p>
+<p><strong>Deconfound analytical lenses.</strong> The current count-versus-Jaccard comparison changes both the distance and whether high-churn files are removed. Add a small factorial comparison: count/all, count/pruned, Jaccard/all, Jaccard/pruned. This tells the viewer whether a bridge changed because of weighting or removal.</p>
+<p><strong>Show threshold sensitivity.</strong> With the current cutoff, a 15-file commit contributes 105 co-change pairs while a 16-file commit contributes none. Compare thresholds such as 5/15/30 and a separately named per-commit-normalized variant. Record the exact inclusion policy and exceptions; robustness across reasonable settings is often more useful than a single dramatic ranking.</p>
+<p><strong>Keep authorship honest.</strong> Commit count, changed lines, trailers and recorded sessions describe metadata and different denominators. They do not measure code quality, effort, authorship certainty or creative contribution. Present them as recorded attribution.</p>
+<p><strong>Expand FCA by adding separate contexts.</strong> Five author-class attributes allow at most 32 possible intents, so the current author lattices do not need a heavyweight FCA rewrite. The exciting expansion is files × X3D constructs, modules × validation responsibilities, repositories × interoperability surfaces, and files × capabilities. Derive each attribute from inspectable parser/schema/AST evidence. Introduce concept limits and pruning as these larger attribute spaces become real.</p>
+<h2 id="8-performance-measured-pressure-points-and-a-disciplined-path">8. Performance: measured pressure points and a disciplined path</h2>
+<p>The strongest measured bottleneck was not the renderer. <code>_bipartite()</code> computes passage points for each connected repository pair, and each passage-point query removes vertices and recomputes connectivity. The approximate cost is O(R²·V·(V+E)); sparse chain growth with R proportional to V approaches quartic work.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th style="text-align: right;">Synthetic sessions</th>
+<th style="text-align: right;">Repositories</th>
+<th style="text-align: right;">Nodes</th>
+<th style="text-align: right;">Observed <code>_bipartite()</code> wall time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0.0087 s</td>
+</tr>
+<tr>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">41</td>
+<td style="text-align: right;">0.1124 s</td>
+</tr>
+<tr>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">41</td>
+<td style="text-align: right;">81</td>
+<td style="text-align: right;">1.4118 s</td>
+</tr>
+<tr>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">61</td>
+<td style="text-align: right;">121</td>
+<td style="text-align: right;">7.0553 s</td>
+</tr>
+</tbody>
+</table></div>
+<p>These are single local observations on synthetic chains. They isolate one routine, not full builds. A block-cut forest can index articulation structure once; obligatory passage nodes then lie on its path between repository vertices. Compare against today's implementation on generated small graphs before changing production. Outputting all repository pairs remains quadratic even after computation improves; support pair-specific queries and pagination.</p>
+<p>For weighted betweenness, process independent components and cache by graph content/parameters. Keep exact reference computation for small graphs. If sampling is added later, label approximate values with sampling scope and uncertainty, never as a silent fallback. The production verifier currently checks substantial witness/topology/internal consistency, while exact weighted magnitudes are oracle-tested in the test suite; report that scope accurately rather than describing every magnitude as independently proved per build.</p>
+<h3 id="browser-and-gpu-work">Browser and GPU work</h3>
+<p><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/app.js#L400"><code>app.js:400</code></a> visits every commit and resolves named scene nodes during recolour/highlight. Cache handles once, cache repository colour indices and update the symmetric difference for highlight transitions. Batch larger changes over frames when profiling establishes long tasks. Picking currently scans candidates and the city uses roof-centre proximity; geometry-to-entity mapping or bounding volumes would improve both accuracy and scale.</p>
+<p>The compiler already batches city boxes into shared meshes: preserve that useful optimization. Commit glyphs still have individual transforms/materials. Benchmark aggregation and focused overlays before adopting renderer-specific instancing. Maintain a stable semantic ID→render primitive mapping so performance work does not destroy picking and evidence links.</p>
+<p>X_ITE documents <code>LOD</code> distance-based representation selection. Use repository/district summaries at overview distance, clustered records at medium distance and exact selectable entities when close. LOD is not automatic network streaming: representations still need explicit loading, eviction and event management if those become necessary. <code>StaticGroup</code> can enable optimization for truly static subtrees, but its documented event/immutability constraints make it inappropriate for materials the highlight code mutates. When using it with the current Immersive profile, declare the required Grouping component support. Verify all proposals against the pinned runtime and X3D 4.0 validation target.</p>
+<p>The current live gate launches SwiftShader. A pass there would be valuable functional evidence, <strong>not a measurement of the user's GPU</strong>. Maintain a separate hardware benchmark record with renderer, driver, viewport, DPR, dataset digest and scene settings.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Instrumentation</th>
+<th>Initial proposed budget, not measured performance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Harvest/build stages</td>
+<td><code>perf_counter</code>, cProfile, tracemalloc, subprocess counts, bytes</td>
+<td>Detect regressions on fixed 1k/10k/100k synthetic-commit fixtures</td>
+</tr>
+<tr>
+<td>Scene boot</td>
+<td>fetch, parse, browser-ready and first-useful-view marks</td>
+<td>Set a target such as 3 s on a named desktop reference fixture</td>
+</tr>
+<tr>
+<td>Interaction</td>
+<td>selection/filter/highlight spans, long tasks</td>
+<td>Target p95 under 100 ms for a defined visible dataset</td>
+</tr>
+<tr>
+<td>Rendering</td>
+<td>p50/p95 frame time during a replayed camera path</td>
+<td>Target p95 under 16.7 ms for a 60 Hz desktop tier; publish lower tiers separately</td>
+</tr>
+<tr>
+<td>Memory and complexity</td>
+<td>Heap where supported, entity/node/triangle counts, asset bytes</td>
+<td>Track budgets separately for desktop and constrained devices</td>
+</tr>
+<tr>
+<td>GPU timing</td>
+<td>Capability-detected timing/profiling support, renderer details</td>
+<td>Record unsupported measurements as unavailable, never zero</td>
+</tr>
+</tbody>
+</table></div>
+<p>Keep “more GPU usage” subordinate to faster and clearer interaction. CPU-bound Python graph work does not become GPU work by replacing X_ITE or enabling a different browser backend. A GPU analytics experiment should follow evidence that algorithmic and data-layout fixes are insufficient.</p>
+<h2 id="9-creative-directions-that-make-this-a-distinctive-instrument">9. Creative directions that make this a distinctive instrument</h2>
+<h3 id="a-evidence-microscope-highest-immediate-value">A. Evidence microscope — highest immediate value</h3>
+<p>Select a bridge, and its actual commit witnesses light up in the helix, participating files appear in the city, and a synchronized drawer shows source snapshot, detector, exclusions and alternative metrics. “Why does this exist?” becomes one coherent interaction. Keep counts and evidence available when the scene cannot load, and give keyboard users the same selection model.</p>
+<p><strong>Success criterion:</strong> a reviewer can trace a displayed architectural statement to the exact source observation in two deliberate actions, without an AI response being required.</p>
+<h3 id="b-chronoscope-compare-how-architecture-changes">B. Chronoscope — compare how architecture changes</h3>
+<p>Compare two immutable snapshots: new dependencies, missing witnesses, changed pins, bridge-role changes and capability additions. Preserve layout anchors between versions so motion has meaning. Use before/after evidence panels; a line changing does not establish what caused the change.</p>
+<p><strong>Success criterion:</strong> every highlighted delta has a stable entity ID and inspectable before/after source record. Repo/path continuity should be explicit, with rename evidence rather than guessed identity.</p>
+<h3 id="c-capability-cathedral-the-most-x3d-specific-extension">C. Capability cathedral — the most X3D-specific extension</h3>
+<p>Replace the single “who touched it” question with a parallel lattice of interoperability capabilities: X3D validation, scene parsing, geometry conversion, Gaussian-splat handling, material support, animation, provenance and bridge IO. Light the repositories that implement each combination. Drill into the actual constructs or code paths behind the attribute.</p>
+<p>Begin with a small capability vocabulary and a fixture whose answers are known. Separate “declared in README,” “implemented in parsed code,” “exercised in tests,” and “verified in a runtime result.” That progression can reveal integration opportunities between your repositories without turning attractive labels into unsupported claims.</p>
+<p><strong>Success criterion:</strong> the tool produces a short evidence-backed integration shortlist, each with a shared interface, a missing interface and a smallest executable experiment.</p>
+<h3 id="d-bottleneck-laboratory-graph-counterfactuals">D. Bottleneck laboratory — graph counterfactuals</h3>
+<p>Temporarily remove a selected file or recorded session and show graph fragmentation, alternative paths and affected clusters. Label the result as a graph experiment. A co-change cut vertex is not automatically a module whose deletion crashes the product; the display should preserve that distinction.</p>
+<p>Pair this with a sensitivity panel showing which bottlenecks survive alternate thresholds and weightings. Stable discoveries deserve attention before unstable high scores.</p>
+<h3 id="e-replayable-investigation-theatre">E. Replayable investigation theatre</h3>
+<p>Serialize the existing camera, highlight, colour and note operations into a storyboard tied to a build digest. Each beat contains the query, result/evidence IDs, selection state and narration. An agent can propose a tour; deterministic validation resolves its references; the viewer can pause, inspect and replay it.</p>
+<p>Treat notes as structured annotations rather than transient text: entity ID, snapshot/build identity, evidence IDs, author and text. A note attached to an old snapshot should visibly remain an old-snapshot note.</p>
+<h3 id="f-freshness-and-uncertainty-weather">F. Freshness and uncertainty weather</h3>
+<p>Give different unknown states different encodings: unmeasured history, withheld private detail, stale curated evidence, mass-edit exclusion and missing trailers. Keep the baseline solid; show stale or uncertain information with restrained patterns, opacity and explicit text. Avoid using fog for every form of uncertainty, which would make distinct causes indistinguishable.</p>
+<h3 id="g-change-review-rehearsal">G. Change-review rehearsal</h3>
+<p>Feed a proposed change or branch comparison into a review workspace. Ask: Which validated contracts are touched? Which bridge surfaces changed? Which tests exercise them? Which evidence needs refresh? Start with read-only branch/snapshot comparison. Proposed source edits remain a separate operation with their own tests and review.</p>
+<h3 id="h-an-accessible-analytical-twin">H. An accessible analytical twin</h3>
+<p>Offer a keyboard-operable entity table, a 2D relation view and the 3D environment over one selection/filter state. Exact comparisons belong in sortable tables; spatial views support orientation, pattern finding and exploration. Add reduced motion, colour-independent relation cues and explicit visible/total counts. The current city shows at most 64 files per repository; label that sample and make omitted records queryable.</p>
+<h2 id="10-a-concrete-five-pr-development-plan">10. A concrete five-PR development plan</h2>
+<p>Estimates are small/medium/large relative scope, not delivery promises. Each PR should leave a useful working product.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>PR</th>
+<th>Scope</th>
+<th>Deliverable</th>
+<th>Acceptance criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 — Seal the release boundary</strong></td>
+<td>Medium</td>
+<td>Registered output set, fresh staging, mandatory release gates, coherent scan/hash/publication policy, exclusion fix</td>
+<td>Extra/nested file refused; escaping path refused; excluded series absent; skipped required check means incomplete; mutation of any served asset is detected</td>
+</tr>
+<tr>
+<td><strong>2 — Make ingestion faithful and resilient</strong></td>
+<td>Medium</td>
+<td>NUL-safe Git parser, worktree discovery, configured fork fallback, typed blob outcomes, sparse-profile states</td>
+<td>Unicode/control-path history joins correctly; 0/1/4/5-commit fixtures work; missing-upstream fixture preserves configured identities and honest tree coverage</td>
+</tr>
+<tr>
+<td><strong>3 — Establish analytical contracts</strong></td>
+<td>Medium–large</td>
+<td>Schema validation, snapshot/parent digests, full internal OIDs, typed relation predicates/directions, detector-summary grading, scene semantics checks</td>
+<td>Grade is order/cap invariant; malformed spec rejected; stale inputs refused; synthetic full-token mismatch rejected; scene mutations fail independent checks</td>
+</tr>
+<tr>
+<td><strong>4 — Scale the existing implementation</strong></td>
+<td>Medium</td>
+<td>Block-cut index, streaming/batched Git IO, cached scene handles, bounded UTF-8 results, proper pagination</td>
+<td>Small graph results match old oracle; scale curves recorded; multibyte/scalar responses fit final envelope; no silent omission; hardware metrics separated from SwiftShader</td>
+</tr>
+<tr>
+<td><strong>5 — Ship a memorable investigation workflow</strong></td>
+<td>Medium–large</td>
+<td>Evidence microscope, one portable family theme, snapshot comparison, replayable tours and a small capability context</td>
+<td>Two-family fixture passes; a story replays against its receipt; every delta/capability has evidence; keyboard and 3D selections agree</td>
+</tr>
+</tbody>
+</table></div>
+<p>Two concerns can proceed alongside the first PR: add minimal packaging/test metadata and continuous integration; decide/document the repository's intended licence and contribution policy. The inspected tree contains no project-level packaging configuration, lockfile, licence file or CI workflow. Pin the supplied X_ITE distribution and font assets, validate required files up front and derive the version metadata from the verified asset manifest. The current page silently skips missing vendor files and labels whatever is supplied as 16.7.0.</p>
+<p><strong>The first compelling demo should be “Why is this a bridge?”</strong> Select a repository/file, follow typed evidence across views, compare the alternative metrics, inspect witnesses, and replay the investigation. This concentrates effort into an experience the present code is already close to supporting.</p>
+<h2 id="11-tests-debugging-and-release-evidence">11. Tests, debugging and release evidence</h2>
+<p>Keep the current mathematical oracles. Add tests at the boundaries where the reproduced errors live.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Test layer</th>
+<th>Fixtures and mutations</th>
+<th>Evidence to retain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Real Git ingestion</td>
+<td>Unicode/control paths, linked worktree, shallow clone, no upstream, binary/oversized blob, changed refs</td>
+<td>Expected paths/OIDs, coverage state and deterministic dataset</td>
+</tr>
+<tr>
+<td>Contract validation</td>
+<td>Missing spec fields, duplicate IDs, invalid actions, malformed types, non-finite metric, incompatible family</td>
+<td>Structured validation reasons; no raw private fragments</td>
+</tr>
+<tr>
+<td>Analytical invariants</td>
+<td>Evidence order/cap permutation, ambiguous pin, 15/16-file boundary, iterator singleton</td>
+<td>Same decision under presentation changes; declared parameter effects</td>
+</tr>
+<tr>
+<td>Export and visibility</td>
+<td>Stale output, nested asset, escaping path/symlink, excluded series, private witness canary</td>
+<td>Exact served set and redaction transformation</td>
+</tr>
+<tr>
+<td>Scene semantics</td>
+<td>Missing scene, injected edge, wrong endpoint/grade, stale layout, DEF collision</td>
+<td>Independent parsed-scene/bundle correspondence</td>
+</tr>
+<tr>
+<td>JS/MCP</td>
+<td>Chinese/emoji/scalar results, invalid JSON shape, wrong types, unsupported version, missing args, oversized line</td>
+<td>Final UTF-8 envelope size and process survival</td>
+</tr>
+<tr>
+<td>Host lifecycle</td>
+<td>No inference capability, cancellation, New during a pending answer, stale asynchronous completion</td>
+<td>Stable conversation generation and explicit capability state</td>
+</tr>
+<tr>
+<td>Rendering</td>
+<td>Golden functional fixtures under CSP, labels/picking/viewpoints; separately real hardware path</td>
+<td>Renderer/toolchain and dataset identity with each result</td>
+</tr>
+</tbody>
+</table></div>
+<p>Use a fast CI job for unit/Git fixtures and protocol probes. Run a pinned integration job with XSD/Loom assets and browser dependencies. Keep the existing family-specific tests as a named integration fixture; general smoke tests should derive available entities from their bundle instead of requiring <code>x3d_mcp</code> or a specific private repository.</p>
+<p>The MCP server should explicitly support chosen protocol versions rather than echo any requested string. The 2025-06-18 lifecycle specification requires a supported response version and negotiated capabilities. Either use a maintained SDK with a pinned supported profile, or give the small custom transport a deliberate conformance suite. “Latest protocol” is not a useful compatibility target by itself.</p>
+<p>Expose stage timing, cache hit/miss, graph sizes, omitted counts and verification scope in the self-description. Keep diagnostics structured. A useful failed build should identify the violated contract and stage without copying private source into logs. For an unexpected scene selection, provide entity ID, primitive ID and pick bounds in a developer view.</p>
+<h2 id="12-companion-kit-and-how-to-use-it">12. Companion kit and how to use it</h2>
+<p>The ZIP contains this report, source-linked findings, the synthetic evidence scripts/results, an architecture contract example and an independent release-audit scaffold. It contains no cloned family repositories or harvested user data.</p>
+<ol>
+<li>Run the existing repository tests from its checkout: <code>python3 -m unittest discover -s tests -v</code>.</li>
+<li>From the kit, run <code>python3 evidence/pipeline/reproduce_pipeline.py /absolute/path/to/x3d.xray</code>, <code>python3 evidence/runtime/reproduce_runtime.py /absolute/path/to/x3d.xray</code>, <code>python3 evidence/core/core_probe.py --repo /absolute/path/to/x3d.xray</code>, and <code>python3 evidence/check_claims_receipts.py /absolute/path/to/x3d.xray</code>. Read each script's header; the core probe includes the synthetic scaling run. Diagnostic success means a probe ran, not that the current code is release-ready.</li>
+<li>Test the separate scaffold: <code>python3 -m unittest discover -s scaffold -v</code>.</li>
+<li>Adapt <code>scaffold/release.allowlist.example.json</code> to the exact reviewed dependency/assets set. It is intentionally incomplete and labelled as an example; do not approve every file simply by enumerating an existing output folder.</li>
+<li>Run <code>python3 scaffold/release_audit.py --site /absolute/path/to/out --allowlist reviewed-allowlist.json</code>. It returns nonzero for a boundary failure. Current generated builds may correctly fail until release policy and asset attestation are repaired.</li>
+</ol>
+<p>The scaffold verifies ordinary output byte hashes and the repository's current aggregate vendor-tree hashes. It does not authenticate a publisher, validate arbitrary secrets, reconstruct narrative truth or replace the existing analytical gates. A signed receipt could be a future addition when provenance across parties matters; it is not needed to fix today's manifest mismatch.</p>
+<h2 id="13-heuristics-to-carry-into-every-iteration">13. Heuristics to carry into every iteration</h2>
+<ul>
+<li><strong>Keep observations, interpretations and interventions separate.</strong> A counted event, a narrative about it and a simulated graph deletion have different meanings.</li>
+<li><strong>Never let display limits alter analytical truth.</strong> Grade/count first; sample/paginate second; report omissions last.</li>
+<li><strong>Make every important visual answer a source question.</strong> “What does this mean?” should lead to a predicate, denominator, snapshot and witness.</li>
+<li><strong>Use full identities internally and short labels at the surface.</strong> Abbreviation should never weaken pin validation.</li>
+<li><strong>One release has one definition of its bytes.</strong> Scanner, manifest and receipt should consume the same registered asset set.</li>
+<li><strong>Keep independent oracles small and honest.</strong> Use them to validate optimized algorithms, then record precisely which production values were independently checked.</li>
+<li><strong>Optimize the measured bottleneck.</strong> On this review's synthetic graph, CPU connectivity work is the clear early pressure point; no GPU speed claim was measured.</li>
+<li><strong>Preserve layout continuity across snapshots.</strong> Spatial motion should communicate a data change rather than an arbitrary re-layout.</li>
+<li><strong>Be explicit about samples.</strong> “64 shown / N files” communicates more than a district that looks complete.</li>
+<li><strong>Extract contracts before replacing frameworks.</strong> The existing code has good primitives; naming their boundaries is the shortest route to a stronger product.</li>
+</ul>
+<h2 id="14-source-map-and-external-technical-references">14. Source map and external technical references</h2>
+<p>All repository links refer to the reviewed commit, so subsequent source changes do not silently shift the evidence. The scripts and JSON outputs in the kit are the authority for the controlled reproductions.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project design and usage</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/README.md">README</a></td>
+</tr>
+<tr>
+<td>Release file discovery</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/page.py#L259">page.py:259</a></td>
+</tr>
+<tr>
+<td>Privacy/fact/witness/aggregate gates</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gates.py">gates.py</a></td>
+</tr>
+<tr>
+<td>Receipt scope</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/receipt.py#L38">receipt.py:38</a></td>
+</tr>
+<tr>
+<td>Git parser and paths</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/gitio.py#L53">gitio.py:53</a></td>
+</tr>
+<tr>
+<td>Discovery and fork fallback</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/harvest.py#L141">harvest.py:141</a></td>
+</tr>
+<tr>
+<td>Sparse profiles and coverage</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/profile.py#L68">profile.py:68</a></td>
+</tr>
+<tr>
+<td>Slot/claim rendering</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/spec.py#L134">spec.py:134</a></td>
+</tr>
+<tr>
+<td>Evidence retention and grade</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/ties.py#L102">ties.py:102</a>, <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/ties.py#L276">ties.py:276</a></td>
+</tr>
+<tr>
+<td>Curated series</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/curated.py#L50">curated.py:50</a></td>
+</tr>
+<tr>
+<td>Graph work and independent verification</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/structure.py">structure.py</a>, <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/centrality.py">centrality.py</a></td>
+</tr>
+<tr>
+<td>City sample and family layout</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/compiler.py#L608">compiler.py:608</a>, <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/compiler.py#L787">compiler.py:787</a></td>
+</tr>
+<tr>
+<td>Tool result cap and traversal</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/tools.js#L34">tools.js:34</a>, <a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/tools.js#L417">tools.js:417</a></td>
+</tr>
+<tr>
+<td>MCP envelope</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/mcp.mjs#L43">mcp.mjs:43</a></td>
+</tr>
+<tr>
+<td>Browser interaction and runtime adapter</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/app.js">app.js</a></td>
+</tr>
+<tr>
+<td>Functional browser test configuration</td>
+<td><a href="https://github.com/hagopjay/x3d.xray/blob/b3fec1f7307a08a830bb82cf7693fad9537965ae/x3dray/web/live_gate.cjs#L109">live_gate.cjs:109</a></td>
+</tr>
+<tr>
+<td>X_ITE distance-based LOD behaviour</td>
+<td><a href="https://create3000.github.io/x_ite/components/navigation/lod/">Official LOD documentation</a></td>
+</tr>
+<tr>
+<td>StaticGroup constraints and component requirement</td>
+<td><a href="https://create3000.github.io/x_ite/components/grouping/staticgroup/">Official StaticGroup documentation</a></td>
+</tr>
+<tr>
+<td>General X3D rendering organization</td>
+<td><a href="https://create3000.github.io/x_ite/tutorials/increasing-rendering-speed/">X_ITE rendering-speed guidance</a></td>
+</tr>
+<tr>
+<td>Explicitly targeted MCP lifecycle</td>
+<td><a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle">MCP 2025-06-18 lifecycle specification</a></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Recommended next milestone:</strong> a sealed, independently auditable build whose “Why is this a bridge?” investigation can be inspected, compared and replayed. That milestone turns the repository's strongest ideas into a practical development instrument.</p></article></div><footer>Prepared from the named source snapshot and synthetic probes. No upstream changes. All proposed targets are labelled; no hardware-rendering benchmark is claimed.</footer></main></body></html>

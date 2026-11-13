@@ -1,5 +1,66 @@
 # x3d.xray
 
+## Development pass: evidence boundaries and bridge laboratory
+
+This working development pass adds a deterministic, synthetic investigation lab:
+
+```sh
+python3 -m x3dray lab --out out/bridge-lab
+python3 -m http.server 8765 --bind 127.0.0.1 --directory out/bridge-lab
+# Open http://localhost:8765
+```
+
+The map, exact graph scores, witnesses, four-lens comparison, node-removal experiments
+and investigation save/replay work without network access. `--xite path/to/x_ite/dist`
+vendors renderer assets for offline 3D. Without local assets, selecting 3D downloads
+pinned X_ITE 16.7.0. Every observation in the lab is synthetic; it is not a family harvest.
+The small fixture's hub policy is explicitly 65%, separate from the production analysis policy.
+
+The existing pipeline now has stronger boundaries:
+
+- Git numstat and tree paths share NUL-safe decoding; linked worktrees and configured
+  fork identities are recognized. Empty/small profile populations report unavailable
+  signals rather than inventing dates or percentages. Empty scenes are explicit.
+- Tie grading reads all detector outcomes independently of displayed evidence. Full
+  object IDs stay internal for pin validation; ambiguous abbreviations are refused.
+- Spec structure is validated, and the fact gate re-renders stored source templates
+  against current profile/self data. This checks reference/format consistency, not
+  free-prose entailment or independent authentication of the stored source.
+- Page builders register their emitted assets. The publication map, privacy scan and
+  receipt consume that set; unrelated files in the output folder do not become public.
+- Gates expose `ok` for development and `release_ready` for all mandatory gates passing.
+  Use `gate --release` or `all --release` to require release readiness. A skipped gate
+  is incomplete for release. Scene presence is checked; independent geometry-to-data
+  semantic reconstruction remains future work.
+- `all` uses fresh data/output staging directories, retains failed diagnostics, and
+  preserves prior destinations as named backups on successful promotion. Data and
+  output destinations must be distinct and non-nested. Promotion is sequential with
+  rollback, not an atomic two-directory or concurrency-safe transaction. Do not serve
+  or mutate the destinations during a build.
+- Passage-point production analysis uses an iterative block-cut index. The verifier
+  retains independent removal-based reasoning with cached partitions. Small graph
+  oracles check the optimized implementation; exact weighted betweenness is unchanged.
+- Shared tools enforce a final UTF-8 result bound and preserve whole returned evidence
+  records. Emergency truncation is explicit; full pagination remains future work.
+  MCP validates message shapes, survives malformed requests, bounds lines and explicitly
+  supports the 2025-06-18 profile; complete protocol conformance is not claimed.
+
+`experiments/passage-index-benchmark.json` records three-repetition synthetic timings
+and exact output hashes. Its 121-node analysis-plus-verifier median fell from 10.14 s
+to 0.63 s on the audit host. This is a graph benchmark, not a full-pipeline or GPU result.
+
+Run `python3 -m unittest discover -s tests -v`. Optional DOM integration tests:
+
+```sh
+npm install --prefix /tmp/lab-dom-tests --no-audit --no-fund jsdom@31.0.0
+NODE_PATH=/tmp/lab-dom-tests/node_modules node experiments/test_lab_dom.cjs out/bridge-lab/index.html
+```
+
+Node 24 is used in CI for the optional DOM test dependency. Python runtime code has no
+third-party dependency. Broad style enforcement, non-UTF-8 path export policy, batch
+blob reads, fully generic exhibition themes and live hardware graphics verification
+remain separate work. New CI configuration is provided; remote CI has not been run here.
+
 Exploratory data analysis whose output is an X3D world you can fly through, with Claude plugged in.
 
 x3d-ray reads the git history of a family of repositories and builds a page around one X3D 4.0 scene:

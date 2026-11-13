@@ -29,7 +29,8 @@ def import_masterclass(src_dir: str, exclude: tuple[str, ...] = (), notes: list[
                        series_repo: str = "x3d_mcp") -> dict:
     eco_p = os.path.join(src_dir, "data", "ecosystem.json")
     ser_p = os.path.join(src_dir, "data", "series.json")
-    eco = json.load(open(eco_p, encoding="utf-8"))
+    with open(eco_p, encoding="utf-8") as fh:
+        eco = json.load(fh)
     ties = []
     for e in eco.get("edges", []):
         if e["from"] in exclude or e["to"] in exclude:
@@ -47,8 +48,9 @@ def import_masterclass(src_dir: str, exclude: tuple[str, ...] = (), notes: list[
                       "fork_of": n.get("fork_of"), "grade": n.get("grade")})
     series = []
     sources = [{"file": "data/ecosystem.json", "sha256": _sha(eco_p), "generated_utc": eco.get("generated_utc")}]
-    if os.path.exists(ser_p):
-        ser = json.load(open(ser_p, encoding="utf-8"))
+    if series_repo not in exclude and os.path.exists(ser_p):
+        with open(ser_p, encoding="utf-8") as fh:
+            ser = json.load(fh)
         sources.append({"file": "data/series.json", "sha256": _sha(ser_p), "generated_utc": ser.get("generated_utc")})
         repo = series_repo  # series.json names the fork and its upstream in one phrase; the series are the fork's
         for s in ser.get("series", []):

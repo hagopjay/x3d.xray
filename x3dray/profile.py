@@ -86,45 +86,56 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
 
     total = len(own)
     by_cls = collections.Counter(c["cls"] for _, c in own)
-    first_t, last_t = own[0][1]["t"], own[-1][1]["t"]
+    first_day = _day(own[0][1]["t"]) if own else None
+    last_day = _day(own[-1][1]["t"]) if own else None
     days_all = sorted({_day(c["t"]) for _, c in own})
     sig(
         "family_span", "totals",
         f"{total} commits of the family's own work across {len({n for n, _ in own})} repos, "
-        f"from {_human_date(_day(first_t))} to {_human_date(_day(last_t))}, on {len(days_all)} different days.",
-        commits=total, repos=len({n for n, _ in own}), first=_day(first_t), last=_day(last_t), active_days=len(days_all),
+        + (f"from {_human_date(first_day)} to {_human_date(last_day)}, on {len(days_all)} different days."
+           if own else "with no recorded own commits; dates are unavailable."),
+        commits=total, repos=len({n for n, _ in own}), first=first_day, last=last_day, active_days=len(days_all),
+        available=bool(own), reason=None if own else "no recorded own commits",
     )
-    shares = {k: _pct(by_cls.get(k, 0), total) for k in CLASSES}
+    shares = {k: _pct(by_cls.get(k, 0), total) if total else None for k in CLASSES}
     sig(
         "who_commits", "identity",
-        f"Claude wrote {by_cls.get('ai', 0)} of them ({shares['ai']}%), HagopJay's accounts {by_cls.get('you', 0)} "
-        f"({shares['you']}%), bots {by_cls.get('bot', 0)} ({shares['bot']}%).",
+        (f"Claude wrote {by_cls.get('ai', 0)} of them ({shares['ai']}%), HagopJay's accounts {by_cls.get('you', 0)} "
+         f"({shares['you']}%), bots {by_cls.get('bot', 0)} ({shares['bot']}%)." if total else
+         "No own commits were observed; author shares are unavailable."),
         counts=dict(by_cls), shares=shares,
     )
 
     # Busiest month
     per_month = collections.Counter(_day(c["t"])[:7] for _, c in own)
-    month, month_n = max(per_month.items(), key=lambda kv: (kv[1], kv[0]))
-    y, m = int(month[:4]), int(month[5:])
-    month_end = (dt.date(y + (m == 12), m % 12 + 1, 1) - dt.timedelta(days=1)).isoformat()
-    month_name = dt.date(y, m, 1).strftime("%B %Y")
+    month, month_n = max(per_month.items(), key=lambda kv: (kv[1], kv[0])) if per_month else (None, 0)
+    if month:
+        y, m = int(month[:4]), int(month[5:])
+        month_end = (dt.date(y + (m == 12), m % 12 + 1, 1) - dt.timedelta(days=1)).isoformat()
+        month_name = dt.date(y, m, 1).strftime("%B %Y")
+    else:
+        month_end = month_name = None
     sig(
         "busiest_month", "time",
-        f"{month_n} of the {total} commits ({_pct(month_n, total)}%) landed in {month_name}, the busiest month.",
-        month=month, month_name=month_name, commits=month_n, total=total, share=_pct(month_n, total),
-        **{"from": month + "-01", "to": month_end}, by_month=dict(sorted(per_month.items())),
+        (f"{month_n} of the {total} commits ({_pct(month_n, total)}%) have author timestamps in {month_name}, the busiest month."
+         if month else "No own commits were observed; a busiest month is unavailable."),
+        month=month, month_name=month_name, commits=month_n, total=total, share=_pct(month_n, total) if total else None,
+        **{"from": month + "-01" if month else None, "to": month_end}, by_month=dict(sorted(per_month.items())),
+        available=bool(per_month),
     )
 
     # Busiest day
     per_day = collections.Counter(_day(c["t"]) for _, c in own)
-    peak_day, peak_n = max(per_day.items(), key=lambda kv: (kv[1], kv[0]))
+    peak_day, peak_n = max(per_day.items(), key=lambda kv: (kv[1], kv[0])) if per_day else (None, 0)
     peak_repos = collections.Counter(n for n, c in own if _day(c["t"]) == peak_day)
     sig(
         "busiest_day", "time",
-        f"The busiest day was {_human_date(peak_day)}: {peak_n} commits in {len(peak_repos)} repos, "
-        f"led by {peak_repos.most_common(1)[0][0]} ({peak_repos.most_common(1)[0][1]}).",
+        (f"The busiest day was {_human_date(peak_day)}: {peak_n} commits in {len(peak_repos)} repos, "
+         f"led by {peak_repos.most_common(1)[0][0]} ({peak_repos.most_common(1)[0][1]})." if peak_day else
+         "No own commits were observed; a busiest day is unavailable."),
         day=peak_day, commits=peak_n, repos=dict(peak_repos),
-        top_repo=peak_repos.most_common(1)[0][0], top_commits=peak_repos.most_common(1)[0][1],
+        top_repo=peak_repos.most_common(1)[0][0] if peak_repos else None,
+        top_commits=peak_repos.most_common(1)[0][1] if peak_repos else 0,
         second_repo=(peak_repos.most_common(2)[1][0] if len(peak_repos) > 1 else None),
         second_commits=(peak_repos.most_common(2)[1][1] if len(peak_repos) > 1 else 0),
     )
@@ -152,12 +163,15 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
         oc = [c for c in r.get("commits", []) if not c.get("upstream")]
         if len(oc) >= 5:
             ai_by_repo[r["name"]] = (_pct(sum(1 for c in oc if c["cls"] == "ai"), len(oc)), len(oc))
-    hi = max(ai_by_repo.items(), key=lambda kv: kv[1][0])
-    lo = min(ai_by_repo.items(), key=lambda kv: kv[1][0])
+    hi = max(ai_by_repo.items(), key=lambda kv: kv[1][0]) if ai_by_repo else None
+    lo = min(ai_by_repo.items(), key=lambda kv: kv[1][0]) if ai_by_repo else None
     sig(
         "ai_share_by_repo", "identity",
-        f"Claude's share of commits runs from {lo[1][0]}% in {lo[0]} to {hi[1][0]}% in {hi[0]}.",
+        (f"Claude's share of commits runs from {lo[1][0]}% in {lo[0]} to {hi[1][0]}% in {hi[0]}." if ai_by_repo else
+         "No repo has at least five own commits; the between-repo share comparison is unavailable."),
         shares={k: v[0] for k, v in ai_by_repo.items()}, commits={k: v[1] for k, v in ai_by_repo.items()},
+        available=bool(ai_by_repo), minimum_commits=5,
+        reason=None if ai_by_repo else "no repo reaches the minimum of five own commits",
     )
 
     # Weekly AI share across the family (ISO weeks with at least 5 commits)
@@ -168,8 +182,10 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
     wk = [(k, v) for k, v in sorted(weeks.items()) if sum(v.values()) >= 5]
     sig(
         "weekly_mix", "identity",
-        "Week by week, Claude's share of commits: " + ", ".join(f"{k} {_pct(v['ai'], sum(v.values()))}% of {sum(v.values())}" for k, v in wk) + ".",
+        ("Week by week, Claude's share of commits: " + ", ".join(f"{k} {_pct(v['ai'], sum(v.values()))}% of {sum(v.values())}" for k, v in wk) + "."
+         if wk else "No week has at least five own commits; the weekly comparison is unavailable."),
         weeks={k: dict(v) for k, v in wk},
+        available=bool(wk), minimum_commits=5,
     )
 
     # The bot identity
@@ -185,12 +201,18 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
         d = _d(c["t"])
         hours[c["cls"]][d.hour] += 1
         wdays[c["cls"]][d.weekday()] += 1
-    you_peak = max(range(24), key=lambda h: hours["you"][h])
-    ai_peak = max(range(24), key=lambda h: hours["ai"][h])
+    you_peak = max(range(24), key=lambda h: hours["you"][h]) if any(hours["you"]) else None
+    ai_peak = max(range(24), key=lambda h: hours["ai"][h]) if any(hours["ai"]) else None
+    rhythm_text = (
+        f"HagopJay's accounts commit most at {you_peak:02d}:00 UTC ({hours['you'][you_peak]} commits)"
+        if you_peak is not None else "No own commits by HagopJay's accounts were observed; their peak hour is unavailable"
+    ) + "; " + (
+        f"Claude's busiest hour is {ai_peak:02d}:00 UTC ({hours['ai'][ai_peak]})."
+        if ai_peak is not None else "no own commits by Claude were observed; that peak hour is unavailable."
+    )
     sig(
         "rhythm", "time",
-        f"HagopJay's accounts commit most at {you_peak:02d}:00 UTC ({hours['you'][you_peak]} commits); "
-        f"Claude's busiest hour is {ai_peak:02d}:00 UTC ({hours['ai'][ai_peak]}).",
+        rhythm_text,
         hours=hours, weekdays=wdays, you_peak=you_peak, ai_peak=ai_peak,
     )
 
@@ -449,9 +471,10 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
             "branches": r.get("branch_count", 0),
             "by_kind": tree.get(r["name"], {}).get("by_kind", {}),
             "coverage": {
-                "history": ("family commits only" if r.get("kind") == "fork-idle" else "all refs") if r.get("present") else "none",
+                "history": r.get("history_scope") or (("family commits only" if r.get("kind") == "fork-idle" else "all refs") if r.get("present") else "none"),
                 "tree": ("counts only (private)" if r.get("visibility") == "private" else
-                         ("measured" if tree.get(r["name"], {}).get("files") else "not harvested")),
+                         ("measured" if r.get("tree_measured") or tree.get(r["name"], {}).get("files") else "not harvested")),
+                "tree_scope": tree.get(r["name"], {}).get("scope", "tip tree"),
                 "visibility": r.get("visibility"),
             },
         }

@@ -34,17 +34,18 @@ def cochange_graph(commits, max_files=15):
     """File co-change graph. commits: iterable of file lists. Edge weight = number of commits
     that touched both files. Commits touching more than max_files files are skipped: a mass edit
     makes a clique that says nothing about coupling (the count skipped is returned)."""
-    edges, skipped = [], 0
+    edges, nodes, skipped = [], set(), 0
     for files in commits:
         fs = sorted(set(files))
         if len(fs) > max_files:
             skipped += 1
             continue
+        nodes.update(fs)
         for i in range(len(fs)):
             for j in range(i + 1, len(fs)):
                 edges.append((fs[i], fs[j], 1))
     adj = make_graph(edges)
-    for f in {x for files in commits for x in files if len(set(files)) <= max_files}:
+    for f in sorted(nodes):
         adj.setdefault(f, {})
     return adj, skipped
 
@@ -189,3 +190,142 @@ def passage_points(adj, group_a, group_b):
         if lost:
             out[v] = {"pairs_cut": len(lost), "of_pairs": len(pairs)}
     return out
+
+
+class BlockCutIndex:
+    """Index obligatory passage vertices in a simple undirected graph.
+
+    An iterative Tarjan traversal finds vertex-biconnected blocks. Their incidence
+    graph (original vertices joined to containing blocks) is a forest. Original
+    vertices inside the unique forest path between two endpoints are precisely
+    the vertices whose removal separates those endpoints. Endpoints themselves
+    are excluded, as in ``passage_points``.
+
+    Construction uses O(V + E) time/storage. ``pair`` walks the forest path, so its
+    cost is O(path length), not a search/removal for every vertex. Returning every
+    pair's passage list still takes at least the size of that output. Weights do
+    not affect connectivity. This is a snapshot: rebuild after changing a graph.
+    """
+
+    def __init__(self, adj):
+        self.nodes = tuple(adj)
+        self._node_id = {v: i for i, v in enumerate(self.nodes)}
+        n = len(self.nodes)
+        neighbours = [[] for _ in range(n)]
+        for v, nb in adj.items():
+            for w in nb:
+                if w not in adj or v not in adj[w]:
+                    raise ValueError("BlockCutIndex requires symmetric undirected adjacency")
+                if w != v:                         # self-loops never separate endpoints
+                    neighbours[self._node_id[v]].append(self._node_id[w])
+
+        disc, low, parent = [-1] * n, [-1] * n, [-1] * n
+        blocks, edge_stack, clock = [], [], 0
+        for root in range(n):
+            if disc[root] != -1:
+                continue
+            disc[root] = low[root] = clock
+            clock += 1
+            if not neighbours[root]:
+                blocks.append({root})
+                continue
+            stack = [(root, iter(neighbours[root]))]
+            while stack:
+                v, it = stack[-1]
+                try:
+                    w = next(it)
+                except StopIteration:
+                    stack.pop()
+                    p = parent[v]
+                    if p != -1:
+                        low[p] = min(low[p], low[v])
+                        if low[v] >= disc[p]:
+                            block = set()
+                            while edge_stack:
+                                edge = edge_stack.pop()
+                                block.update(edge)
+                                if edge == (p, v):
+                                    break
+                            blocks.append(block)
+                    continue
+                if disc[w] == -1:
+                    parent[w] = v
+                    edge_stack.append((v, w))
+                    disc[w] = low[w] = clock
+                    clock += 1
+                    stack.append((w, iter(neighbours[w])))
+                elif w != parent[v] and disc[w] < disc[v]:
+                    low[v] = min(low[v], disc[w])
+                    edge_stack.append((v, w))
+
+        forest = [[] for _ in range(n + len(blocks))]
+        for i, block in enumerate(blocks, start=n):
+            for v in block:
+                forest[i].append(v)
+                forest[v].append(i)
+        self.cut_vertices = frozenset(self.nodes[v] for v in range(n) if len(forest[v]) > 1)
+        self._parent = [-1] * len(forest)
+        self._depth = [0] * len(forest)
+        self._component = [-1] * len(forest)
+        for root in range(len(forest)):
+            if self._component[root] != -1:
+                continue
+            self._component[root] = root
+            queue = [root]
+            while queue:
+                v = queue.pop()
+                for w in forest[v]:
+                    if self._component[w] == -1:
+                        self._component[w] = root
+                        self._parent[w] = v
+                        self._depth[w] = self._depth[v] + 1
+                        queue.append(w)
+
+    def connected(self, a, b):
+        """Whether two known vertices belong to one component; unknowns are false."""
+        if a not in self._node_id or b not in self._node_id:
+            return False
+        return self._component[self._node_id[a]] == self._component[self._node_id[b]]
+
+    def pair(self, a, b):
+        """Set of vertices outside {a, b} present on every a-to-b path."""
+        if not self.connected(a, b) or a == b:
+            return set()
+        u, v = self._node_id[a], self._node_id[b]
+        endpoints, found, n = {u, v}, set(), len(self.nodes)
+
+        def remember(i):
+            if i < n and i not in endpoints:
+                found.add(self.nodes[i])
+
+        while self._depth[u] > self._depth[v]:
+            remember(u)
+            u = self._parent[u]
+        while self._depth[v] > self._depth[u]:
+            remember(v)
+            v = self._parent[v]
+        while u != v:
+            remember(u)
+            remember(v)
+            u, v = self._parent[u], self._parent[v]
+        remember(u)                                 # shared ancestor can itself be a cut vertex
+        return found
+
+    def passage_points(self, group_a, group_b):
+        """Same grouped result/denominator as the removal-based reference function.
+
+        Group members are never reported as passage vertices. Already-disconnected
+        and unknown endpoint pairs do not enter ``of_pairs``; a shared endpoint
+        enters that denominator but can never be cut off from itself.
+        """
+        a_set, b_set = set(group_a), set(group_b)
+        endpoints, counts, total = a_set | b_set, {}, 0
+        for a in a_set:
+            for b in b_set:
+                if not self.connected(a, b):
+                    continue
+                total += 1
+                for v in self.pair(a, b):
+                    if v not in endpoints:
+                        counts[v] = counts.get(v, 0) + 1
+        return {v: {"pairs_cut": counts[v], "of_pairs": total} for v in self.nodes if v in counts}

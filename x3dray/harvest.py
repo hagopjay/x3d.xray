@@ -20,8 +20,6 @@ import re
 
 from . import gitio
 
-FAMILY_AUTHOR_RE = r"(?i)(hagopjay|hagsmac|hagop jay|claude|x3d-xfer|noreply@anthropic)"
-
 X3D_EXT = {".x3d", ".x3dv", ".x3dj", ".x3dz", ".x3db", ".wrl"}
 MEDIA_EXT = {
     ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".exr", ".hdr", ".ply", ".splat", ".spz",
@@ -100,23 +98,31 @@ class IdentityBook:
                                  "give each label one class")
         self.seen: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
 
-    def classify(self, name: str, email: str) -> tuple[str, str]:
+    def _rule(self, name: str, email: str) -> dict | None:
         user, _, domain = email.lower().partition("@")
         name_h, email_h = ident_hash(name), ident_hash(email)
         for rule in self.rules:
             if name in rule.get("match_names", []) or name_h in rule.get("match_name_sha256", []):
-                return rule["label"], rule["class"]
+                return rule
         for rule in self.rules:
             if email_h in rule.get("match_email_sha256", []):
-                return rule["label"], rule["class"]
+                return rule
         for rule in self.rules:
             users = [u.lower() for u in rule.get("match_email_users", [])]
             domains = [d.lower() for d in rule.get("match_email_domains", [])]
             if users and user in users and (not domains or domain in domains):
-                return rule["label"], rule["class"]
+                return rule
             if domains and not users and domain in domains:
-                return rule["label"], rule["class"]
-        return self.default["label"], self.default["class"]
+                return rule
+        return None
+
+    def classify(self, name: str, email: str) -> tuple[str, str]:
+        rule = self._rule(name, email) or self.default
+        return rule["label"], rule["class"]
+
+    def matches(self, name: str, email: str) -> bool:
+        """Whether an explicit configured identity matched, rather than the fallback."""
+        return self._rule(name, email) is not None
 
 
 def text_lines(data: bytes) -> int | None:
@@ -149,7 +155,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
         "visibility": rcfg.get("visibility", "public"),
         "role": rcfg.get("role", ""),
         "github": rcfg.get("github", {}),
-        "present": os.path.isdir(os.path.join(path, ".git")),
+        "present": gitio.is_repository(path),
     }
     if not rec["present"]:
         rec["note"] = "no clone found; listed from the family config only"
@@ -163,7 +169,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
     upstream_shas: set[str] = set()
     if rcfg.get("upstream"):
         up = os.path.join(root, rcfg["upstream"]["dir"])
-        if os.path.isdir(os.path.join(up, ".git")):
+        if gitio.is_repository(up):
             upstream_shas = gitio.rev_set(up, "--all")
             rec["upstream"] = {
                 "name": rcfg["upstream"]["name"],
@@ -173,19 +179,30 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
 
     on_default = gitio.rev_set(path, dref)
     if kind == "fork-idle":
-        fam = gitio.git(path, "log", "--all", "--perl-regexp", f"--author={FAMILY_AUTHOR_RE}", "--format=%H", check=False)
         rec["commits"] = []
-        rec["family_commits"] = len([x for x in fam.splitlines() if x.strip()])
+        rec["family_commits"] = sum(book.matches(c["author_name"], c["author_email"])
+                                    for c in gitio.log_with_numstat(path, ["--all"]))
+        rec["history_scope"] = "configured identity counts only"
+        rec["tree_measured"] = False
         rec["note"] = "fork with no commits by the family's identities" if not rec["family_commits"] else "idle fork"
         rec["tree"] = {"files": 0, "bytes": 0, "lines": 0, "by_kind": {}, "tests": 0, "x3d_files": 0}
         rec["own_commits"] = rec["family_commits"]
         rec["_blobs"], rec["_path"], rec["_dref"] = [], path, dref
         return rec
 
-    author_regex = FAMILY_AUTHOR_RE if (kind == "fork-active" and not upstream_shas) else None
+    fallback = kind == "fork-active" and not upstream_shas
+    rec["history_scope"] = "configured identities only (upstream unavailable)" if fallback else "all refs"
+    rec["upstream_available"] = bool(upstream_shas) if rcfg.get("upstream") else None
     commits = []
     file_hist: dict[str, dict] = {}
-    for c in gitio.log_with_numstat(path, ["--all"], author_regex=author_regex):
+    fork_scope = set() if fallback else None
+    for c in gitio.log_with_numstat(path, ["--all"]):
+        if fallback and not book.matches(c["author_name"], c["author_email"]):
+            continue
+        if fork_scope is not None:
+            # Derive scope from exactly the retained commits before redaction;
+            # private paths remain internal and are exported only as a count.
+            fork_scope.update(p for _, _, p in c["numstat"])
         label, cls = book.classify(c["author_name"], c["author_email"])
         is_up = c["sha"] in upstream_shas
         adds = sum(a for a, _, _ in c["numstat"] if a is not None)
@@ -206,6 +223,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
         }
         if not private:
             entry["sha"] = c["sha"][:12]
+            entry["_oid"] = c["sha"]  # tie validation uses full OIDs; stripped before any export
             entry["subject"] = c["subject"][:160]
             kinds = collections.Counter(classify_path(p) for _, _, p in c["numstat"])
             entry["kinds"] = dict(kinds)
@@ -257,42 +275,39 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
     kind_tot: dict[str, dict] = {}
     tests = 0
     blobs = []
-    fork_scope = None
-    if kind == "fork-active" and not upstream_shas:
-        fork_scope = set()
-        for c in gitio.log_with_numstat(path, ["--all"], author_regex=FAMILY_AUTHOR_RE):
-            fork_scope.update(p for _, _, p in c["numstat"])
-    if kind != "fork-active" or upstream_shas:
-        for blob, size, p in gitio.ls_tree(path, dref):
-            k = classify_path(p)
-            data = b""
-            lines = None
-            if size <= 2_000_000 and k not in {"media"}:
-                data = gitio.cat_blob(path, blob)
-                lines = text_lines(data)
-                tests += count_tests(p, data) if k == "tests" else 0
-            blobs.append((blob, size, p))
-            kt = kind_tot.setdefault(k, {"files": 0, "bytes": 0, "lines": 0})
-            kt["files"] += 1
-            kt["bytes"] += size
-            kt["lines"] += lines or 0
-            if not private:
-                h = file_hist.get(p)
-                by = h["by"] if h else collections.Counter()
-                tot = sum(by.values()) or 1
-                files.append(
-                    {
-                        "path": p,
-                        "kind": k,
-                        "bytes": size,
-                        "lines": lines,
-                        "commits": h["commits"] if h else 0,
-                        "churn": h["churn"] if h else 0,
-                        "first": iso(h["first"]) if h else None,
-                        "last": iso(h["last"]) if h else None,
-                        "share": {c: round(v / tot, 3) for c, v in by.items()},
-                    }
-                )
+    rec["tree_measured"] = True
+    for blob, size, p in gitio.ls_tree(path, dref):
+        if fork_scope is not None and p not in fork_scope:
+            continue
+        k = classify_path(p)
+        data = b""
+        lines = None
+        if size <= 2_000_000 and k not in {"media"}:
+            data = gitio.cat_blob(path, blob)
+            lines = text_lines(data)
+            tests += count_tests(p, data) if k == "tests" else 0
+        blobs.append((blob, size, p))
+        kt = kind_tot.setdefault(k, {"files": 0, "bytes": 0, "lines": 0})
+        kt["files"] += 1
+        kt["bytes"] += size
+        kt["lines"] += lines or 0
+        if not private:
+            h = file_hist.get(p)
+            by = h["by"] if h else collections.Counter()
+            tot = sum(by.values()) or 1
+            files.append(
+                {
+                    "path": p,
+                    "kind": k,
+                    "bytes": size,
+                    "lines": lines,
+                    "commits": h["commits"] if h else 0,
+                    "churn": h["churn"] if h else 0,
+                    "first": iso(h["first"]) if h else None,
+                    "last": iso(h["last"]) if h else None,
+                    "share": {c: round(v / tot, 3) for c, v in by.items()},
+                }
+            )
     rec["tree"] = {
         "files": sum(v["files"] for v in kind_tot.values()),
         "bytes": sum(v["bytes"] for v in kind_tot.values()),
@@ -303,6 +318,7 @@ def harvest_repo(rcfg: dict, root: str, book: IdentityBook) -> dict:
     }
     if fork_scope is not None:
         rec["tree"]["note"] = "fork: only files the family's commits touched are counted below"
+        rec["tree"]["scope"] = "configured-identity touched files at tip"
         rec["fork_touched_paths"] = sorted(fork_scope) if not private else len(fork_scope)
     if not private:
         rec["files"] = files
@@ -340,6 +356,11 @@ def harvest_family(cfg: dict, root: str) -> dict:
 
 
 def strip_internal(dataset: dict) -> dict:
-    out = dict(dataset)
-    out["repos"] = [{k: v for k, v in r.items() if not k.startswith("_")} for r in dataset["repos"]]
-    return out
+    """Remove internal fields at every level, including public full-OID witnesses."""
+    def clean(value):
+        if isinstance(value, dict):
+            return {k: clean(v) for k, v in value.items() if not k.startswith("_")}
+        if isinstance(value, list):
+            return [clean(v) for v in value]
+        return value
+    return clean(dataset)

@@ -1,0 +1,177 @@
+{
+  "base_commit": "b3fec1f7307a08a830bb82cf7693fad9537965ae",
+  "development_version": "0.2.0.dev1",
+  "python": {
+    "passed": true,
+    "tests": 178,
+    "seconds": 7.977,
+    "resource_warnings": 0,
+    "command": "python3 -m unittest discover -s tests -v"
+  },
+  "dom": {
+    "checks": 10,
+    "passed": [
+      "initial model renders nodes and complete witnesses",
+      "unpruned count lens exposes README hub",
+      "four-lens comparison drives actual controls",
+      "edge selection opens exact witnesses",
+      "witness selection illuminates observed files",
+      "removal changes topology and restore restores population",
+      "guided sweep admits all sixteen nodes",
+      "replay export contains digest and exact lens",
+      "X3D export carries fixture identity and edge witnesses",
+      "replay round-trips an edge witness and rejects mismatched analysis"
+    ],
+    "initial_js_errors": [],
+    "scope": "DOM integration only; no browser layout, WebGL, hardware GPU, or X_ITE runtime claim"
+  },
+  "xsd": {
+    "schema": "https://www.web3d.org/specifications/x3d-4.0.xsd",
+    "schema_sha256": "d01ac41b4ac218acb989d6692e749a5e652ddde3a91ac5d6d3cb0af03c1afbe2",
+    "scene_sha256": "5857f9bb61e1a7724bd427ea8c81b689cbea50bf3bfd93fd49e648638617d43a",
+    "valid": true,
+    "errors": [],
+    "scope": "XSD validation of one generated laboratory export; no X_ITE runtime claim"
+  },
+  "synthetic_pipeline": {
+    "synthetic_only": true,
+    "ok": true,
+    "release_ready": false,
+    "stages": [
+      {
+        "stage": "real_git_fixtures",
+        "status": "pass",
+        "seconds": 0.215488
+      },
+      {
+        "stage": "harvest",
+        "status": "pass",
+        "seconds": 0.083133
+      },
+      {
+        "stage": "tie_detection",
+        "status": "pass",
+        "seconds": 0.026079
+      },
+      {
+        "stage": "structure",
+        "status": "pass",
+        "seconds": 0.005648
+      },
+      {
+        "stage": "profile",
+        "status": "pass",
+        "seconds": 0.000872
+      },
+      {
+        "stage": "self_description",
+        "status": "pass",
+        "seconds": 0.145441
+      },
+      {
+        "stage": "spec_render",
+        "status": "pass",
+        "seconds": 0.00041
+      },
+      {
+        "stage": "x3d_compile",
+        "status": "pass",
+        "seconds": 0.016477
+      },
+      {
+        "stage": "xml_well_formedness",
+        "status": "pass",
+        "seconds": 0.001817
+      },
+      {
+        "stage": "page_export",
+        "status": "pass",
+        "seconds": 0.063726
+      },
+      {
+        "stage": "fact_gate",
+        "status": "pass",
+        "seconds": 0.001236
+      },
+      {
+        "stage": "privacy_gate",
+        "status": "pass",
+        "seconds": 0.031135
+      },
+      {
+        "stage": "witness_gate",
+        "status": "pass",
+        "seconds": 0.008329
+      },
+      {
+        "stage": "receipt",
+        "status": "pass",
+        "seconds": 0.074175
+      },
+      {
+        "stage": "publication_hash_and_extra_asset_check",
+        "status": "pass"
+      }
+    ],
+    "checks": {
+      "fixture_repositories": 2,
+      "source_git_head": "b3fec1f7307a",
+      "source_has_uncommitted_changes": true,
+      "source_code_digest": "0b732599ab11041f",
+      "harvested_own_commits": 16,
+      "expected_own_commits": 16,
+      "x_ite_version": "16.7.0",
+      "gates": {
+        "fact": "pass",
+        "privacy": "pass",
+        "witness": "pass",
+        "xsd": "skip",
+        "loom": "skip",
+        "tools": "skip",
+        "live": "skip"
+      },
+      "scene": {
+        "bytes": 95702,
+        "commits": 16,
+        "labels": 86,
+        "nodes": 7,
+        "machine_ties": 1,
+        "curated_ties": 0,
+        "buildings": 12,
+        "days": 3
+      },
+      "page": {
+        "files": 35,
+        "bytes": 6055717
+      },
+      "served_assets": 37,
+      "receipt_covered_served_assets": 36,
+      "detached_receipt_exception": "receipt.json deliberately excludes its own byte hash",
+      "unattested": [],
+      "mismatched": [],
+      "unregistered_extra_published": false,
+      "temporary_fixture_deleted_on_exit": true
+    },
+    "not_run": [
+      "XSD schema validation",
+      "Loom validation",
+      "family-specific tools self-test",
+      "live X_ITE/browser rendering",
+      "hardware GPU measurement"
+    ],
+    "scope": "Real Git ingestion and deterministic build functions; three actual local gates; publication byte coverage. No browser-rendering claim."
+  },
+  "packaging": {
+    "wheel_built": true,
+    "installed_package_lab_smoke": true
+  },
+  "not_run": [
+    "full private-family harvest",
+    "full external Loom gate",
+    "real host sampling runtime",
+    "live X_ITE render",
+    "hardware GPU benchmark",
+    "remote CI"
+  ],
+  "upstream_pushed": false
+}

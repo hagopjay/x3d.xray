@@ -1,0 +1,17 @@
+{
+  "checks": 10,
+  "passed": [
+    "initial model renders nodes and complete witnesses",
+    "unpruned count lens exposes README hub",
+    "four-lens comparison drives actual controls",
+    "edge selection opens exact witnesses",
+    "witness selection illuminates observed files",
+    "removal changes topology and restore restores population",
+    "guided sweep admits all sixteen nodes",
+    "replay export contains digest and exact lens",
+    "X3D export carries fixture identity and edge witnesses",
+    "replay round-trips an edge witness and rejects mismatched analysis"
+  ],
+  "initial_js_errors": [],
+  "scope": "DOM integration only; no browser layout, WebGL, hardware GPU, or X_ITE runtime claim"
+}
