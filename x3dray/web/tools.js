@@ -406,11 +406,92 @@ export function sessionId(B, v) {
   throw new Error(`no Claude session "${str(v)}" in this family: session ids look like s-0a17c88568, and the bridges tool lists them`);
 }
 
+// Whole-number filter arguments are refused when they are not whole numbers, never read as absent.
+function edaWhole(v, name, lo, hi) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < lo || v > hi) {
+    throw new Error(`${name} must be ${hi === Infinity ? 'a non-negative integer' : `an integer from ${lo} to ${hi}`}`);
+  }
+  return v;
+}
+// A day argument is a real calendar date or it is refused: a malformed one would compare as a string and read as "no commits".
+function edaDateArg(v, name) {
+  const s = str(v);
+  if (!s) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]), t = new Date(Date.UTC(y, mo - 1, d));
+    if (t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d) return s;
+  }
+  throw new Error(`${name} must be a calendar date written YYYY-MM-DD (UTC)`);
+}
+const EDA_DAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+function edaWeekdayArg(v) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v === 'number') return edaWhole(v, 'weekday', 0, 6);
+  const s = str(v).toLowerCase();
+  if (/^[0-6]$/.test(s)) return Number(s);
+  const k = EDA_DAY_NAMES.findIndex(n => s === n || s === n.slice(0, 3));
+  if (k < 0) throw new Error('weekday must be 0 to 6 (Monday is 0) or mon, tue, wed, thu, fri, sat, sun');
+  return k;
+}
+const EDA_GRADE_RANK = { C: 3, L: 2, S: 1 };
+const edaFlagIndexes = new WeakMap();
+// rule -> (commit index -> {grade, k, m}), built once per eda object from the capped flag lists.
+function edaFlagIndex(eda) {
+  let ix = edaFlagIndexes.get(eda);
+  if (ix) return ix;
+  ix = new Map();
+  for (const [rule, by] of Object.entries((eda.flags && eda.flags.by_rule) || {})) {
+    const m = new Map();
+    for (const g of ['C', 'L', 'S']) for (const [i, k, n] of by[g] || []) if (!m.has(i)) m.set(i, { grade: g, k, m: n });
+    ix.set(rule, m);
+  }
+  edaFlagIndexes.set(eda, ix);
+  return ix;
+}
+// The stored flag lists stop at a cap per rule and grade; a filter built from them would count only the commits listed and
+// say nothing about the rest. Unknown is not zero, so a filter that would reach into a cut list is refused instead.
+function edaRequireCompleteFlags(by, rule, least) {
+  const grades = ['C', 'L', 'S'], left = {}, counted = {};
+  for (const g of grades) {
+    const listed = (by[g] || []).length;
+    counted[g] = by.counts && Number.isInteger(by.counts[g]) ? by.counts[g] : listed;
+    left[g] = Math.max(counted[g] - listed, (by.omitted && by.omitted[g]) || 0);
+  }
+  const cut = grades.filter(g => EDA_GRADE_RANK[g] >= least && left[g] > 0);
+  if (!cut.length) return;
+  // "this grade or better" is complete when it and every better grade are listed in full; S is the loosest, so look from the worst down.
+  const whole = grades.filter(g => grades.every(h => EDA_GRADE_RANK[h] < EDA_GRADE_RANK[g] || left[h] === 0));
+  throw new Error(`the stored ${rule} flag lists are capped at ${by.cap || 200} per grade, so this filter would miss ` +
+    cut.map(g => `${left[g]} of ${counted[g]} grade ${g} commits`).join(' and ') + '; ' +
+    (whole.length ? `flag_grade ${whole[whole.length - 1]} or better is listed in full` : 'no grade is listed in full for this rule') +
+    '; the eda flags topic shows the counts');
+}
+function edaFlagTest(B, q) {
+  const rule = str(q.flag), grade = str(q.flag_grade).toUpperCase();
+  if (!rule) {
+    if (grade) throw new Error('flag_grade needs a flag');
+    return null;
+  }
+  if (!B.eda || !B.eda.flags || !B.eda.flags.rules) throw new Error('the flag filter needs eda data, which this build does not have');
+  const known = Object.keys(B.eda.flags.rules);
+  if (!known.includes(rule)) throw new Error(`unknown flag ${JSON.stringify(rule.slice(0, 60))}; known: ${known.join(', ')}`);
+  if (grade && !EDA_GRADE_RANK[grade]) throw new Error('flag_grade must be C, L or S');
+  const least = EDA_GRADE_RANK[grade || 'S'];
+  edaRequireCompleteFlags(B.eda.flags.by_rule[rule] || {}, rule, least);
+  const at = edaFlagIndex(B.eda).get(rule) || new Map();
+  return c => { const f = at.get(c.i); return !!f && EDA_GRADE_RANK[f.grade] >= least; };
+}
+
 function commitFilter(B, q) {
   const repos = repoList(B, q.repo).map(r => r.toLowerCase());
   const who = kindsOf(q.who);                                     // an unknown kind is refused, never read as none
-  const from = str(q.from), to = str(q.to), text = str(q.text).toLowerCase(), sha = str(q.sha).toLowerCase(), sess = sessionId(B, q.session);
-  const dayEq = str(q.day);
+  const from = edaDateArg(q.from, 'from'), to = edaDateArg(q.to, 'to'), text = str(q.text).toLowerCase(), sha = str(q.sha).toLowerCase(), sess = sessionId(B, q.session);
+  const dayEq = edaDateArg(q.day, 'day');
+  const minLines = edaWhole(q.min_lines, 'min_lines', 0, Infinity), maxLines = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
+  if (minLines !== null && maxLines !== null && minLines > maxLines) throw new Error(`min_lines ${minLines} is above max_lines ${maxLines}`);
+  const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday), flagged = edaFlagTest(B, q);
   return c => {
     if (repos.length && !repos.includes(c.r.toLowerCase())) return false;
     if (who.length && !who.includes(c.c)) return false;
@@ -424,7 +505,16 @@ function commitFilter(B, q) {
     if (q.merges === true && !c.m) return false;
     if (q.merges === false && c.m) return false;
     if (q.side_branch === true && c.b) return false;
+    if (q.side_branch === false && !c.b) return false;
     if (q.trailer === true && !c.tr) return false;
+    if (minLines !== null || maxLines !== null) {
+      const lines = (c.a || 0) + (c.d || 0);
+      if (minLines !== null && lines < minLines) return false;
+      if (maxLines !== null && lines > maxLines) return false;
+    }
+    if (hour !== null && edaHourOf(c.t) !== hour) return false;
+    if (weekday !== null && edaWeekdayOf(c.t) !== weekday) return false;
+    if (flagged && !flagged(c)) return false;
     return true;
   };
 }
@@ -449,6 +539,92 @@ function commitRow(B, c) {
   if (c.s && c.s.length) r.sessions = c.s;
   if (!c.h && !c.sub) r.private = true;
   return r;
+}
+
+// ---------------------------------------------------------------- the descriptive kernel of x3dray/stats.py, in integers
+// A slice asked for in the page is computed with the arithmetic of the stored profile: the same nearest-rank quantiles, log2 bins,
+// lower medians and exact Gini, so the two agree to the digit. No Date, no Math.round, no toFixed, no float division on a path
+// that feeds a number into a result; sums and the Gini use BigInt. Inference (permutations, q-values, grades) is Python-only.
+export const EDA_FORKS = ['all', 'no_merge', 'default_branch', 'no_mass'];
+const EDA_MASS_FILES = 15;                  // stats.MASS_FILES: more files than this is a mass edit
+const EDA_SAFE = Number.MAX_SAFE_INTEGER;   // stats.SAFE_INT = 2**53 - 1
+const edaMod = (a, b) => ((a % b) + b) % b;
+const edaFloorDiv = (a, b) => (a - edaMod(a, b)) / b;       // exact for safe integers: a - (a mod b) is a multiple of b
+
+function edaBitLength(n) {
+  if (n === 0) return 0;
+  if (n < 2 ** 31) return 32 - Math.clz32(n);
+  return edaBitLength(Math.floor(n / 2 ** 31)) + 31;       // division by a power of two is exact
+}
+export function edaBin(x, cap, unit = 1) {
+  if (!Number.isInteger(x) || x < 0 || x > EDA_SAFE) throw new RangeError('edaBin needs an integer from 0 to 2**53-1');
+  if (!Number.isInteger(unit) || unit < 1) throw new RangeError('edaBin needs a positive integer unit');
+  return Math.min(cap, edaBitLength(edaFloorDiv(x, unit)));
+}
+export function edaQuantile(sorted, num, den) {
+  const n = sorted.length;
+  if (n === 0) throw new RangeError('edaQuantile needs at least one value');
+  const k = Math.max(1, Math.floor((n * num + den - 1) / den));    // ceil(n*num/den), at least the first
+  return sorted[k - 1];
+}
+const edaLowerMedian = sorted => sorted[(sorted.length - 1) >> 1];
+// permille of num/den, half away from zero, in BigInt; callers pass den > 0.
+function edaPermille(num, den) {
+  const neg = num < 0n, a = neg ? -num : num, v = (2000n * a + den) / (2n * den);
+  return Number(neg ? -v : v);
+}
+const edaPcts = [['p10', 1, 10], ['p25', 1, 4], ['p50', 1, 2], ['p75', 3, 4], ['p90', 9, 10], ['p99', 99, 100]];
+export function edaSummarize(values, binCap, binUnit = 1) {
+  const n = values.length;
+  if (n === 0) return { n: 0 };
+  if (values.some(v => !Number.isInteger(v) || v < 0 || v > EDA_SAFE)) throw new RangeError('edaSummarize needs integers from 0 to 2**53-1');
+  const xs = values.slice().sort((a, b) => a - b);
+  const bins = new Array(binCap + 1).fill(0);
+  for (const x of xs) bins[edaBin(x, binCap, binUnit)]++;
+  let total = 0n, weighted = 0n, top = 0n;
+  const kTop = Math.floor((n + 9) / 10);
+  xs.forEach((x, j) => {
+    const b = BigInt(x);
+    total += b;
+    weighted += BigInt(j + 1) * b;
+    if (j >= n - kTop) top += b;
+  });
+  const out = { n, sum: total <= BigInt(EDA_SAFE) ? Number(total) : total.toString(), min: xs[0], max: xs[n - 1] };
+  for (const [name, num, den] of edaPcts) out[name] = edaQuantile(xs, num, den);
+  const med = edaLowerMedian(xs);
+  out.mad = edaLowerMedian(xs.map(x => Math.abs(x - med)).sort((a, b) => a - b));
+  out.bins = bins;
+  out.bin_rule = { unit: binUnit, cap: binCap };
+  const share = n >= 10 && total > 0n;
+  out.gini_permille = share ? edaPermille(2n * weighted - BigInt(n + 1) * total, BigInt(n) * total) : null;
+  out.top_decile_permille = share ? edaPermille(top, total) : null;
+  return out;
+}
+export const edaHourOf = t => edaFloorDiv(edaMod(t, 86400), 3600);
+export const edaWeekdayOf = t => edaMod(edaFloorDiv(t, 86400) + 3, 7);      // Monday is 0; 1970-01-01 was a Thursday
+export function edaInFork(c, fork) {
+  if (fork === 'all') return true;
+  if (fork === 'no_merge') return !c.m;
+  if (fork === 'default_branch') return c.b === 1 && !c.m;
+  if (fork === 'no_mass') return !c.m && c.f <= EDA_MASS_FILES;
+  throw new Error(`unknown fork ${JSON.stringify(String(fork).slice(0, 40))}; forks: ${EDA_FORKS.join(', ')}`);
+}
+const EDA_MEASURES = { lines: { cap: 16, unit: 1 }, files: { cap: 16, unit: 1 }, gap_s: { cap: 19, unit: 60 } };
+// Members in (t, i) order; a gap is the seconds since the previous member, so the first member has none (unknown, not zero).
+function edaMeasureValues(members, measure) {
+  if (!EDA_MEASURES[measure]) throw new Error(`unknown measure ${JSON.stringify(String(measure).slice(0, 40))}; measures: ${Object.keys(EDA_MEASURES).join(', ')}`);
+  const ordered = members.slice().sort((a, b) => (a.t - b.t) || (a.i - b.i));
+  if (measure === 'lines') return ordered.map(c => (c.a || 0) + (c.d || 0));
+  if (measure === 'files') return ordered.map(c => c.f || 0);
+  return ordered.slice(1).map((c, k) => c.t - ordered[k].t);
+}
+export function edaSliceValues(B, spec) {
+  const slice = String(spec.slice);
+  const inSlice = slice === 'family' ? () => true : slice.startsWith('class:') ? c => c.c === slice.slice(6)
+    : slice.startsWith('repo:') ? c => c.r === slice.slice(5) : null;
+  if (!inSlice) throw new Error('a slice is family, class:<class> or repo:<name>');
+  const members = B.commits.filter(c => inSlice(c) && edaInFork(c, spec.fork));
+  return { members: members.length, values: edaMeasureValues(members, spec.measure) };
 }
 
 function signalById(B, id) { return B.signals.find(s => s.id === id); }
@@ -614,6 +790,22 @@ export function digest(B) {
       (flat.length ? `${Object.keys(brs).length ? '. None in' : ', and none in'} ${flat.map(x => `${x.repo} (${x.largest_cluster})`).join(', ')}: a cluster of ten or more with no file between two others` : '') +
       (hubList.length ? `. With every file kept, hubs rank first (${Math.min(5, hubList.length)} of ${hubList.length} repos): ` + hubList.slice(0, 5).map(([r, v]) => `${r} ${v.file}`).join('; ') : '') + '.');
   }
+  if (B.eda) {
+    // Capped at six lines: the exploration layer is a pointer to the eda tool, not a second digest.
+    const E = B.eda, K = (E.looks || {}).ledger, lab = (E.classes || {}).labels || {}, pair = (E.classes || {}).pair;
+    L.push('\nEXPLORATION (rule-bound looks computed by code, no model; the eda tool looks them up):');
+    if (K) {
+      const g = K.by_grade || {};
+      L.push(`- ${K.declared} declared looks, m fixed at ${K.declared}${pair ? ', pair ' + pair.map(c => lab[c] || c).join(' vs ') : ', no pair with 20 commits on each side'}: ${K.evaluated} evaluated, ${K.not_run} not run; Confirmed ${g.C || 0}, Likely ${g.L || 0}, Suspected ${g.S || 0}, ungraded ${g.none || 0}.`);
+    }
+    const checks = ((E.audit || {}).checks || []).filter(c => c.status === 'flag');
+    if (E.audit) L.push(`- Audit: ${checks.length} of ${E.audit.checks.length} checks flagged (${['C', 'L', 'S'].map(x => x + ' ' + checks.filter(c => c.grade === x).length).join(', ')})${checks.length ? ': ' + checks.map(c => c.id + ' ' + c.count).join(', ') : ''}.`);
+    const graded = (((E.looks || {}).findings) || []).filter(f => f.grade).sort((a, b) => EDA_GRADE_RANK[b.grade] - EDA_GRADE_RANK[a.grade]).slice(0, 2);
+    if (K) L.push('- ' + (graded.length ? 'Top findings: ' + graded.map(f => `${f.id} [${f.grade}] ${clip(f.text, 150)}`).join(' | ') : 'No look is graded.'));
+    const by = (E.flags || {}).by_rule || {};
+    if (E.flags) L.push('- Flags (commit indices; the highlight tool lights them with flag and flag_grade): ' + Object.entries(by).map(([r, v]) => `${r} C ${v.counts.C} L ${v.counts.L} S ${v.counts.S} of ${v.counts.evaluable}`).join('; ') + '.');
+    L.push('- A grade is robustness over declared checks, never a probability; slices asked through eda are descriptive and ungraded.');
+  }
   L.push('\nVIEWS IN THE SCENE (id: [who says it] claim, then how the caption opens; how_built topic spec has every caption in full):');
   B.spec.views.forEach(v => L.push(`- ${v.id}: ${v.claim ? '[' + v.claim.says + '] ' + v.claim.text + ' ' : ''}${clip(v.caption, 110)}`));
   const sd = B.self;
@@ -629,9 +821,213 @@ export function digest(B) {
   return L.join('\n');
 }
 
+// ---------------------------------------------------------------- the eda tool (x3dray/eda.py and looks.py stored in bundle.eda)
+const EDA_TOPICS = ['ledger', 'finding', 'audit', 'profile', 'flags', 'rhythm', 'concentration', 'slice', 'method'];
+const EDA_DESC = 'Exploration under rules: the stored descriptive profile, rhythm, concentration, data audit and graded looks, from code with no model. ' +
+  'topic: ledger (the 12 declared looks, their grades and what a grade means), finding (one look in full; id), audit (data checks and per-repo coverage; grade), ' +
+  'profile (size, files and gap distributions per slice; repo, who, fork, measure), flags (commits atypical for their stratum; rule size_high or gap_long, grade), ' +
+  'rhythm (hours, quiet window, bursts; repo, who), concentration (how unevenly churn falls on files; repo), method (thresholds, forks, rules), ' +
+  'slice (compute a distribution over commits filtered by repo, who, from, to, day, session, hour, weekday, min_lines, max_lines, rule, grade; fork, measure; ungraded). ' +
+  'A grade is robustness over declared checks, never a probability. Unknown is not zero; private repos give counts only.';
+const EDA_SCHEMA = { type: 'object', additionalProperties: false, required: ['topic'], properties: {
+  topic: { type: 'string', enum: EDA_TOPICS },
+  id: { type: 'string', description: 'a look id such as contrast:lines (finding)' },
+  repo: { type: 'string', description: 'repo name; several separated by commas' },
+  who: { type: 'string', description: 'author class: you (HagopJay), ai (Claude), bot, other, upstream' },
+  from: { type: 'string', description: 'first day, YYYY-MM-DD (UTC); slice' },
+  to: { type: 'string', description: 'last day, YYYY-MM-DD (UTC); slice' },
+  day: { type: 'string', description: 'one day, YYYY-MM-DD; slice' },
+  session: { type: 'string', description: 'a Claude session hash (s-...); slice' },
+  hour: { type: 'integer', description: 'UTC author hour, 0 to 23; slice' },
+  weekday: { type: 'string', description: 'UTC weekday: 0 (Monday) to 6, or mon to sun; slice' },
+  min_lines: { type: 'integer', description: 'at least this many lines changed (add+del); slice' },
+  max_lines: { type: 'integer', description: 'at most this many lines changed; slice' },
+  fork: { type: 'string', enum: EDA_FORKS, description: 'all, no_merge (default for slice), default_branch, no_mass' },
+  measure: { type: 'string', enum: ['lines', 'files', 'gap_s'], description: 'lines (add+del), files, gap_s (seconds since the previous commit); default lines' },
+  rule: { type: 'string', enum: ['size_high', 'gap_long'], description: 'flag rule (flags; slice keeps only commits it flags)' },
+  grade: { type: 'string', enum: ['C', 'L', 'S'], description: 'this grade or better (C best)' },
+  limit: { type: 'integer', description: 'rows to return, 1 to 40 (default 15)' } } };
+const EDA_WORDING = 'a grade here is robustness over declared checks, never a probability';
+const EDA_RESULT_BUDGET = 26000;     // bytes for one result before cap() could act; cap() would add the keys the eda tool never emits
+
+// First `limit` rows of `rows`, fewer when the result would pass the byte budget; the counters always add up.
+function edaList(base, name, rows, limit) {
+  const make = k => ({ ...base, [name]: rows.slice(0, k), [name + '_total']: rows.length, [name + '_omitted']: rows.length - k });
+  let k = Math.min(rows.length, limit);
+  while (k > 0 && utf8Bytes(make(k)) > EDA_RESULT_BUDGET) k--;
+  return make(k);
+}
+const edaLimit = q => clamp(Math.trunc(num(q.limit, 15)), 1, 40);
+const edaLeast = g => (g ? EDA_GRADE_RANK[str(g).toUpperCase()] || 1 : 1);
+const edaPrivateRepos = B => new Set((B.repos || []).filter(r => r.visibility === 'private').map(r => r.name));
+
+// The stored slice ids named by repo or who; null when neither is given.
+function edaSliceIds(B, q) {
+  const r = str(q.repo), w = str(q.who);
+  if (r && w) throw new Error('give repo or who, not both: a stored slice is the family, one author class or one repo');
+  if (r) return repoList(B, q.repo).map(n => 'repo:' + n);
+  if (w) {
+    const ks = kindsOf(q.who);
+    if (ks.length !== 1) throw new Error('who names one author class here: you, ai, bot, other or upstream');
+    return ['class:' + ks[0]];
+  }
+  return null;
+}
+const edaOnly = (q, keys) => Object.fromEntries(keys.filter(k => str(q[k])).map(k => [k, str(q[k])]));
+
+function edaCoverageRow(r) {
+  // Private repos are counts only by construction: whatever the stored row holds, only these fields leave.
+  if (r.visibility !== 'private') return r;
+  return { repo: r.repo, visibility: r.visibility, n: r.n, n_nonmerge: r.n_nonmerge, n_default: r.n_default, tree: r.tree, eligible: r.eligible,
+    unknown: 'files, paths and kinds are not measured for a private repo' };
+}
+
+function edaFlagRow(B, c, priv) {
+  const r = commitRow(B, c);
+  if (priv.has(c.r)) { delete r.sha; delete r.subject; delete r.sessions; r.private = true; }
+  return r;
+}
+
+// A request to query_commits, activity or highlight that carries an hour, weekday, size or flag filter is a look at the data
+// just as a slice is, so it joins the same set; plain navigation (a repo, a day, words) does not. The key is the filter in one
+// spelling and has no fork or measure, so it never collides with a slice's key. Call it after the filter has been accepted.
+function edaNoteLook(B, q, asked) {
+  const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday), flag = str(q.flag);
+  const lo = edaWhole(q.min_lines, 'min_lines', 0, Infinity), hi = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
+  if (hour === null && weekday === null && lo === null && hi === null && !flag) return;
+  asked.add(JSON.stringify({ via: 'rows', repo: str(q.repo) ? repoList(B, q.repo).slice().sort() : [], who: str(q.who) ? kindsOf(q.who).slice().sort() : [],
+    from: str(q.from), to: str(q.to), day: str(q.day), session: str(q.session), flag, flag_grade: flag ? str(q.flag_grade) || 'S' : '', hour, weekday,
+    min_lines: lo, max_lines: hi }));
+}
+
+const EDA_ASKED_NOTE = 'distinct eda slices plus query_commits, activity and highlight calls that carry an hour, weekday, size or flag filter; plain lookups are not counted';
+
+function edaSlice(B, E, q, asked) {
+  const fork = str(q.fork) || 'no_merge', measure = str(q.measure) || 'lines';
+  if (!EDA_FORKS.includes(fork)) throw new Error(`unknown fork ${JSON.stringify(fork.slice(0, 40))}; forks: ${EDA_FORKS.join(', ')}`);
+  if (!EDA_MEASURES[measure]) throw new Error(`unknown measure ${JSON.stringify(measure.slice(0, 40))}; measures: ${Object.keys(EDA_MEASURES).join(', ')}`);
+  if (str(q.grade) && !str(q.rule)) throw new Error('grade needs a rule: it is the grade of that flag');
+  const filter = { repo: q.repo, who: q.who, from: q.from, to: q.to, day: q.day, session: q.session, flag: q.rule, flag_grade: q.grade,
+    hour: q.hour, weekday: q.weekday, min_lines: q.min_lines, max_lines: q.max_lines };
+  const pass = commitFilter(B, filter);
+  // Echoed in one spelling (a weekday as its number) so that two spellings of one slice count once in looks_asked_this_session.
+  const hour = edaWhole(q.hour, 'hour', 0, 23), weekday = edaWeekdayArg(q.weekday);
+  const lo = edaWhole(q.min_lines, 'min_lines', 0, Infinity), hi = edaWhole(q.max_lines, 'max_lines', 0, Infinity);
+  const echo = { ...(str(q.repo) ? { repo: repoList(B, q.repo) } : {}), ...(str(q.who) ? { who: kindsOf(q.who) } : {}),
+    ...edaOnly(q, ['from', 'to', 'day', 'session', 'rule', 'grade']), ...(hour !== null ? { hour } : {}), ...(weekday !== null ? { weekday } : {}),
+    ...(lo !== null ? { min_lines: lo } : {}), ...(hi !== null ? { max_lines: hi } : {}) };
+  asked.add(JSON.stringify({ ...echo, repo: (echo.repo || []).slice().sort(), who: (echo.who || []).slice().sort(), fork, measure }));
+  const matched = B.commits.filter(pass);
+  if (matched.length > 50000) throw new Error(`the filter matches ${matched.length} commits; a slice takes at most 50000, so narrow it`);
+  const members = matched.filter(c => edaInFork(c, fork));
+  const out = { route: 'compute', summary: '', topic: 'slice', filter: echo, fork, measure, matched: matched.length, members: members.length, statistics: null,
+    grade: null, grade_note: 'descriptive and ungraded: outside the declared family of 12 looks', looks_asked_this_session: asked.size,
+    looks_asked_note: EDA_ASKED_NOTE,
+    declared_looks: ((E.looks || {}).ledger || {}).declared || 12, computed_by: 'edaSummarize (twin of x3dray/stats.py summarize)' };
+  const priv = edaPrivateRepos(B);
+  if (matched.length && members.length < 20 && matched.every(c => priv.has(c.r))) {
+    out.summary = 'private: counts only';
+    out.note = 'every matched commit is in a private repo and fewer than 20 remain in this fork: the count is all that is shown';
+    return out;
+  }
+  const values = edaMeasureValues(members, measure);
+  out.statistics = edaSummarize(values, EDA_MEASURES[measure].cap, EDA_MEASURES[measure].unit);
+  const st = out.statistics;
+  out.summary = values.length ? `${measure} over ${st.n} of ${members.length} commits: median ${st.p50}, p90 ${st.p90}, max ${st.max}` : `no ${measure} values: ${members.length} commits in this slice and fork`;
+  return out;
+}
+
+// The arguments each topic reads, besides limit (a page size: it never changes which data an answer describes). EDA_SCHEMA is one flat object, so without this a topic would take any of them and drop the
+// ones it does not use, answering a different question from the one asked.
+const EDA_TOPIC_ARGS = {
+  ledger: [], finding: ['id'], audit: ['grade'], profile: ['repo', 'who', 'fork', 'measure'], flags: ['rule', 'grade'],
+  rhythm: ['repo', 'who'], concentration: ['repo'], method: [],
+  slice: ['repo', 'who', 'from', 'to', 'day', 'session', 'hour', 'weekday', 'min_lines', 'max_lines', 'rule', 'grade', 'fork', 'measure'],
+};
+function edaRefuseUnusedArgs(topic, q) {
+  const takes = EDA_TOPIC_ARGS[topic];
+  if (!takes) return;
+  const given = Object.keys(q).filter(k => k !== 'topic' && k !== 'limit' && q[k] !== undefined && q[k] !== null && q[k] !== '');
+  const unused = given.filter(k => !takes.includes(k));
+  if (unused.length) throw new Error(`topic ${topic} does not use ${unused.join(', ')}; it takes ${takes.length ? takes.join(', ') : 'no arguments'}`);
+}
+
+function edaRun(B, q, asked) {
+  const E = B.eda;
+  if (!E) return { route: 'lookup', status: 'unavailable', summary: 'eda unavailable: eda was not computed for this build', reason: 'eda was not computed for this build' };
+  const topic = str(q.topic), L = E.looks || {}, lim = edaLimit(q);
+  edaRefuseUnusedArgs(topic, q);
+  if (topic === 'ledger') {
+    const K = L.ledger || {}, g = K.by_grade || {}, lab = (E.classes || {}).labels || {}, pair = (E.classes || {}).pair;
+    const rows = (L.findings || []).map(f => ({ id: f.id, kind: f.kind, measure: f.measure, grade: f.grade, grade_reason: f.grade_reason,
+      effect_permille: f.effect ? f.effect.permille : null, direction: f.effect ? f.effect.direction : null,
+      n_a: f.groups ? f.groups.a.n : null, n_b: f.groups ? f.groups.b.n : null, p_text: f.null_model ? f.null_model.p_text : null,
+      q_text: f.q_text, text: f.text }));
+    return edaList({ route: 'lookup', summary: `${K.declared} declared looks: ${K.evaluated} evaluated, ${K.not_run} not run; Confirmed ${g.C || 0}, Likely ${g.L || 0}, Suspected ${g.S || 0}, ungraded ${g.none || 0}`,
+      topic, ledger: K, looks_asked_this_session: asked.size, looks_asked_note: EDA_ASKED_NOTE,
+      pair: pair ? pair.map(c => lab[c] || c) : null, pair_reason: (E.classes || {}).pair_reason || null, grade_rule: L.grade_rule,
+      scope: L.scope, say_at_most: L.say_at_most, bh_note: K.bh_note, wording: EDA_WORDING }, 'findings', rows, 40);
+  }
+  if (topic === 'finding') {
+    const ids = (L.findings || []).map(f => f.id), id = str(q.id), f = (L.findings || []).find(x => x.id === id);
+    if (!f) throw new Error(`${id ? 'no look ' + JSON.stringify(id.slice(0, 60)) : 'finding needs an id'}; known: ${ids.join(', ')}`);
+    return { route: 'lookup', summary: `${f.id}: ${f.grade ? 'grade ' + f.grade : 'no grade'} (${f.grade_reason})`, topic, finding: f, grade_rule: L.grade_rule, wording: EDA_WORDING };
+  }
+  if (topic === 'audit') {
+    const A = E.audit || {}, least = edaLeast(q.grade);
+    const checks = (A.checks || []).filter(c => !str(q.grade) || (c.status === 'flag' && EDA_GRADE_RANK[c.grade] >= least))
+      .map(c => ({ ...c, by_repo: (c.by_repo || []).slice(0, 10), ...((c.by_repo || []).length > 10 ? { by_repo_omitted: c.by_repo.length - 10 } : {}) }));
+    const flagged = (A.checks || []).filter(c => c.status === 'flag');
+    const unav = (A.checks || []).filter(c => c.status === 'unavailable').length;
+    return edaList({ route: 'lookup', summary: `${flagged.length} of ${(A.checks || []).length} audit checks flagged${unav ? `, ${unav} could not run` : ''}`, topic, checks, checks_total: checks.length,
+      limitations: A.limitations, scope: A.scope }, 'coverage', (A.coverage || []).map(edaCoverageRow), lim);
+  }
+  if (topic === 'profile' || topic === 'rhythm') {
+    const ids = edaSliceIds(B, q), fork = str(q.fork), measure = str(q.measure);
+    const src = topic === 'profile' ? (E.profile || {}).records || [] : (E.rhythm || {}).slices || [];
+    const rows = src.filter(r => (!ids || ids.includes(r.slice)) && (!fork || r.fork === undefined || r.fork === fork) && (!measure || r.measure === undefined || r.measure === measure));
+    const base = topic === 'profile' ? { scope: (E.profile || {}).scope, measure_defs: (E.profile || {}).measure_defs }
+      : { scope: (E.rhythm || {}).scope };
+    return edaList({ route: 'lookup', summary: `${rows.length} stored ${topic === 'profile' ? 'profile records' : 'rhythm slices'}`, topic, ...base,
+      filter: { ...(ids ? { slices: ids } : {}), ...edaOnly(q, topic === 'profile' ? ['fork', 'measure'] : []) } }, topic === 'profile' ? 'records' : 'slices', rows, lim);
+  }
+  if (topic === 'concentration') {
+    const names = str(q.repo) ? repoList(B, q.repo) : null, C = E.concentration || {};
+    const rows = (C.repos || []).filter(r => !names || names.includes(r.repo));
+    return edaList({ route: 'lookup', summary: `${rows.length} repos, ${rows.filter(r => r.unknown).length} unknown`, topic, scope: C.scope,
+      note: 'unknown means not measured (a private repo or an unharvested tree): never read it as zero' }, 'repos', rows, lim);
+  }
+  if (topic === 'flags') {
+    const F = E.flags || {}, by = F.by_rule || {}, rules = Object.keys(by), rule = str(q.rule);
+    if (rule && !rules.includes(rule)) throw new Error(`unknown rule ${JSON.stringify(rule.slice(0, 60))}; rules: ${rules.join(', ')}`);
+    const least = edaLeast(q.grade), use = rule ? [rule] : rules, priv = edaPrivateRepos(B), items = [];
+    for (const g of ['C', 'L', 'S']) {
+      if (EDA_GRADE_RANK[g] < least) continue;
+      for (const r of use) for (const [i, k, m] of by[r][g] || []) items.push({ g, r, i, k, m });
+    }
+    items.sort((a, b) => (EDA_GRADE_RANK[b.g] - EDA_GRADE_RANK[a.g]) || (a.i - b.i) || (rules.indexOf(a.r) - rules.indexOf(b.r)));
+    const rows = items.map(x => {
+      const c = B.commits[x.i];
+      return { ...(c ? edaFlagRow(B, c, priv) : { missing: 'no commit with this index' }), index: x.i, rule: x.r, grade: x.g, fired_in: x.k, of: x.m };
+    });
+    const rulesOut = Object.fromEntries(use.map(r => [r, { definition: ((F.rules || {})[r] || {}).definition, stratum: ((F.rules || {})[r] || {}).stratum,
+      counts: by[r].counts, omitted: by[r].omitted, cap: by[r].cap }]));
+    return edaList({ route: 'lookup', summary: `${rows.length} flagged commits listed`, topic, scope: F.scope, rules: rulesOut,
+      note: 'flag lists hold at most 200 per rule and grade; counts and omitted say what the stored lists left out' }, 'flags', rows, lim);
+  }
+  if (topic === 'method') {
+    const M = E.method || {};
+    return { route: 'lookup', summary: `thresholds, forks and rules of the eda stage (schema ${E.schema_version})`, topic, kernel: M.kernel, rounding: M.rounding, quantile: M.quantile,
+      thresholds: M.thresholds, forks: M.forks, seed_label: M.seed_label, code_sha256: M.code_sha256, limitations: (E.audit || {}).limitations, grade_rule: L.grade_rule, wording: EDA_WORDING };
+  }
+  if (topic === 'slice') return edaSlice(B, E, q, asked);
+  throw new Error('unknown topic; topics: ' + EDA_TOPICS.join(', '));
+}
+
 // ---------------------------------------------------------------- tools
 export function makeTools(B, scene) {
   const T = [];
+  const edaAsked = new Set();       // the distinct looks asked in this tool set (slices, and filtered row tools), so multiplicity is visible
   const add = (name, description, inputSchema, execute) => T.push({ name, description, inputSchema, execute: (input = {}, ctx) => {
     validateInput(inputSchema, input);
     if (utf8Bytes(input) > 30000) throw new RangeError('tool arguments exceed 30000 UTF-8 bytes');
@@ -646,6 +1042,13 @@ export function makeTools(B, scene) {
     text: { type: 'string', description: 'words that must appear in the commit subject' },
     sha: { type: 'string', description: 'commit hash prefix' },
     session: { type: 'string', description: 'a Claude session hash (s-...)' },
+    min_lines: { type: 'integer', description: 'at least this many lines changed (add+del)' },
+    max_lines: { type: 'integer', description: 'at most this many lines changed' },
+    hour: { type: 'integer', description: 'UTC author hour, 0 to 23' },
+    weekday: { type: 'string', description: 'UTC weekday: 0 (Monday) to 6, or mon, tue, wed, thu, fri, sat, sun' },
+    flag: { type: 'string', description: 'only commits an eda flag rule marks: size_high or gap_long; refused when the stored list is capped' },
+    flag_grade: { type: 'string', enum: ['C', 'L', 'S'], description: 'with flag: this grade or better (default S)' },
+    side_branch: { type: 'boolean', description: 'true: only commits off the default branch; false: only on it' },
   };
 
   add('query_commits',
@@ -658,6 +1061,7 @@ export function makeTools(B, scene) {
       limit: { type: 'integer', description: 'rows to return, at most 40 (default 15)' } } },
     q => {
       const rows = matchCommits(B, q);
+      edaNoteLook(B, q, edaAsked);
       const sort = str(q.sort) === 'size' ? (a, b) => (b.a + b.d) - (a.a + a.d) : (a, b) => a.t - b.t;
       const sorted = rows.slice().sort(sort);
       if (str(q.order) === 'desc' && str(q.sort) !== 'size') sorted.reverse();
@@ -678,6 +1082,7 @@ export function makeTools(B, scene) {
     { type: 'object', properties: { ...filterProps, by: { type: 'string', enum: ['day', 'week', 'month', 'hour', 'weekday', 'repo'], description: 'bucket (default day)' } } },
     q => {
       const rows = matchCommits(B, q);
+      edaNoteLook(B, q, edaAsked);
       const by = str(q.by) || 'day';
       const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const key = c => {
@@ -1028,6 +1433,8 @@ export function makeTools(B, scene) {
       throw new Error('unknown topic');
     });
 
+  add('eda', EDA_DESC, EDA_SCHEMA, q => edaRun(B, q, edaAsked));
+
   if (!scene) {
     add('overview',
       'The digest the page shows Claude before every question: signals, every repo with its numbers, every tie, the views, the tool\'s own pipeline and its limits. Read this first.',
@@ -1052,7 +1459,7 @@ export function makeTools(B, scene) {
   add('highlight',
     'Light up commits in the time helix (and the matching repo nodes and districts) by repo, who, dates, subject words, hash or session; xray: true dims everything else. clear: true resets. Returns how many are lit.',
     { type: 'object', properties: { ...filterProps, xray: { type: 'boolean' }, clear: { type: 'boolean' } } },
-    q => scene.highlight(q));
+    q => { const out = scene.highlight(q); edaNoteLook(B, q, edaAsked); return out; });
   add('note',
     'Pin a short note (at most 80 characters) in the scene next to a repo, commit, day, file, tie, session or concept, so the viewer can see what you mean. clear: true removes your notes. At most 12 notes.',
     { type: 'object', properties: { text: { type: 'string' }, ...target, clear: { type: 'boolean' } } },

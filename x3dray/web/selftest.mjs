@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { makeTools, resolveRepo, LIMIT_BYTES } from './tools.js';
+import { makeTools, resolveRepo, digest, edaSummarize, edaSliceValues, edaInFork, LIMIT_BYTES } from './tools.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const arg = k => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
@@ -17,6 +17,9 @@ const check = (name, ok, detail) => checks.push({ name, ok: !!ok, detail: detail
 const size = v => Buffer.byteLength(JSON.stringify(v), 'utf8');
 
 // 1. every tool, with inputs that stress its size; nothing may pass the cap
+const EDA_CLASSES = Object.keys(((B.eda || {}).classes || {}).labels || {});
+const EDA_CALLS = [...['ledger', 'audit', 'rhythm', 'concentration', 'method'].map(t => ['eda', { topic: t }]), ['eda', { topic: 'profile', limit: 40 }],
+  ['eda', { topic: 'flags', limit: 40 }], ['eda', { topic: 'slice' }], ...EDA_CLASSES.map(c => ['eda', { topic: 'slice', who: c }])];
 const CALLS = [
   ['overview', {}], ['query_commits', {}], ['query_commits', { who: 'ai', sort: 'size', limit: 40 }], ['query_commits', { repo: 'x3d_ai', limit: 40 }],
   ['activity', { by: 'day' }], ['activity', { by: 'hour', who: 'you,ai' }], ['activity', { by: 'week' }], ['top_files', { limit: 40 }],
@@ -28,6 +31,7 @@ const CALLS = [
   ['concepts', {}], ['concepts', { who: 'you,ai', limit: 40 }], ['concepts', { who: 'ai', limit: 40 }], ['concepts', { file: 'src', limit: 40 }],
   ['concepts', { repo: 'x3d_mcp', limit: 40 }], ['concepts', { area: 'x3d_mcp/src', limit: 40 }], ['concepts', { repo: 'x3d_ai' }],
   ['bridges', {}], ['bridges', { repo: 'x3d_mcp', limit: 30 }], ['bridges', { file: 'README', limit: 30 }], ['bridges', { between: 'x3d-blender-io,x3d.onto' }],
+  ...EDA_CALLS,
 ];
 for (const [name, input] of CALLS) {
   try {
@@ -310,6 +314,61 @@ if (B.concepts && B.bridges) {
   check('concepts: "every file", the name printed for the concept with no kinds, is every file', every.files === F.n_files && every.kinds.length === 0, `${every.files} of ${F.n_files}`);
 }
 
+// 7b. exploration (x3dray/eda.py, looks.py): grades reconcile, slices recompute in JavaScript to the stored numbers, private repos stay counts
+if (B.eda) {
+  const E = B.eda, looks = (E.looks || {}), finds = looks.findings || [], privSet = new Set(priv);
+  const guarded = (name, fn) => { try { const r = fn(); check(name, r === true || (r && r.ok), r && r.detail); } catch (e) { check(name, false, e.message); } };
+  const mask = id => (id.startsWith('repo:') && privSet.has(id.slice(5)) ? 'repo:(private)' : id);
+  guarded('eda: the ledger grades add up to the findings', () => {
+    const by = { C: 0, L: 0, S: 0, none: 0 };
+    finds.forEach(f => { by[f.grade || 'none']++; });
+    const K = looks.ledger || {};
+    return { ok: finds.length === K.declared && ['C', 'L', 'S', 'none'].every(g => by[g] === (K.by_grade || {})[g]), detail: JSON.stringify(by) };
+  });
+  guarded('eda: every grade is C, L, S or none', () => finds.every(f => f.grade === null || ['C', 'L', 'S'].includes(f.grade)));
+  guarded('eda: a look graded C has every evaluable fork agreeing', () => finds.filter(f => f.grade === 'C').every(f => f.checks.forks.agree === f.checks.forks.evaluable));
+  guarded('eda: a look graded C rests on at least three distinct forks, and forks that coincide are counted once', () => finds.filter(f => f.grade === 'C').every(f => f.checks.forks.distinct >= 3 && f.checks.forks.evaluable <= f.checks.forks.distinct));
+  guarded('eda: every stored profile record recomputes in JavaScript to the stored numbers', () => {
+    const recs = ((E.profile || {}).records || []).filter(r => r.available);
+    const bad = [];
+    for (const r of recs) {
+      const { members, values } = edaSliceValues(B, r);
+      const m = r.measure === 'gap_s' ? { cap: 19, unit: 60 } : { cap: 16, unit: 1 };
+      const got = { members, ...edaSummarize(values, m.cap, m.unit) };
+      const want = Object.fromEntries(Object.keys(got).map(k => [k, r[k]]));
+      if (JSON.stringify(got) !== JSON.stringify(want) || Object.keys(r).length !== 5 + Object.keys(got).length) bad.push(mask(r.slice) + ' ' + r.fork + ' ' + r.measure);
+    }
+    return { ok: !bad.length, detail: `${recs.length} records, ${bad.length} differ${bad.length ? ': ' + bad.slice(0, 3).join('; ') : ''}` };
+  });
+  guarded('eda: the mass-edit threshold of the JavaScript fork matches the stage', () => {
+    const t = ((E.method || {}).thresholds || {}).MASS_FILES;
+    return Number.isInteger(t) && edaInFork({ m: 0, b: 1, f: t }, 'no_mass') && !edaInFork({ m: 0, b: 1, f: t + 1 }, 'no_mass');
+  });
+  guarded('eda: a slice asked through the tool is ungraded', () => tools.eda.execute({ topic: 'slice' }).grade === null);
+  guarded('eda: an unknown repo is refused as not in vocabulary', () => {
+    try { tools.eda.execute({ topic: 'profile', repo: 'no.such.repo.anywhere' }); return false; } catch (e) { return /not in vocabulary/.test(e.message); }
+  });
+  guarded('eda: flagged private commits carry no sha or subject', () => {
+    const rows = tools.eda.execute({ topic: 'flags', limit: 40 }).flags;
+    return rows.every(r => !privSet.has(r.repo) || (!r.sha && !r.subject));
+  });
+  guarded('eda: private repos give counts only in the audit coverage', () => {
+    const rows = tools.eda.execute({ topic: 'audit', limit: 40 }).coverage;
+    return rows.filter(r => privSet.has(r.repo)).every(r => r.n_with_paths === undefined && r.n_usable === undefined);
+  });
+  guarded('eda: the digest carries the exploration block', () => /\nEXPLORATION /.test(digest(B)));
+  guarded('eda: the flag filter counts every flagged commit, or refuses when the stored lists are capped', () => {
+    const rule = Object.keys(((E.flags || {}).rules) || {})[0];
+    if (!rule) return true;
+    const by = E.flags.by_rule[rule], gs = ['C', 'L', 'S'];
+    const n = gs.reduce((a, g) => a + ((by.counts || {})[g] || 0), 0);
+    if (gs.some(g => ((by.counts || {})[g] || 0) > (by[g] || []).length)) {
+      try { tools.query_commits.execute({ flag: rule, limit: 1 }); return false; } catch (e) { return /capped/.test(e.message); }
+    }
+    return tools.query_commits.execute({ flag: rule, limit: 1 }).matched === n;
+  });
+}
+
 // 8. sample's limits on tool definitions: description at most 1 KB, input schema at most 4 KB
 for (const t of makeTools(B, { show() {}, highlight() {}, note() {}, colorBy() {} })) {
   check(`${t.name} definition fits`, Buffer.byteLength(t.description) <= 1024 && size(t.inputSchema) <= 4096, `${Buffer.byteLength(t.description)} / ${size(t.inputSchema)}`);
@@ -342,7 +401,7 @@ async function mcpSmoke() {
     p.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
     const list = await call('tools/list', {});
     const names = (list.result && list.result.tools || []).map(t => t.name);
-    check('mcp tools/list has the data tools and no scene tools', names.includes('traverse') && names.includes('overview') && names.includes('concepts') && names.includes('bridges') && !names.includes('show'), names.join(','));
+    check('mcp tools/list has the data tools and no scene tools', names.includes('traverse') && names.includes('overview') && names.includes('concepts') && names.includes('bridges') && names.includes('eda') && !names.includes('show'), names.join(','));
     const ov = await call('tools/call', { name: 'query_commits', arguments: { repo: 'x3d.ai', limit: 2 } });
     check('mcp tools/call resolves an alias', ov.result && !ov.result.isError && /x3d_ai/.test(ov.result.content[0].text), JSON.stringify(ov.result || ov.error).slice(0, 160));
     const bad = await call('tools/call', { name: 'query_commits', arguments: { repo: 'nonsense-repo' } });

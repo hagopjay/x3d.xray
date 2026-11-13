@@ -55,6 +55,8 @@ const INSTRUCTIONS = `x3d-ray: read-only tools over ${B.meta.title || 'a repo fa
   'no recorded session link, never "no link", and the ties may still join them. Repo names resolve through the family\'s ' +
   'vocabulary (x3d.ai is x3d_ai; .prov is a stage inside x3d.ML); an unknown name is refused with the nearest names, so never guess. A value marked ' +
   'unknown was not measured: never read it as zero. how_built explains how the data and every signal were computed, down to the source lines. ' +
+  'The eda tool reads the exploration layer (data audit, distributions, rhythm, concentration, flags, 12 declared looks with grades) and computes ungraded slices: ' +
+  'a grade here is robustness over declared checks, never a probability; slices asked through eda are descriptive and ungraded. ' +
   'Every number comes from git history, computed with no model.';
 
 function handleLine(line) {

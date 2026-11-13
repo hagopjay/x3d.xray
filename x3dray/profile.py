@@ -10,6 +10,9 @@ import collections
 import datetime as dt
 import math
 import statistics
+from fractions import Fraction
+
+from . import stats
 
 CLASSES = ["you", "ai", "bot", "upstream", "other"]
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -71,7 +74,17 @@ def top_bridges(variant: dict, min_component: int = 10) -> dict:
                 "cut_vertex": v["cut_vertex"], "commits": v["commits"]} for r, (_, p, v) in sorted(best.items(), key=lambda kv: -kv[1][0][0])}
 
 
-def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: dict | None = None, bridges: dict | None = None) -> dict:
+def eda_top_finding(findings: list[dict]) -> str | None:
+    """The id of the best-graded declared contrast: Confirmed before Likely before Suspected, then the smaller q (as an
+    exact fraction), then the id. None when no contrast carries a grade."""
+    graded = [f for f in findings if f.get("grade") in ("C", "L", "S") and f.get("q")]
+    if not graded:
+        return None
+    return min(graded, key=lambda f: ("CLS".index(f["grade"]), Fraction(f["q"][0], f["q"][1]), f["id"]))["id"]
+
+
+def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: dict | None = None, bridges: dict | None = None,
+                   eda: dict | None = None) -> dict:
     repos = [r for r in ds["repos"] if r.get("present")]
     own = []  # (repo, commit) for commits that are the family's own work
     for r in repos:
@@ -436,6 +449,61 @@ def profile_family(ds: dict, ties: dict, curated: dict | None = None, concepts: 
                 "lead_cluster": lead[0][1]["cluster"], "lead_cut": lead[0][1]["cut_vertex"]} if lead else {}),
             cut_vertices=fv["jaccard"]["cut_vertices"], from_stage="bridges",
         )
+
+    # Exploratory data analysis (x3dray/eda.py): the audit, the size profile and the declared looks, as scalars only
+    if eda:
+        checks = eda["audit"]["checks"]
+        n_own = eda["coverage"]["commits"]
+        flagged_by = collections.Counter(c["grade"] for c in checks if c["status"] == "flag")
+        n_pass = sum(1 for c in checks if c["status"] == "pass")
+        n_unav = sum(1 for c in checks if c["status"] == "unavailable")
+        sig(
+            "eda_audit", "quality",
+            f"Data audit of {n_own} own commits: {flagged_by['C']} of {len(checks)} checks flag a Confirmed violation, "
+            f"{flagged_by['L']} Likely, {flagged_by['S']} Suspected; {n_pass} pass and {n_unav} could not run. "
+            "Times are UTC author times; renames are not followed.",
+            commits=n_own, checks=len(checks), confirmed=flagged_by["C"], likely=flagged_by["L"], suspected=flagged_by["S"],
+            passed=n_pass, unavailable=n_unav, from_stage="eda",
+        )
+        size = next((r for r in eda["profile"]["records"]
+                     if r["slice"] == "family" and r["fork"] == "no_merge" and r["measure"] == "lines"), None)
+        rules = eda["flags"]["by_rule"]
+        fcount = {g: sum(r["counts"][g] for r in rules.values()) for g in "CLS"}
+        if size is None or not size["available"]:
+            # One sig() call per id, so how_built's signal_code shows the whole computation, not an early exit.
+            text = "Commit size could not be profiled: fewer than 10 commits outside merges."
+            vals = dict(available=False, reason=(size or {}).get("reason") or "fewer than 10 commits outside merges")
+        else:
+            gini = stats.decimal_str(size["gini_permille"], 1000, 3) if size["gini_permille"] is not None else "n/a"
+            text = (f"Commit size outside merges: median {size['p50']} lines changed, 90th percentile {size['p90']}, largest {size['max']} "
+                    f"(Gini {gini}); {sum(fcount.values())} flags on commits for being unusually large or following a long quiet spell: "
+                    f"{fcount['C']} Confirmed, {fcount['L']} Likely, {fcount['S']} Suspected.")
+            vals = dict(available=True, n=size["n"], p50=size["p50"], p90=size["p90"], p99=size["p99"], max=size["max"],
+                        gini_permille=size["gini_permille"], flagged=sum(fcount.values()), confirmed=fcount["C"], likely=fcount["L"],
+                        suspected=fcount["S"])
+        sig("eda_profile", "outlier", text, **vals, from_stage="eda")
+        looks = eda["looks"]
+        if looks["pair"] is None:
+            text = f"No look was run: {looks['pair_reason']}."
+            vals = dict(available=False, reason=looks["pair_reason"])
+        else:
+            lab, led = eda["classes"]["labels"], looks["ledger"]
+            n_forks = len(eda["method"]["forks"])
+            n_distinct = eda["coverage"]["distinct_forks"]
+            n_drift = sum(1 for f in looks["findings"] if f["id"].startswith("drift:"))
+            n_contrast = led["declared"] - n_drift
+            ungraded = led["by_grade"]["none"] - led["not_run"]          # by_grade.none also counts the looks that did not run
+            top = eda_top_finding(looks["findings"])
+            text = (f"{led['declared']} declared looks ({n_contrast} contrasts between {lab[looks['pair'][0]]} and "
+                    f"{lab[looks['pair'][1]]}, {n_drift} drifts within one class): "
+                    f"{led['by_grade']['C']} Confirmed, {led['by_grade']['L']} Likely, {led['by_grade']['S']} Suspected, "
+                    f"{ungraded} without a grade, {led['not_run']} not run. "
+                    f"Grades are robustness checks over {n_forks} declared forks ({n_distinct} distinct here), not probabilities.")
+            vals = dict(available=True, declared=led["declared"], contrasts=n_contrast, drifts=n_drift,
+                        confirmed=led["by_grade"]["C"], likely=led["by_grade"]["L"], suspected=led["by_grade"]["S"],
+                        without_grade=ungraded, not_run=led["not_run"], forks=n_forks, distinct_forks=n_distinct,
+                        **({"top_id": top} if top else {}))
+        sig("eda_findings", "identity", text, **vals, from_stage="eda")
 
     # Idle forks and second account
     idle = [r["name"] for r in ds["repos"] if r.get("kind") == "fork-idle"]

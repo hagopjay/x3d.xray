@@ -4,11 +4,14 @@
   loom      the Loom gate (x3d.onto's gobbler-demiurge/tools/loom_gate.py --scene), with the x3d_mcp fork's validator (--fork)
   fact      the spec renders with no problem: no digit outside a slot, every slot resolves, every claim is backed
   privacy   no address, session URL or secret-shaped string in any file this build wrote (vendored X_ITE is not ours to scan), and no
-            private repo itemised: no sha, subject, file, path or area of one, in the commits or the concepts and bridges
+            private repo itemised: no sha, subject, file, path or area of one, in the commits or the concepts, bridges and eda
+            sections, and every sha the eda audit cites is a public commit's
   witness   every tie the page or the scene can show carries evidence, and the scene draws no tie the bundle lacks; the concepts and
             bridges the page serves match the data folder, which must match a fresh run of the stage on dataset.json, and pass the
             stage's own check again (every cited sha is a commit that did what it is cited for, every count re-derived from the
-            commits), and the scene draws no concept, session or bridge file they lack
+            commits), and the scene draws no concept, session or bridge file they lack; the eda section is held to the same
+            standard (bundle, data folder and a fresh run agree, the independent check is clean, and the bundle's commit rows are
+            the rows the stage indexed its flags by)
   tools     the page's tools run against the bundle and fit the sample limits, aliases resolve, and the MCP server answers over stdio
   live      Chromium under a strict CSP: the scene loads and draws, the scene tools work, a click opens a card, and Ask runs end to end
             against a stand-in for the sample runtime (the real one only runs inside Claude)
@@ -122,11 +125,46 @@ def gate_privacy(out_dir: str) -> dict:
     from . import structure
     nodes = structure.node_ids({c["r"] for c in b["commits"]}, {c["w"] for c in b["commits"] if c.get("w")},
                                {s for c in b["commits"] for s in (c.get("s") or [])})       # the graphs' nodes, from the commits
-    for sec in ("concepts", "bridges"):
+    for sec in ("concepts", "bridges", "eda"):
         hits += [f"bundle.json: {t}" for t in _itemised(b.get(sec) or {}, priv, sec, nodes)][:10]
+    if b.get("eda"):
+        hits += _eda_privacy(b, priv)
     return {"status": "pass" if not hits else "fail", "summary": f"{len(hits)} findings in {len(scanned)} registered owned assets",
             "findings": hits[:20], "scanned": scanned,
             "vendored_attested": [a["path"] for a in selected if a["role"] == "vendored"]}
+
+
+def _eda_privacy(b: dict, priv: set) -> list[str]:
+    """The eda section names commits by index and by public sha only: an audit witness must be the sha of a public commit
+    in the bundle and a flag must point at a commit row that exists. A malformed section is a finding, not a crash."""
+    eda = b["eda"]
+    hits = []
+    public = {c["h"] for c in b["commits"] if c["r"] not in priv and c.get("h")}
+    try:
+        for chk in eda["audit"]["checks"]:
+            if any(w not in public for w in chk.get("witnesses") or []):
+                hits.append("bundle.json: eda audit names a commit hash that is not a public commit")
+                break
+        n = len(b["commits"])
+        for rule in eda["flags"]["by_rule"].values():
+            if any(not (isinstance(row, list) and row and type(row[0]) is int and 0 <= row[0] < n) for g in ("C", "L", "S") for row in rule[g]):
+                hits.append("bundle.json: eda flags refer to a commit index outside the bundle's commits")
+                break
+    except (KeyError, TypeError, AttributeError):
+        hits.append("bundle.json: the eda section could not be read by the privacy gate")
+    if _marker_prefixed(eda):
+        hits.append("bundle.json: eda has a key or string that starts with the private-repo marker")
+    return hits
+
+
+def _marker_prefixed(x) -> bool:
+    """The stage withholds a private repo's name behind a marker; a key or string that starts with the marker and a path
+    separator is a path that was withheld badly."""
+    if isinstance(x, dict):
+        return any(_marker_prefixed(k) or _marker_prefixed(v) for k, v in x.items())
+    if isinstance(x, list):
+        return any(_marker_prefixed(v) for v in x)
+    return isinstance(x, str) and x.startswith(("<private>:", "<private>/"))
 
 
 def _itemised(x, priv: set, trail: str, nodes=frozenset()) -> list[str]:
@@ -209,6 +247,60 @@ def _structure_witness(b: dict, L: dict, data_dir: str | None) -> tuple[list[str
     return probs, f"{drawn} concepts, sessions and bridge files drawn, each in the bundle; structure check {'clean' if not probs else 'FAILED'}"
 
 
+def _eda_witness(b: dict, data_dir: str | None) -> tuple[list[str], str]:
+    """The eda section the page serves, the eda.json in the data folder and a fresh run of the stage on dataset.json must be
+    one and the same, the stage's independent check must be clean, and the bundle's commit rows must be the rows the stage
+    indexed its flags by (a flag is a row index)."""
+    sec = b.get("eda")
+    path = os.path.join(data_dir, "eda.json") if data_dir else None
+    disk = None
+    if path and os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            disk = json.load(fh)
+    if not sec and not disk:
+        return [], "no eda in this build"
+    if not sec or not disk:
+        return ["eda is in the " + ("bundle but not in the data folder" if sec else "data folder but not in the bundle")], "eda present on one side only; check FAILED"
+    from . import eda
+    probs = []
+    # Compared as canonical text, not as Python objects: 400 == 400.0 and 0 == False there.
+    def same(a, b) -> bool:
+        try:
+            return eda.canonical_json(a) == eda.canonical_json(b)
+        except (TypeError, ValueError):     # NaN, infinity or a key that cannot be ordered: not the file the stage writes
+            return False
+
+    if not same(disk, sec):
+        probs.append("the bundle's eda differs from eda.json in the data folder")
+    ds_path = os.path.join(data_dir, "dataset.json")
+    findings = flagged = None
+    if not os.path.exists(ds_path):
+        probs.append("no dataset.json to check the eda section against")
+    else:
+        with open(ds_path, encoding="utf-8") as fh:
+            ds = json.load(fh)
+        try:
+            fresh, vprobs = eda.run(ds)
+        except eda.DatasetError as exc:
+            probs.append(f"the eda stage cannot run on dataset.json: {exc}")
+        else:
+            probs += vprobs
+            if not same(json.loads(json.dumps(fresh)), sec):
+                probs.append("eda.json is stale: a fresh run of the stage on dataset.json gives something else")
+            cols = ("i", "r", "t", "c", "a", "d", "f", "m", "b")
+            try:
+                if [tuple(r[k] for k in cols) for r in b["commits"]] != [tuple(x[k] for k in cols) for x in eda.indexed_rows(ds)]:
+                    probs.append("the bundle's commits are not the rows the eda stage indexed its flags by")
+            except (KeyError, TypeError):
+                probs.append("the bundle's commits could not be compared with the eda stage's rows")
+    try:
+        findings = len(sec["looks"]["findings"])
+        flagged = sum(r["counts"][g] for r in sec["flags"]["by_rule"].values() for g in "CLS")
+    except (KeyError, TypeError):
+        probs.append("the eda section is malformed")
+    return probs, f"eda recomputed: {findings} findings, {flagged} flagged commits; check {'clean' if not probs else 'FAILED'}"
+
+
 def gate_witness(out_dir: str, data_dir: str | None = None) -> dict:
     if not os.path.isfile(os.path.join(out_dir, "xray.x3d")):
         return {"status": "fail", "summary": "xray.x3d is missing", "without_witness": [], "drawn_without_record": [], "structure": [],
@@ -225,6 +317,8 @@ def gate_witness(out_dir: str, data_dir: str | None = None) -> dict:
     drawn += [t["id"] for t in L["ties"]["curated"] if t["id"] not in cur]
     n = len(b["ties"]["machine"]) + len(b["ties"]["curated"])
     sprobs, ssum = _structure_witness(b, L, data_dir)
+    eprobs, esum = _eda_witness(b, data_dir)
+    sprobs, ssum = sprobs + eprobs, f"{ssum}; {esum}"
     ok = not bad and not drawn and not sprobs
     return {"status": "pass" if ok else "fail",
             "summary": f"{n} ties, each with a witness; {b['ties'].get('dropped_without_witness', 0)} dropped for want of one; {len(drawn)} drawn without a record; {ssum}",
