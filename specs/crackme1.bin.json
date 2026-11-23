@@ -2,25 +2,37 @@
   "subject": "crackme1",
   "kind": "binary",
   "authored_by": "claude",
-  "note": "Prose by Claude, every address/constant a {slot} filled from the witnessed harvest. The fact gate (to be wired in Pass A follow-up) fails any digit outside a slot.",
+  "note": "Prose by Claude; every address, constant and count is a {slot} filled from the witnessed harvest, call graph or re-run hypothesis ledger. gate_re_fact fails any digit outside a slot.",
   "claims": [
     {
       "view": "gatekeeper",
       "speaker": "the graph says",
-      "text": "Every path from program entry to the serial check {gate} crosses exactly one function: {passage}. It carries the highest betweenness in the call graph, which is why the constellation draws it gold.",
-      "slots": {"gate": "callgraph.gatekeeper_target", "passage": "callgraph.passage_points"}
+      "text": "Every path from program entry to the serial check {target} crosses one function: {passage}. It carries the highest betweenness in the call graph, which is why the constellation draws it gold.",
+      "slots": {"target": "callgraph.passage_target", "passage": "callgraph.passage_points"}
     },
     {
       "view": "anti-debug",
       "speaker": "disasm says",
-      "text": "{anti_count} functions touch anti-analysis machinery: the constructor calls ptrace(TRACEME), and the checker scans its own bytes for the 0xCC software-breakpoint marker. Both wear a hot roof in the city.",
-      "slots": {"anti_count": "binary.anti_debug_count"}
+      "text": "{anti_count} functions touch anti-analysis machinery: the constructor calls ptrace(TRACEME) and the checker compares its own bytes against {brk}, the software-breakpoint marker. Both wear a hot roof in the city.",
+      "slots": {"anti_count": "binary.anti_debug_count", "brk": "pattern.int3_byte"}
     },
     {
       "view": "capability",
       "speaker": "the lattice says",
-      "text": "Formal concept analysis over functions x imported capabilities recovers the binary's intent without running it: an anti-debug concept, a parse concept (strtoul), a string/crypto concept and an I/O concept.",
-      "slots": {}
+      "text": "Formal concept analysis over functions x imported capabilities finds {concepts} concepts without running the binary, among them an anti-debug concept shared by {anti_extent}.",
+      "slots": {"concepts": "capability.concept_count", "anti_extent": "capability.anti_debug_extent"}
+    },
+    {
+      "view": "ledger",
+      "speaker": "the experiments say",
+      "text": "{confirmed} of {total} hypotheses were re-run here and confirmed; the reconstructed keygen was accepted by the binary for {accepted} random names and every one of {mutants} mutated serials was rejected.",
+      "slots": {"confirmed": "ledger.confirmed", "total": "ledger.total", "accepted": "ledger.H5.accepted", "mutants": "ledger.H5.mutants_rejected"}
+    },
+    {
+      "view": "the debugger lies",
+      "speaker": "gdb and the native run disagree",
+      "text": "Under gdb the program reads salt {salt_gdb} and accepts {poisoned} for alice; run natively it rejects that serial and accepts {true} instead.",
+      "slots": {"salt_gdb": "ledger.H2.gdb-salt-at-main", "poisoned": "ledger.H3.poisoned_serial", "true": "ledger.H5.alice"}
     }
   ]
 }

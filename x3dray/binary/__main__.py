@@ -7,6 +7,12 @@
   scene     <bin> --out DIR [--font TTF]   emit xray.x3d
   verify    --out DIR            re-run every witness, check hashes
   all       <bin> --out DIR [--font TTF]   the whole chain + a summary
+            [--to NAME] [--ledger SPEC] [--claims SPEC] [--shim SRC] [--oracle-n N]
+            Pass B: with --ledger, re-runs every hypothesis as an experiment
+            (static-decode, strace/gdb trace, native oracle), draws the
+            investigation helix, runs the RE gates and writes page.html
+  ledger    <bin> --ledger SPEC --out DIR [--shim SRC] [--oracle-n N]
+  gates     <bin> --out DIR --ledger SPEC --claims SPEC   re-run every RE gate
 """
 from __future__ import annotations
 
@@ -16,7 +22,7 @@ import json
 import os
 import sys
 
-from . import harvest_bin, callgraph, capability, scene_bin, witnesses
+from . import harvest_bin, callgraph, capability, scene_bin, witnesses, hypotheses, gates_bin, page_bin
 
 
 def _write(out_dir: str, name: str, obj) -> str:
@@ -106,11 +112,52 @@ def cmd_verify(a):
     return 0 if ok else 1
 
 
+def _spec(path):
+    if not path:
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def cmd_ledger(a):
+    _b, disasm = _harvest(a.binary)
+    spec = _spec(a.ledger)
+    L = hypotheses.run_ledger(a.binary, spec, out_dir=a.out, disasm=disasm,
+                              shim_src=a.shim, oracle_n=a.oracle_n)
+    _write(a.out, "ledger.json", L)
+    hypotheses.write_csv(L, os.path.join(a.out, "hypotheses.csv"))
+    for r in L["rows"]:
+        imp = r["imported_verdict"] or "-"
+        print(f"  {r['id']:3} {r['verdict']:10} (imported {imp:9}) {json.dumps(r['observed'])[:96]}")
+    print(f"  tally: {L['tally']}")
+    return 0 if not L["tally"]["REFUTED"] else 1
+
+
+def cmd_gates(a):
+    res = gates_bin.run_all(a.out, a.binary, _spec(a.claims), _spec(a.ledger))
+    _write(a.out, "gates.json", res)
+    for k, g in res["gates"].items():
+        print(f"  {k:11} {g['status']:5} {g['summary']}")
+        for p in g.get("problems", [])[:5]:
+            print(f"      - {p}")
+    return 0 if res["ok"] else 1
+
+
 def cmd_all(a):
     b, disasm = _harvest(a.binary)
     g = callgraph.build(b, disasm)
+    if a.to:
+        g["passage"] = callgraph.passage(g, a.to)
     cap = capability.analyse(b)
-    xml = scene_bin.build_scene(b, g, font=a.font, source_digest=_digest(b, g, cap["context"]))
+    ledger_spec = _spec(a.ledger)
+    L = None
+    if ledger_spec:
+        L = hypotheses.run_ledger(a.binary, ledger_spec, out_dir=a.out, disasm=disasm,
+                                  shim_src=a.shim, oracle_n=a.oracle_n)
+        _write(a.out, "ledger.json", L)
+        hypotheses.write_csv(L, os.path.join(a.out, "hypotheses.csv"))
+    xml = scene_bin.build_scene(b, g, font=a.font, source_digest=_digest(b, g, cap["context"]),
+                                ledger=L)
     _write(a.out, "binary.json", b)
     _write(a.out, "callgraph.json", g)
     _write(a.out, "capability.json", cap)
@@ -126,8 +173,20 @@ def cmd_all(a):
     print(f"  gatekeeper: {g['gatekeeper']}   edges: {len(g['edges'])}   "
           f"capabilities: {', '.join(receipt['capabilities'])}")
     print(f"  scene: {os.path.join(a.out, 'xray.x3d')}   receipt: {receipt['source_digest']}")
-    cmd_verify(argparse.Namespace(out=a.out))
-    return 0
+    rc = cmd_verify(argparse.Namespace(out=a.out))
+    if L:
+        print(f"  ledger: {L['tally']}")
+        claims = _spec(a.claims)
+        res = gates_bin.run_all(a.out, a.binary, claims or {"claims": []}, ledger_spec)
+        _write(a.out, "gates.json", res)
+        for k, gg in res["gates"].items():
+            print(f"  gate {k:11} {gg['status']:5} {gg['summary']}")
+        rendered = gates_bin.render_claims(claims or {"claims": []}, gates_bin.slot_values(a.out))
+        _write(a.out, "claims.json", rendered)
+        html = page_bin.build_page(b, g, cap, L, res, rendered)
+        print(f"  page: {_write(a.out, 'page.html', html)}")
+        rc = rc or (0 if res["ok"] else 1)
+    return rc
 
 
 def _summary_line(b):
@@ -146,11 +205,23 @@ def main(argv=None) -> int:
         q.add_argument("--out", default="out/bin-xray")
         if name in ("scene", "all"):
             q.add_argument("--font", default=None)
+        if name == "all":
+            q.add_argument("--to", default=None)
+            q.add_argument("--ledger", default=None)
+            q.add_argument("--claims", default=None)
+            q.add_argument("--shim", default=None)
+            q.add_argument("--oracle-n", type=int, default=None)
     q = sub.add_parser("passage"); q.add_argument("binary"); q.add_argument("--to", required=True); q.add_argument("--out", default="out/bin-xray")
     q = sub.add_parser("verify"); q.add_argument("--out", default="out/bin-xray")
+    q = sub.add_parser("ledger"); q.add_argument("binary"); q.add_argument("--ledger", required=True)
+    q.add_argument("--out", default="out/bin-xray"); q.add_argument("--shim", default=None)
+    q.add_argument("--oracle-n", type=int, default=None)
+    q = sub.add_parser("gates"); q.add_argument("binary"); q.add_argument("--out", default="out/bin-xray")
+    q.add_argument("--ledger", required=True); q.add_argument("--claims", required=True)
     a = p.parse_args(argv)
     fn = {"harvest": cmd_harvest, "callgraph": cmd_callgraph, "capability": cmd_capability,
-          "passage": cmd_passage, "scene": cmd_scene, "verify": cmd_verify, "all": cmd_all}[a.cmd]
+          "passage": cmd_passage, "scene": cmd_scene, "verify": cmd_verify, "all": cmd_all,
+          "ledger": cmd_ledger, "gates": cmd_gates}[a.cmd]
     try:
         return fn(a)
     except witnesses.ToolMissing as e:

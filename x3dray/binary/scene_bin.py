@@ -12,6 +12,7 @@ is deliberately simple and well-formed; it validates as X3D 4.0.
 from __future__ import annotations
 
 import math
+import re
 
 from ..compiler import SKY, HEAT, GOLD, LABEL, FOG, col, f, v3, esc_attr
 
@@ -36,6 +37,50 @@ def _label(text: str, pos, size: float = 0.5, color: str = LABEL, font: str | No
             f"</Transform>")
 
 
+def _safe(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_]", "_", name)
+
+
+VERDICT_COL = {"CONFIRMED": "#5cc28a", "REFUTED": "#e0605a", "UNTESTED": "#7f93a3"}
+PHASE_COL = {"static": "#6fb7e0", "dynamic": "#ff9a52", "oracle": "#ffd36b"}
+
+
+def _helix(ledger: dict, center=(-12.0, 0.0, -4.0), r=3.0, rise=1.6) -> str:
+    """The investigation helix: one rung per hypothesis, in ledger order (time
+    runs upward). Rung colour = verdict, sphere colour = phase (static/dynamic/
+    oracle). A double strand: hypothesis on one side, experiment on the other."""
+    rows = ledger.get("rows", []) if ledger else []
+    if not rows:
+        return ""
+    out = ["<Transform DEF='Helix'><Group>",
+           _label("investigation helix", (center[0], -0.8, center[2] + r + 0.6), 0.45, LABEL)]
+    strand = []
+    for i, row in enumerate(rows):
+        a = i * 2 * math.pi / 5.0
+        y = center[1] + 0.8 + i * rise
+        p1 = (center[0] + r * math.cos(a), y, center[2] + r * math.sin(a))
+        p2 = (center[0] - r * math.cos(a), y, center[2] - r * math.sin(a))
+        strand.append((p1, p2))
+        vc = VERDICT_COL.get(row["verdict"], FOG)
+        pc = PHASE_COL.get(row.get("phase"), NODE_COL)
+        mid = ((p1[0] + p2[0]) / 2, y, (p1[2] + p2[2]) / 2)
+        big, small = "<Sphere radius='0.32'/>", "<Sphere radius='0.22'/>"
+        out.append(f"<Transform DEF='HYP_{_safe(row['id'])}'><Group>"
+                   f"<Shape><Appearance><Material emissiveColor='{col(vc)}'/></Appearance>"
+                   f"<IndexedLineSet coordIndex='0 1 -1'><Coordinate point='{v3(p1)} {v3(p2)}'/></IndexedLineSet></Shape>"
+                   f"<Transform translation='{v3(p1)}'>{_shape(big, pc, 0.4)}</Transform>"
+                   f"<Transform translation='{v3(p2)}'>{_shape(small, vc, 0.5)}</Transform>"
+                   + _label(f"{row['id']} {row['verdict'].lower()}", (mid[0], y + 0.35, mid[2]), 0.32, vc)
+                   + "</Group></Transform>")
+    for side in (0, 1):
+        pts = " ".join(v3(s[side]) for s in strand)
+        idx = " ".join(str(i) for i in range(len(strand))) + " -1"
+        out.append(f"<Shape><Appearance><Material emissiveColor='{col(FOG)}'/></Appearance>"
+                   f"<IndexedLineSet coordIndex='{idx}'><Coordinate point='{pts}'/></IndexedLineSet></Shape>")
+    out.append("</Group></Transform>")
+    return "\n".join(out)
+
+
 def _city(binary: dict, anti: set) -> str:
     by_sec: dict[str, list] = {}
     for fn in binary["functions"]:
@@ -50,7 +95,7 @@ def _city(binary: dict, anti: set) -> str:
             h = 0.4 + 3.6 * (fn["insns"] / maxins)
             x = x0 + i * 1.5
             box = f"<Box size='1 {f(h)} 1'/>"
-            out.append(f"<Transform translation='{v3((x, h / 2, 0))}'>{_shape(box, scol, 0.18)}</Transform>")
+            out.append(f"<Transform DEF='FN_{_safe(fn['name'])}' translation='{v3((x, h / 2, 0))}'>{_shape(box, scol, 0.18)}</Transform>")
             if fn["name"] in anti or fn.get("anti_debug"):
                 roof = "<Box size='1.05 0.3 1.05'/>"
                 out.append(f"<Transform translation='{v3((x, h + 0.15, 0))}'>{_shape(roof, HEAT, 0.5)}</Transform>")
@@ -87,15 +132,16 @@ def _constellation(graph: dict, anti: set, center=(0.0, 6.0, -14.0), r=7.0) -> s
         is_gk = (n == gk)
         rad = 0.55 if is_gk else 0.3
         ncol = GOLD if is_gk else (HEAT if n in anti else NODE_COL)
+        sphere = "<Sphere radius='%s'/>" % f(rad)
         out.append(f"<Transform translation='{v3(pos[n])}'>"
-                   f"{_shape(f'<Sphere radius=\"{f(rad)}\"/>', ncol, 0.5 if is_gk else 0.25)}</Transform>")
+                   f"{_shape(sphere, ncol, 0.5 if is_gk else 0.25)}</Transform>")
         out.append(_label(n[:16], (pos[n][0], pos[n][1] + rad + 0.35, pos[n][2]), 0.3, ncol))
     out.append("</Group></Transform>")
     return "\n".join(out)
 
 
 def build_scene(binary: dict, graph: dict, *, font: str | None = None,
-                source_digest: str = "") -> str:
+                source_digest: str = "", ledger: dict | None = None) -> str:
     anti = {fn["name"] for fn in binary["functions"] if fn.get("anti_debug")}
     gk = graph.get("gatekeeper")
     title = esc_attr(binary["target"])
@@ -118,7 +164,9 @@ def build_scene(binary: dict, graph: dict, *, font: str | None = None,
                     "position='0 6 2'/>" % esc_attr(gk))
     if anti:
         head.append("<Viewpoint DEF='AntiDebug' description='Anti-analysis functions' position='0 3 10'/>")
-    body = _city(binary, anti) + _constellation(graph, anti)
+    if ledger:
+        head.append("<Viewpoint DEF='HelixView' description='Investigation helix' position='-12 5 10'/>")
+    body = _city(binary, anti) + _constellation(graph, anti) + _helix(ledger)
     tail = ["</Scene>", "</X3D>", ""]
     scene_font = f'"{font}"' if font else None
     if scene_font:
