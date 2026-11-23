@@ -1,0 +1,26 @@
+{
+  "subject": "crackme1",
+  "kind": "binary",
+  "authored_by": "claude",
+  "note": "Prose by Claude, every address/constant a {slot} filled from the witnessed harvest. The fact gate (to be wired in Pass A follow-up) fails any digit outside a slot.",
+  "claims": [
+    {
+      "view": "gatekeeper",
+      "speaker": "the graph says",
+      "text": "Every path from program entry to the serial check {gate} crosses exactly one function: {passage}. It carries the highest betweenness in the call graph, which is why the constellation draws it gold.",
+      "slots": {"gate": "callgraph.gatekeeper_target", "passage": "callgraph.passage_points"}
+    },
+    {
+      "view": "anti-debug",
+      "speaker": "disasm says",
+      "text": "{anti_count} functions touch anti-analysis machinery: the constructor calls ptrace(TRACEME), and the checker scans its own bytes for the 0xCC software-breakpoint marker. Both wear a hot roof in the city.",
+      "slots": {"anti_count": "binary.anti_debug_count"}
+    },
+    {
+      "view": "capability",
+      "speaker": "the lattice says",
+      "text": "Formal concept analysis over functions x imported capabilities recovers the binary's intent without running it: an anti-debug concept, a parse concept (strtoul), a string/crypto concept and an I/O concept.",
+      "slots": {}
+    }
+  ]
+}
