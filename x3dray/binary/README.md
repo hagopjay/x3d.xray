@@ -112,6 +112,12 @@ from the re-run), `gates.json`, `claims.json`, `page.html` (verdict strip,
 diagram, betweenness table, gates, claims, witnesses), and the investigation
 helix in `xray.x3d` (one rung per hypothesis, colour = verdict).
 
+Portability (found by CI's runner, 23 Nov): glibc 2.38+ compiled for C23 binds
+`strtoul` to `__isoc23_strtoul`, so capabilities fold `__isoc23_` / `__isoc99_`
+aliases onto the plain name. Where gdb or strace is missing, the rows that need
+them are UNTESTED and every claim resting on them is **withheld** (the page says
+so) rather than filled or failed.
+
 Scope: the oracle runs the target natively, so use it only on binaries you
 built or are authorized to run, inside a sandbox. Trace probes read a symbol
 (`g_salt`), so they need a symbolized build; the stripped case needs the

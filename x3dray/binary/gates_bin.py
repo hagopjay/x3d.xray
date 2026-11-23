@@ -56,9 +56,29 @@ def slot_values(out_dir: str) -> dict:
     return vals
 
 
-def render_claims(spec: dict, vals: dict) -> list[dict]:
+def _untested_rows(out_dir: str) -> set:
+    p = os.path.join(out_dir, "ledger.json")
+    if not os.path.exists(p):
+        return set()
+    return {r["id"] for r in _load(out_dir, "ledger.json")["rows"] if r["verdict"] == "UNTESTED"}
+
+
+def _withheld_by(c: dict, untested: set) -> list:
+    """Ledger rows this claim depends on that could not be run here."""
+    return sorted({k.split(".")[1] for k in (c.get("slots") or {}).values()
+                   if k.startswith("ledger.") and k.split(".")[1] in untested})
+
+
+def render_claims(spec: dict, vals: dict, out_dir: str | None = None) -> list[dict]:
+    untested = _untested_rows(out_dir) if out_dir else set()
     out = []
     for c in spec.get("claims", []):
+        held = _withheld_by(c, untested)
+        if held:
+            out.append({"view": c["view"], "speaker": c["speaker"], "withheld": held,
+                        "text": f"(withheld: {', '.join(held)} could not be run on this machine)",
+                        "template": c["text"], "slots": c.get("slots") or {}, "missing": []})
+            continue
         text, missing = c["text"], []
         for slot, key in (c.get("slots") or {}).items():
             if key not in vals or vals[key] == "":
@@ -71,8 +91,14 @@ def render_claims(spec: dict, vals: dict) -> list[dict]:
 
 def gate_re_fact(out_dir: str, spec: dict) -> dict:
     vals = slot_values(out_dir)
-    probs = []
+    untested = _untested_rows(out_dir)
+    probs, withheld = [], []
     for c in spec.get("claims", []):
+        if _withheld_by(c, untested):
+            # a claim resting on an experiment this machine could not run is withheld,
+            # not filled and not failed: the page says so instead of printing a number
+            withheld.append(c["view"])
+            continue
         bare = re.sub(r"\{[a-z0-9_]+\}", "", c["text"])
         stray = re.findall(r"\d", bare)
         if stray:
@@ -87,8 +113,9 @@ def gate_re_fact(out_dir: str, spec: dict) -> dict:
                 probs.append(f"{c['view']}: placeholder {{{slot}}} has no slot")
     n = sum(len(c.get("slots") or {}) for c in spec.get("claims", []))
     return {"status": "pass" if not probs else "fail",
-            "summary": f"{len(spec.get('claims', []))} claims, {n} slots, {len(probs)} problems",
-            "problems": probs,
+            "summary": f"{len(spec.get('claims', []))} claims, {n} slots, {len(probs)} problems, "
+                       f"{len(withheld)} withheld (untested rows)",
+            "problems": probs, "withheld": withheld,
             "scope": "Every number in claim prose comes from a witnessed record; entailment of the prose is not proved."}
 
 

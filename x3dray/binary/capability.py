@@ -22,6 +22,16 @@ CAPABILITY = {
 }
 
 
+def canonical(sym: str) -> str:
+    """Fold libc's standard-revision aliases onto the plain name. glibc 2.38+
+    compiled for C23 binds strtoul to __isoc23_strtoul (and older builds bind
+    sscanf to __isoc99_sscanf); the capability is the same."""
+    for pre in ("__isoc23_", "__isoc99_"):
+        if sym.startswith(pre):
+            return sym[len(pre):]
+    return sym
+
+
 def context(binary: dict) -> dict:
     """Build the FCA formal context: objects = functions, attributes = capabilities.
 
@@ -34,7 +44,7 @@ def context(binary: dict) -> dict:
         caps = set()
         for c in fn.get("calls", []):
             if c in imports:
-                caps.add(CAPABILITY.get(c, c))
+                caps.add(CAPABILITY.get(canonical(c), canonical(c)))
         if fn.get("anti_debug"):
             caps.add("anti-debug")
         if caps:

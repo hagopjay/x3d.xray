@@ -30,6 +30,16 @@ def _load(p):
         return json.load(fh)
 
 
+class PortabilityTests(unittest.TestCase):
+    def test_c23_and_c99_libc_aliases_fold_to_the_plain_capability(self):
+        from x3dray.binary import capability
+        self.assertEqual(capability.canonical("__isoc23_strtoul"), "strtoul")
+        self.assertEqual(capability.canonical("__isoc99_sscanf"), "sscanf")
+        b = {"imports": ["__isoc23_strtoul"],
+             "functions": [{"name": "main", "calls": ["__isoc23_strtoul"]}]}
+        self.assertEqual(capability.context(b), {"main": ["parse"]})
+
+
 class ModelTests(unittest.TestCase):
     def setUp(self):
         self.model = _load(LEDGER)["model"]
@@ -109,6 +119,24 @@ class LedgerTests(unittest.TestCase):
     def test_gates_pass(self):
         res = gates_bin.run_all(self.out, self.bin, self.claims, self.spec)
         self.assertTrue(res["ok"], json.dumps({k: g["problems"] for k, g in res["gates"].items()}))
+
+    def test_claims_on_untested_rows_are_withheld_not_failed(self):
+        alt = os.path.join(self.tmp, "nogdb")
+        shutil.copytree(self.out, alt, dirs_exist_ok=True)
+        L = copy.deepcopy(self.L)
+        for r in L["rows"]:
+            if r["id"] in ("H2", "H3"):
+                r["verdict"], r["grade"] = "UNTESTED", "Suspected"
+                for k in r["observed"]:
+                    r["observed"][k] = None
+        with open(os.path.join(alt, "ledger.json"), "w") as fh:
+            json.dump(L, fh)
+        g = gates_bin.gate_re_fact(alt, self.claims)
+        self.assertEqual(g["status"], "pass", g["problems"])
+        self.assertIn("the debugger lies", g["withheld"])
+        rendered = gates_bin.render_claims(self.claims, gates_bin.slot_values(alt), alt)
+        held = [c for c in rendered if c.get("withheld")]
+        self.assertTrue(held and all("0x" not in c["text"] for c in held))
 
     def test_fact_gate_catches_stray_digit(self):
         bad = copy.deepcopy(self.claims)

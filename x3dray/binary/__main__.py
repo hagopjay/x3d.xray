@@ -181,7 +181,7 @@ def cmd_all(a):
         _write(a.out, "gates.json", res)
         for k, gg in res["gates"].items():
             print(f"  gate {k:11} {gg['status']:5} {gg['summary']}")
-        rendered = gates_bin.render_claims(claims or {"claims": []}, gates_bin.slot_values(a.out))
+        rendered = gates_bin.render_claims(claims or {"claims": []}, gates_bin.slot_values(a.out), a.out)
         _write(a.out, "claims.json", rendered)
         html = page_bin.build_page(b, g, cap, L, res, rendered)
         print(f"  page: {_write(a.out, 'page.html', html)}")
