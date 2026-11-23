@@ -131,7 +131,9 @@ def _gdb_salt(binp, where: str, shim: str | None):
     argv = ["gdb", "-q", "-batch", "-nx", "-ex", "set startup-with-shell off"]
     env = {}
     if shim:
-        argv += ["-ex", f"set environment LD_PRELOAD={shim}"]
+        # relative to the working directory, so receipts carry no machine paths
+        rel = os.path.relpath(shim)
+        argv += ["-ex", f"set environment LD_PRELOAD={rel if rel.startswith('.') else './' + rel}"]
     argv += ["-ex", f"break {where}", "-ex", "run",
              "-ex", 'printf "g_salt=0x%08x\\n", g_salt', "-ex", "kill",
              "--args", binp, "alice", "0000-0000"]
@@ -298,7 +300,8 @@ def run_ledger(binp: str, spec: dict, *, out_dir: str, disasm: str,
             verdict, grade = "CONFIRMED", "Confirmed"
         else:
             verdict, grade = "REFUTED", "Confirmed"   # a refutation is itself a firm result
-        rows.append({"id": h["id"], "phase": h["phase"], "hypothesis": h["hypothesis"],
+        rows.append({"id": h["id"], "title": h.get("title", h["id"]), "phase": h["phase"],
+                     "hypothesis": h["hypothesis"],
                      "experiment": ex, "prediction": pred, "observed": observed,
                      "verdict": verdict, "grade": grade,
                      "imported_verdict": h.get("imported_verdict"),
